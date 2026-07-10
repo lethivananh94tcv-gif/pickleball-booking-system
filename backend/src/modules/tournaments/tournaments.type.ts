@@ -37,6 +37,7 @@ export interface TournamentDivision {
   MaxTeams: number;
   RegistrationFee: number;
   BracketType: string;
+  EnableThirdPlace?: boolean | number | null;
   Status: string;
   CreatedAt: string;
   UpdatedAt: string;

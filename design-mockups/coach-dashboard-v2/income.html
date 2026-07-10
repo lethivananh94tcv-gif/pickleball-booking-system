@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coach Dashboard V2 - Thống kê & Thu nhập</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark">P</span><span>Pickle<span class="brand-accent">Club</span></span></div>
+      <nav class="nav" aria-label="Coach dashboard">
+        <a href="profile.html">Hồ sơ</a>
+        <a href="expertise.html">Chuyên môn</a>
+        <a href="fee.html">Học phí</a>
+        <a href="schedules.html">Lịch dạy</a>
+        <a href="bookings.html">Đơn đặt lịch</a>
+        <a class="active" href="income.html">Thống kê & Thu nhập</a>
+      </nav>
+      <div class="account">
+        <button class="icon-btn" aria-label="Thông báo">!<span class="count-dot">6</span></button>
+        <div class="user-pill">Le Quoc Huy <span class="logout">↗</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="coach-hero">
+      <div class="coach-id">
+        <div class="avatar"><span>LH</span></div>
+        <div>
+          <span class="hero-kicker">Coach workspace</span>
+          <h1 class="coach-title">Le Quoc Huy</h1>
+          <p class="coach-meta">4.8 điểm đánh giá · 5 năm kinh nghiệm · 120 học viên</p>
+          <div class="badge-row"><span class="badge success">Đã được duyệt</span><span class="badge green">Đã đối soát</span></div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="hero-stat"><span>Buổi dạy</span><strong>1</strong></div>
+        <div class="hero-stat"><span>Tổng giờ</span><strong>1</strong></div>
+        <div class="hero-stat"><span>Thu nhập</span><strong>500K</strong></div>
+        <div class="hero-note"><strong>Thanh toán</strong><span>Kỳ đối soát tiếp theo: 2026-07-15.</span><span>Sẵn sàng</span></div>
+      </div>
+    </section>
+
+    <section class="page-card">
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">Tài chính</span>
+          <h2>Thống kê & Thu nhập</h2>
+          <p>Nhìn nhanh hiệu suất dạy, doanh thu theo tháng và chi tiết buổi hoàn thành.</p>
+        </div>
+        <button class="ghost-btn">Tải báo cáo</button>
+      </div>
+      <div class="content-pad">
+        <div class="income-grid">
+          <div class="kpi"><span>Tổng buổi dạy</span><strong>1</strong><p class="muted">+1 so với tháng trước</p></div>
+          <div class="kpi"><span>Tổng giờ dạy</span><strong>1 giờ</strong><p class="muted">1 buổi đã hoàn tất</p></div>
+          <div class="kpi dark"><span>Tổng thu nhập</span><strong>500.000 đ</strong><p>Đã ghi nhận từ booking hoàn thành</p></div>
+        </div>
+
+        <div class="grid-2 mt-22">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Thu nhập theo tháng</h3>
+              <p>Theo dõi xu hướng 6 tháng gần nhất.</p>
+            </div>
+            <div class="panel-body">
+              <div class="chart">
+                <div class="bar"><span style="height:18%"></span><em>02</em></div>
+                <div class="bar"><span style="height:26%"></span><em>03</em></div>
+                <div class="bar"><span style="height:34%"></span><em>04</em></div>
+                <div class="bar"><span style="height:22%"></span><em>05</em></div>
+                <div class="bar"><span style="height:62%"></span><em>06</em></div>
+                <div class="bar"><span style="height:40%"></span><em>07</em></div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="panel dark">
+            <div class="panel-head">
+              <h3>Tóm tắt đối soát</h3>
+              <p>Các khoản đã hoàn thành và sẵn sàng thanh toán.</p>
+            </div>
+            <div class="panel-body">
+              <div class="split"><span class="label">Doanh thu tháng 06</span><strong>500.000 đ</strong></div>
+              <div class="split mt-14"><span class="label">Số booking hợp lệ</span><strong>1</strong></div>
+              <div class="split mt-14"><span class="label">Trạng thái</span><strong>Completed</strong></div>
+              <button class="primary-btn mt-18" style="width:100%">Xem kỳ thanh toán</button>
+            </div>
+          </aside>
+        </div>
+
+        <div class="panel mt-22">
+          <div class="panel-head">
+            <h3>Chi tiết buổi dạy đã hoàn thành</h3>
+            <p>Danh sách dùng để đối chiếu thu nhập.</p>
+          </div>
+          <div class="panel-body">
+            <table class="table">
+              <thead>
+                <tr><th>Ngày</th><th>Thời gian</th><th>Học viên</th><th>Loại</th><th>Thu nhập</th><th>Trạng thái</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>7/6/2026</td><td>08:00 - 09:00</td><td>Trần Quốc Sang</td><td>Coach</td><td class="amount">500.000 đ</td><td><span class="badge green">Completed</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div class="floating-chat">?</div>
+</body>
+</html>

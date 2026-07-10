@@ -1618,7 +1618,7 @@ export async function generateBracket(tournamentId: number, divisionId: number, 
 
   // Update tournament status to DrawGenerated if it's currently Draft/Open/Closed
   if (["Draft", "Open", "Closed"].includes(tournament.Status)) {
-    await tournamentRepo.updateTournamentStatus(tournamentId, TOURNAMENT_STATUS.DRAW_GENERATED);
+    await tournamentRepo.updateTournamentStatus(tournamentId, DIVISION_STATUS.DRAW_GENERATED);
   }
 
   // Write audit log

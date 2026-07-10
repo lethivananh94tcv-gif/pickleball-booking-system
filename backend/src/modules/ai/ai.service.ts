@@ -1,6 +1,7 @@
 import { ChatbotAnalyzeResponse, CoachRecommendRequest, CoachRecommendResponse, CoachCandidate, ChatbotSession, CourtSlotSuggestion, CoachSuggestion, BookingDraft, CoachBookingDraft } from "./ai.type";
 import { InMemorySessionManager, SessionManager } from "./session.manager";
 const sessionManager: SessionManager = new InMemorySessionManager();
+const AI_SERVICE_BASE_URL = process.env.AI_SERVICE_URL || "http://127.0.0.1:8000";
 import * as courtService from "../courts/courts.service";
 import * as coachService from "../coaches/coaches.service";
 import * as playerMatchingRepo from "../player-matching/player-matching.repository";
@@ -10,7 +11,7 @@ import * as bookingsService from "../bookings/bookings.service";
 
 
 export async function analyzeIntentWithFastAPI(message: string): Promise<ChatbotAnalyzeResponse> {
-  const response = await fetch("http://127.0.0.1:8000/api/ai/analyze-intent", {
+  const response = await fetch(`${AI_SERVICE_BASE_URL}/api/ai/analyze-intent`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message }),
@@ -244,605 +245,585 @@ export async function handleChatbotMessage(
     actionType = "TEXT";
   } else {
     try {
-    switch (intent) {
-      case "GREETING":
-        replyMessage = "Xin chào! Mình là Trợ lý ảo Pickle Club. Hôm nay mình có thể giúp bạn tìm/đặt sân hoặc tìm huấn luyện viên dạy Pickleball đấy!";
-        actionType = "TEXT";
-        break;
-
-      case "HELP":
-        replyMessage = "Mình có thể hỗ trợ bạn:\n1. Đặt sân Pickleball (ví dụ: 'Đặt sân Champion lúc 5h chiều mai')\n2. Đặt huấn luyện viên (ví dụ: 'Đặt thầy Huy dạy lúc 8h sáng ngày 21')\n3. Tra cứu giá thuê sân và học phí HLV\n4. Xem lịch sử đặt chỗ hoặc hủy lịch của bạn.\nBạn muốn làm gì ạ?";
-        actionType = "TEXT";
-        break;
-
-      case "ASK_PRICE": {
-        const courts = await courtService.getAllCourts();
-        const priceList = courts.map((c: any) => `- Sân **${c.CourtName}**: ${Number(c.PricePerHour).toLocaleString("vi-VN")}đ/giờ (Mở cửa: ${c.OpenTime} - ${c.CloseTime})`).join("\n");
-        replyMessage = `Giá thuê sân tại Pickle Club như sau:\n${priceList}`;
-        actionType = "TEXT";
-        break;
-      }
-
-      case "ASK_COACH_PRICE": {
-        const coaches = await coachService.getAllCoaches();
-        const priceList = coaches.map((c: any) => `- Coach **${c.FullName}** (${c.SkillLevel}): ${Number(c.HourlyRate).toLocaleString("vi-VN")}đ/giờ`).join("\n");
-        replyMessage = `Học phí thuê huấn luyện viên tại Pickle Club như sau:\n${priceList}`;
-        actionType = "TEXT";
-        break;
-      }
-
-      case "ASK_OPENING_HOURS":
-        replyMessage = "Pickle Club mở cửa từ 5:00 sáng đến 23:00 tối hàng ngày, bao gồm cả thứ Bảy và Chủ Nhật.";
-        actionType = "TEXT";
-        break;
-
-      case "ASK_RULES":
-        replyMessage = "Pickleball chơi trên sân giống sân cầu lông nhưng dùng vợt phẳng và bóng nhựa đục lỗ. Điểm số chỉ được ghi bởi bên giao bóng. Bóng phải nảy một lần ở mỗi bên trước khi có thể volley (luật 2-bounce). Bạn muốn tìm hiểu kỹ hơn về luật giao bóng hay khu vực Kitchen?";
-        actionType = "TEXT";
-        break;
-
-      case "ASK_BOOKING_HISTORY":
-      case "ASK_COACH_BOOKING_HISTORY": {
-        if (!userId) {
-          replyMessage = "Vui lòng đăng nhập hệ thống để tra cứu lịch sử đặt lịch của bạn.";
-          actionType = "LOGIN_REQUIRED";
-          break;
-        }
-        const bookings = await bookingsService.getMyBookings(userId);
-        if (bookings.length === 0) {
-          replyMessage = "Bạn chưa có đơn đặt lịch nào trên hệ thống.";
-        } else {
-          const list = bookings.slice(0, 5).map((b: any) => {
-            const dateStr = new Date(b.BookingDate).toLocaleDateString("vi-VN");
-            const typeStr = b.BookingType === "Court" ? "Sân" : b.BookingType === "Coach" ? "HLV" : "Combo Sân+HLV";
-            const courtName = b.CourtName ? ` sân ${b.CourtName}` : "";
-            const statusStr = b.Status === "Confirmed" ? "Đã xác nhận" : b.Status === "PendingPayment" ? "Chờ thanh toán" : b.Status === "Cancelled" ? "Đã hủy" : b.Status;
-            return `- **${b.BookingCode}**: Đặt ${typeStr}${courtName} ngày ${dateStr} từ ${b.StartTime.substring(0, 5)} đến ${b.EndTime.substring(0, 5)} (${statusStr})`;
-          }).join("\n");
-          replyMessage = `Lịch sử đặt lịch gần đây của bạn:\n${list}`;
-        }
-        actionType = "TEXT";
-        break;
-      }
-
-      case "CANCEL_BOOKING_HELP":
-      case "CANCEL_COACH_BOOKING_HELP": {
-        if (!userId) {
-          replyMessage = "Vui lòng đăng nhập để xem danh sách lịch đặt có thể hủy.";
-          actionType = "LOGIN_REQUIRED";
-          break;
-        }
-        const bookings = await bookingsService.getMyBookings(userId);
-        const cancellable = bookings.filter((b: any) => ["PendingPayment", "Confirmed"].includes(b.Status));
-        if (cancellable.length === 0) {
-          replyMessage = "Bạn hiện không có lịch đặt sân hay HLV nào ở trạng thái chờ thanh toán hoặc đã xác nhận để hủy.";
-        } else {
-          const list = cancellable.map((b: any) => {
-            const dateStr = new Date(b.BookingDate).toLocaleDateString("vi-VN");
-            return `- Mã **${b.BookingCode}**: Sân/HLV ngày ${dateStr} lúc ${b.StartTime.substring(0, 5)} - ${b.EndTime.substring(0, 5)}`;
-          }).join("\n");
-          replyMessage = `Bạn có thể hủy các đơn đặt lịch sau. Bạn muốn hủy đơn nào?\n${list}\n\n*Hãy gõ: **Hủy lịch [Mã đặt chỗ]** để xác nhận.*`;
-        }
-        actionType = "TEXT";
-        break;
-      }
-
-      case "CONFIRM_CANCEL_BOOKING":
-      case "CONFIRM_CANCEL_COACH_BOOKING": {
-        if (!userId) {
-          replyMessage = "Vui lòng đăng nhập để hủy lịch đặt.";
-          actionType = "LOGIN_REQUIRED";
-          break;
-        }
-        const codeMatch = message.toUpperCase().match(/BK-\d+/);
-        if (!codeMatch) {
-          replyMessage = "Vui lòng nhập đúng định dạng mã đặt chỗ cần hủy (Ví dụ: 'Hủy lịch BK-123456').";
+      switch (intent) {
+        case "GREETING":
+          replyMessage = "Xin chào! Mình là Trợ lý ảo Pickle Club. Hôm nay mình có thể giúp bạn tìm/đặt sân hoặc tìm huấn luyện viên dạy Pickleball đấy!";
           actionType = "TEXT";
           break;
-        }
-        const bookingCode = codeMatch[0];
-        const bookings = await bookingsService.getMyBookings(userId);
-        const bookingToCancel = bookings.find((b: any) => b.BookingCode === bookingCode);
 
-        if (!bookingToCancel) {
-          replyMessage = `Không tìm thấy đơn đặt lịch nào có mã ${bookingCode} trong tài khoản của bạn.`;
+        case "HELP":
+          replyMessage = "Mình có thể hỗ trợ bạn:\n1. Đặt sân Pickleball (ví dụ: 'Đặt sân Champion lúc 5h chiều mai')\n2. Đặt huấn luyện viên (ví dụ: 'Đặt thầy Huy dạy lúc 8h sáng ngày 21')\n3. Tra cứu giá thuê sân và học phí HLV\n4. Xem lịch sử đặt chỗ hoặc hủy lịch của bạn.\nBạn muốn làm gì ạ?";
+          actionType = "TEXT";
+          break;
+
+        case "ASK_PRICE": {
+          const courts = await courtService.getAllCourts();
+          const priceList = courts.map((c: any) => `- Sân **${c.CourtName}**: ${Number(c.PricePerHour).toLocaleString("vi-VN")}đ/giờ (Mở cửa: ${c.OpenTime} - ${c.CloseTime})`).join("\n");
+          replyMessage = `Giá thuê sân tại Pickle Club như sau:\n${priceList}`;
           actionType = "TEXT";
           break;
         }
 
-        const cancelRes = await bookingsService.cancelBooking({
-          bookingId: bookingToCancel.BookingID,
-          userId,
-          userRoles,
-          cancelReason: "Hủy lịch qua Chatbot AI"
-        });
-
-        replyMessage = `Đã hủy thành công đơn đặt lịch **${bookingCode}**. Số tiền hoàn lại là **${cancelRes.refundAmount.toLocaleString("vi-VN")}đ** (${cancelRes.refundNote || "Đơn chưa thanh toán"}).`;
-        actionType = "TEXT";
-        break;
-      }
-
-      case "BOOK_COURT":
-      case "CHECK_COURT_AVAILABILITY": {
-        const rawDate = parsedData.dateText || parsedData.date;
-        const rawTime = parsedData.startTimeText || parsedData.startTime;
-
-        // Retrieve partial information from session if user is answering a previous question
-        const date = normalizeDate(rawDate || session.bookingDraft?.bookingDate || "");
-        const startTime = normalizeTime(rawTime || session.bookingDraft?.startTime || "");
-        const duration = parsedData.durationMinutes || (session.bookingDraft?.startTime && session.bookingDraft?.endTime ? (parseTimeToMinutes(session.bookingDraft?.endTime)! - parseTimeToMinutes(session.bookingDraft?.startTime)!) : 60);
-
-        if (!date || !startTime) {
-          // Store partial draft to session
-          session.bookingDraft = {
-            courtId: 0,
-            courtName: "",
-            bookingDate: date,
-            startTime,
-            endTime: ""
-          };
-          replyMessage = !date 
-            ? "Bạn muốn đặt sân vào ngày nào ạ? (Ví dụ: hôm nay, ngày mai, hoặc ngày 25/06)"
-            : "Bạn muốn đặt sân vào khung giờ nào? (Ví dụ: 5h chiều, 19:30, hoặc 9h sáng)";
+        case "ASK_COACH_PRICE": {
+          const coaches = await coachService.getAllCoaches();
+          const priceList = coaches.map((c: any) => `- Coach **${c.FullName}** (${c.SkillLevel}): ${Number(c.HourlyRate).toLocaleString("vi-VN")}đ/giờ`).join("\n");
+          replyMessage = `Học phí thuê huấn luyện viên tại Pickle Club như sau:\n${priceList}`;
           actionType = "TEXT";
           break;
         }
 
-        // Calculate end time
-        const startMin = parseTimeToMinutes(startTime)!;
-        const endMin = startMin + duration;
-        const toTimeStr = (mins: number) => {
-          const h = Math.floor(mins / 60);
-          const m = mins % 60;
-          return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-        };
-        const endTime = toTimeStr(endMin);
+        case "ASK_OPENING_HOURS":
+          replyMessage = "Pickle Club mở cửa từ 5:00 sáng đến 23:00 tối hàng ngày, bao gồm cả thứ Bảy và Chủ Nhật.";
+          actionType = "TEXT";
+          break;
 
-        // Resolve court alias
-        const resolvedCourt = await resolveCourtAlias(parsedData.courtNameRaw);
+        case "ASK_RULES":
+          replyMessage = "Pickleball chơi trên sân giống sân cầu lông nhưng dùng vợt phẳng và bóng nhựa đục lỗ. Điểm số chỉ được ghi bởi bên giao bóng. Bóng phải nảy một lần ở mỗi bên trước khi có thể volley (luật 2-bounce). Bạn muốn tìm hiểu kỹ hơn về luật giao bóng hay khu vực Kitchen?";
+          actionType = "TEXT";
+          break;
 
-        if (parsedData.courtNameRaw && !resolvedCourt) {
-          // A court was requested but not found in DB
-          const allCourts = await courtService.getAllCourts();
-          replyMessage = `Pickle Club không có sân nào tên là **${parsedData.courtNameRaw}**. Bạn vui lòng chọn một trong các sân sau:`;
-          actionType = "COURT_SUGGESTIONS";
-          suggestedSlots = allCourts.slice(0, 3).map((c: any) => ({
-            courtId: c.CourtID,
-            courtName: c.CourtName,
-            price: Number(c.PricePerHour) * (duration / 60),
-            availableTime: `${startTime} - ${endTime}`
-          }));
+        case "ASK_BOOKING_HISTORY":
+        case "ASK_COACH_BOOKING_HISTORY": {
+          if (!userId) {
+            replyMessage = "Vui lòng đăng nhập hệ thống để tra cứu lịch sử đặt lịch của bạn.";
+            actionType = "LOGIN_REQUIRED";
+            break;
+          }
+          const bookings = await bookingsService.getMyBookings(userId);
+          if (bookings.length === 0) {
+            replyMessage = "Bạn chưa có đơn đặt lịch nào trên hệ thống.";
+          } else {
+            const list = bookings.slice(0, 5).map((b: any) => {
+              const dateStr = new Date(b.BookingDate).toLocaleDateString("vi-VN");
+              const typeStr = b.BookingType === "Court" ? "Sân" : b.BookingType === "Coach" ? "HLV" : "Combo Sân+HLV";
+              const courtName = b.CourtName ? ` sân ${b.CourtName}` : "";
+              const statusStr = b.Status === "Confirmed" ? "Đã xác nhận" : b.Status === "PendingPayment" ? "Chờ thanh toán" : b.Status === "Cancelled" ? "Đã hủy" : b.Status;
+              return `- **${b.BookingCode}**: Đặt ${typeStr}${courtName} ngày ${dateStr} từ ${b.StartTime.substring(0, 5)} đến ${b.EndTime.substring(0, 5)} (${statusStr})`;
+            }).join("\n");
+            replyMessage = `Lịch sử đặt lịch gần đây của bạn:\n${list}`;
+          }
+          actionType = "TEXT";
           break;
         }
 
-        const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-        const todayStr = `${nowVN.getFullYear()}-${String(nowVN.getMonth() + 1).padStart(2, "0")}-${String(nowVN.getDate()).padStart(2, "0")}`;
+        case "CANCEL_BOOKING_HELP":
+        case "CANCEL_COACH_BOOKING_HELP": {
+          if (!userId) {
+            replyMessage = "Vui lòng đăng nhập để xem danh sách lịch đặt có thể hủy.";
+            actionType = "LOGIN_REQUIRED";
+            break;
+          }
+          const bookings = await bookingsService.getMyBookings(userId);
+          const cancellable = bookings.filter((b: any) => ["PendingPayment", "Confirmed"].includes(b.Status));
+          if (cancellable.length === 0) {
+            replyMessage = "Bạn hiện không có lịch đặt sân hay HLV nào ở trạng thái chờ thanh toán hoặc đã xác nhận để hủy.";
+          } else {
+            const list = cancellable.map((b: any) => {
+              const dateStr = new Date(b.BookingDate).toLocaleDateString("vi-VN");
+              return `- Mã **${b.BookingCode}**: Sân/HLV ngày ${dateStr} lúc ${b.StartTime.substring(0, 5)} - ${b.EndTime.substring(0, 5)}`;
+            }).join("\n");
+            replyMessage = `Bạn có thể hủy các đơn đặt lịch sau. Bạn muốn hủy đơn nào?\n${list}\n\n*Hãy gõ: **Hủy lịch [Mã đặt chỗ]** để xác nhận.*`;
+          }
+          actionType = "TEXT";
+          break;
+        }
 
-        if (resolvedCourt) {
-          // Specific court requested
-          const slots = await courtService.getCourtSlots(resolvedCourt.courtId, date);
-          let availSlots = slots.filter((s: any) => s.Status === "Available");
-          
-          if (date === todayStr) {
-            const currentTotalMinutes = nowVN.getHours() * 60 + nowVN.getMinutes();
-            availSlots = availSlots.filter((s: any) => parseTimeToMinutes(s.StartTime)! > currentTotalMinutes);
+        case "CONFIRM_CANCEL_BOOKING":
+        case "CONFIRM_CANCEL_COACH_BOOKING": {
+          if (!userId) {
+            replyMessage = "Vui lòng đăng nhập để hủy lịch đặt.";
+            actionType = "LOGIN_REQUIRED";
+            break;
+          }
+          const codeMatch = message.toUpperCase().match(/BK-\d+/);
+          if (!codeMatch) {
+            replyMessage = "Vui lòng nhập đúng định dạng mã đặt chỗ cần hủy (Ví dụ: 'Hủy lịch BK-123456').";
+            actionType = "TEXT";
+            break;
+          }
+          const bookingCode = codeMatch[0];
+          const bookings = await bookingsService.getMyBookings(userId);
+          const bookingToCancel = bookings.find((b: any) => b.BookingCode === bookingCode);
+
+          if (!bookingToCancel) {
+            replyMessage = `Không tìm thấy đơn đặt lịch nào có mã ${bookingCode} trong tài khoản của bạn.`;
+            actionType = "TEXT";
+            break;
           }
 
-          // Check if slot is available
-          let isCovered = false;
-          let totalPrice = 0;
-          if (availSlots.length > 0) {
-            isCovered = true;
-            for (let t = startMin; t < endMin; t += 30) {
-              const seg = availSlots.find((s: any) => {
-                const sStart = parseTimeToMinutes(s.StartTime)!;
-                const sEnd = parseTimeToMinutes(s.EndTime)!;
-                return sStart <= t && sEnd >= (t + 30);
-              });
-              if (!seg) {
-                isCovered = false;
-                break;
-              }
-            }
-          }
+          const cancelRes = await bookingsService.cancelBooking({
+            bookingId: bookingToCancel.BookingID,
+            userId,
+            userRoles,
+            cancelReason: "Hủy lịch qua Chatbot AI"
+          });
 
-          if (isCovered) {
-            // Find slot details to calculate real price
-            const coveredSlotIds = new Set<number>();
-            for (let t = startMin; t < endMin; t += 30) {
-              const seg = availSlots.find((s: any) => {
-                const sStart = parseTimeToMinutes(s.StartTime)!;
-                const sEnd = parseTimeToMinutes(s.EndTime)!;
-                return sStart <= t && sEnd >= (t + 30);
-              });
-              if (seg) coveredSlotIds.add(seg.SlotID);
-            }
-            coveredSlotIds.forEach(id => {
-              const slot = availSlots.find(s => s.SlotID === id);
-              if (slot) totalPrice += Number(slot.Price);
-            });
+          replyMessage = `Đã hủy thành công đơn đặt lịch **${bookingCode}**. Số tiền hoàn lại là **${cancelRes.refundAmount.toLocaleString("vi-VN")}đ** (${cancelRes.refundNote || "Đơn chưa thanh toán"}).`;
+          actionType = "TEXT";
+          break;
+        }
 
+        case "BOOK_COURT":
+        case "CHECK_COURT_AVAILABILITY": {
+          const rawDate = parsedData.dateText || parsedData.date;
+          const rawTime = parsedData.startTimeText || parsedData.startTime;
+
+          // Retrieve partial information from session if user is answering a previous question
+          const date = normalizeDate(rawDate || session.bookingDraft?.bookingDate || "");
+          const startTime = normalizeTime(rawTime || session.bookingDraft?.startTime || "");
+          const duration = parsedData.durationMinutes || (session.bookingDraft?.startTime && session.bookingDraft?.endTime ? (parseTimeToMinutes(session.bookingDraft?.endTime)! - parseTimeToMinutes(session.bookingDraft?.startTime)!) : 60);
+
+          if (!date || !startTime) {
+            // Store partial draft to session
             session.bookingDraft = {
-              courtId: resolvedCourt.courtId,
-              courtName: resolvedCourt.courtName,
+              courtId: 0,
+              courtName: "",
               bookingDate: date,
               startTime,
-              endTime,
-              price: totalPrice
+              endTime: ""
             };
-            replyMessage = `Sân **${resolvedCourt.courtName}** còn trống vào khung giờ **${startTime} - ${endTime}** ngày **${date}** với tổng giá là **${totalPrice.toLocaleString("vi-VN")}đ**. Bạn có xác nhận muốn đặt không?`;
-            actionType = "CONFIRM_COURT_BOOKING";
-          } else {
-            // Sân này không trống, gợi ý giờ khác trên sân này hoặc sân khác cùng giờ
-            const alternatives = findAlternativeBlocks(availSlots, duration, startMin, "05:00", "23:00");
-            if (alternatives.length > 0) {
-              replyMessage = `Sân **${resolvedCourt.courtName}** đã hết slot lúc ${startTime} - ${endTime} ngày ${date}. Tuy nhiên, sân này còn trống các khung giờ khác trong ngày:`;
-              actionType = "COURT_SUGGESTIONS";
-              suggestedSlots = alternatives.slice(0, 3).map(alt => ({
-                courtId: resolvedCourt.courtId,
-                courtName: resolvedCourt.courtName,
-                price: alt.price,
-                availableTime: `${alt.startTime} - ${alt.endTime}`
-              }));
-            } else {
-              // Gợi ý sân khác cùng giờ
-              const allCourts = await courtService.getAllCourts();
-              const otherCourts = allCourts.filter((c: any) => c.CourtID !== resolvedCourt.courtId);
-              const otherAvail: any[] = [];
-              for (const c of otherCourts) {
-                const cSlots = await courtService.getCourtSlots(c.CourtID, date);
-                let cAvail = cSlots.filter((s: any) => s.Status === "Available");
-                let cCovered = cAvail.length > 0;
-                if (cCovered) {
-                  for (let t = startMin; t < endMin; t += 30) {
-                    if (!cAvail.some((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30))) {
-                      cCovered = false;
-                      break;
-                    }
-                  }
-                }
-                if (cCovered) {
-                  let cPrice = 0;
-                  const ids = new Set<number>();
-                  for (let t = startMin; t < endMin; t += 30) {
-                    const seg = cAvail.find((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30));
-                    if (seg) ids.add(seg.SlotID);
-                  }
-                  ids.forEach(id => {
-                    const slot = cAvail.find(s => s.SlotID === id);
-                    if (slot) cPrice += Number(slot.Price);
-                  });
-                  otherAvail.push({ court: c, price: cPrice });
-                }
-              }
-
-              if (otherAvail.length > 0) {
-                replyMessage = `Sân **${resolvedCourt.courtName}** đã bận lúc ${startTime} - ${endTime} ngày ${date}. Nhưng các sân sau vẫn còn trống vào khung giờ này:`;
-                actionType = "COURT_SUGGESTIONS";
-                suggestedSlots = otherAvail.slice(0, 3).map(oa => ({
-                  courtId: oa.court.CourtID,
-                  courtName: oa.court.CourtName,
-                  price: oa.price,
-                  availableTime: `${startTime} - ${endTime}`
-                }));
-              } else {
-                replyMessage = `Rất tiếc, sân **${resolvedCourt.courtName}** đã hết chỗ và không có sân khác trống vào lúc ${startTime} - ${endTime} ngày ${date}. Bạn vui lòng chọn ngày/giờ khác nhé!`;
-                actionType = "TEXT";
-              }
-            }
-          }
-        } else {
-          // No specific court mentioned, check all available courts
-          const allCourts = await courtService.getAllCourts();
-          const availableCourtsAtTime: any[] = [];
-          for (const c of allCourts) {
-            const cSlots = await courtService.getCourtSlots(c.CourtID, date);
-            let cAvail = cSlots.filter((s: any) => s.Status === "Available");
-            let cCovered = cAvail.length > 0;
-            if (cCovered) {
-              for (let t = startMin; t < endMin; t += 30) {
-                if (!cAvail.some((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30))) {
-                  cCovered = false;
-                  break;
-                }
-              }
-            }
-            if (cCovered) {
-              let cPrice = 0;
-              const ids = new Set<number>();
-              for (let t = startMin; t < endMin; t += 30) {
-                const seg = cAvail.find((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30));
-                if (seg) ids.add(seg.SlotID);
-              }
-              ids.forEach(id => {
-                const slot = cAvail.find(s => s.SlotID === id);
-                if (slot) cPrice += Number(slot.Price);
-              });
-              availableCourtsAtTime.push({ court: c, price: cPrice });
-            }
+            replyMessage = !date
+              ? "Bạn muốn đặt sân vào ngày nào ạ? (Ví dụ: hôm nay, ngày mai, hoặc ngày 25/06)"
+              : "Bạn muốn đặt sân vào khung giờ nào? (Ví dụ: 5h chiều, 19:30, hoặc 9h sáng)";
+            actionType = "TEXT";
+            break;
           }
 
-          if (availableCourtsAtTime.length > 0) {
-            replyMessage = `Mình tìm thấy một vài sân còn trống vào khung giờ **${startTime} - ${endTime}** ngày **${date}**. Bạn muốn đặt sân nào?`;
+          // Calculate end time
+          const startMin = parseTimeToMinutes(startTime)!;
+          const endMin = startMin + duration;
+          const toTimeStr = (mins: number) => {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          };
+          const endTime = toTimeStr(endMin);
+
+          // Resolve court alias
+          const resolvedCourt = await resolveCourtAlias(parsedData.courtNameRaw);
+
+          if (parsedData.courtNameRaw && !resolvedCourt) {
+            // A court was requested but not found in DB
+            const allCourts = await courtService.getAllCourts();
+            replyMessage = `Pickle Club không có sân nào tên là **${parsedData.courtNameRaw}**. Bạn vui lòng chọn một trong các sân sau:`;
             actionType = "COURT_SUGGESTIONS";
-            suggestedSlots = availableCourtsAtTime.map(act => ({
-              courtId: act.court.CourtID,
-              courtName: act.court.CourtName,
-              price: act.price,
+            suggestedSlots = allCourts.slice(0, 3).map((c: any) => ({
+              courtId: c.CourtID,
+              courtName: c.CourtName,
+              price: Number(c.PricePerHour) * (duration / 60),
               availableTime: `${startTime} - ${endTime}`
             }));
-          } else {
-            // No courts available, find alternative slots on any court
-            const alternativeList: any[] = [];
-            for (const c of allCourts) {
-              const cSlots = await courtService.getCourtSlots(c.CourtID, date);
-              const cAvail = cSlots.filter((s: any) => s.Status === "Available");
-              const alternatives = findAlternativeBlocks(cAvail, duration, startMin, c.OpenTime, c.CloseTime);
-              for (const alt of alternatives) {
-                alternativeList.push({ court: c, ...alt });
-              }
-            }
-
-            alternativeList.sort((a, b) => Math.abs(parseTimeToMinutes(a.startTime)! - startMin) - Math.abs(parseTimeToMinutes(b.startTime)! - startMin));
-
-            if (alternativeList.length > 0) {
-              replyMessage = `Rất tiếc, không có sân nào còn trống vào khung giờ ${startTime} - ${endTime} ngày ${date}. Bạn tham khảo các khung giờ trống khác dưới đây:`;
-              actionType = "COURT_SUGGESTIONS";
-              suggestedSlots = alternativeList.slice(0, 3).map(alt => ({
-                courtId: alt.court.CourtID,
-                courtName: alt.court.CourtName,
-                price: alt.price,
-                availableTime: `${alt.startTime} - ${alt.endTime}`
-              }));
-            } else {
-              replyMessage = `Rất tiếc, tất cả các sân đều bận vào ngày ${date}. Bạn vui lòng chọn ngày khác nhé!`;
-              actionType = "TEXT";
-            }
+            break;
           }
-        }
-        break;
-      }
 
-      case "BOOK_COACH":
-      case "CHECK_COACH_AVAILABILITY": {
-        const rawDate = parsedData.dateText || parsedData.date;
-        const rawTime = parsedData.startTimeText || parsedData.startTime;
+          const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+          const todayStr = `${nowVN.getFullYear()}-${String(nowVN.getMonth() + 1).padStart(2, "0")}-${String(nowVN.getDate()).padStart(2, "0")}`;
 
-        const date = normalizeDate(rawDate || session.coachBookingDraft?.bookingDate || "");
-        const startTime = normalizeTime(rawTime || session.coachBookingDraft?.startTime || "");
-        const duration = parsedData.durationMinutes || 60;
-        const needCourtTogether = parsedData.needCourtTogether !== undefined ? parsedData.needCourtTogether : (session.coachBookingDraft?.needCourtTogether || false);
+          if (resolvedCourt) {
+            // Specific court requested
+            const slots = await courtService.getCourtSlots(resolvedCourt.courtId, date);
+            let availSlots = slots.filter((s: any) => s.Status === "Available");
 
-        if (!date || !startTime) {
-          session.coachBookingDraft = {
-            coachId: 0,
-            coachName: "",
-            bookingDate: date,
-            startTime,
-            endTime: "",
-            needCourtTogether
-          };
-          replyMessage = !date
-            ? "Bạn muốn đặt lịch học với huấn luyện viên vào ngày nào ạ? (Ví dụ: ngày mai, thứ hai)"
-            : "Bạn muốn học vào mấy giờ? (Ví dụ: 8h sáng, 18:00)";
-          actionType = "TEXT";
-          break;
-        }
+            if (date === todayStr) {
+              const currentTotalMinutes = nowVN.getHours() * 60 + nowVN.getMinutes();
+              availSlots = availSlots.filter((s: any) => parseTimeToMinutes(s.StartTime)! > currentTotalMinutes);
+            }
 
-        const startMin = parseTimeToMinutes(startTime)!;
-        const endMin = startMin + duration;
-        const toTimeStr = (mins: number) => {
-          const h = Math.floor(mins / 60);
-          const m = mins % 60;
-          return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-        };
-        const endTime = toTimeStr(endMin);
-
-        // Resolve coach
-        const resolvedCoach = await resolveCoachAlias(parsedData.coachNameRaw);
-
-        if (parsedData.coachNameRaw && !resolvedCoach) {
-          const allCoaches = await coachService.getAllCoaches();
-          replyMessage = `Pickle Club không tìm thấy HLV nào có tên **${parsedData.coachNameRaw}**. Dưới đây là danh sách các huấn luyện viên đang hoạt động tại CLB:`;
-          actionType = "COACH_SUGGESTIONS";
-          suggestedCoaches = allCoaches.map((c: any) => ({
-            coachId: c.CoachID,
-            name: c.FullName,
-            hourlyRate: Number(c.HourlyRate),
-            skillLevel: c.SkillLevel,
-            specialization: c.Specialization
-          }));
-          break;
-        }
-
-        if (resolvedCoach) {
-          // Specific coach requested, check schedule
-          const schedules = await coachService.getCoachSchedules(resolvedCoach.coachId);
-          // Look for an Available slot covering requested range
-          const isCoachAvailable = schedules.some((s: any) =>
-            s.WorkingDate === date &&
-            s.Status === "Available" &&
-            parseTimeToMinutes(s.StartTime)! <= startMin &&
-            parseTimeToMinutes(s.EndTime)! >= endMin
-          );
-
-          if (isCoachAvailable) {
-            const coachFee = resolvedCoach.hourlyRate * (duration / 60);
-
-            if (needCourtTogether) {
-              // Intersect with court availability
-              const allCourts = await courtService.getAllCourts();
-              let availableCourt: any = null;
-              let courtPrice = 0;
-              
-              for (const c of allCourts) {
-                const cSlots = await courtService.getCourtSlots(c.CourtID, date);
-                let cAvail = cSlots.filter((s: any) => s.Status === "Available");
-                let cCovered = cAvail.length > 0;
-                if (cCovered) {
-                  for (let t = startMin; t < endMin; t += 30) {
-                    if (!cAvail.some((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30))) {
-                      cCovered = false;
-                      break;
-                    }
-                  }
-                }
-                if (cCovered) {
-                  let cPrice = 0;
-                  const ids = new Set<number>();
-                  for (let t = startMin; t < endMin; t += 30) {
-                    const seg = cAvail.find((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30));
-                    if (seg) ids.add(seg.SlotID);
-                  }
-                  ids.forEach(id => {
-                    const slot = cAvail.find(s => s.SlotID === id);
-                    if (slot) cPrice += Number(slot.Price);
-                  });
-                  availableCourt = c;
-                  courtPrice = cPrice;
+            // Check if slot is available
+            let isCovered = false;
+            let totalPrice = 0;
+            if (availSlots.length > 0) {
+              isCovered = true;
+              for (let t = startMin; t < endMin; t += 30) {
+                const seg = availSlots.find((s: any) => {
+                  const sStart = parseTimeToMinutes(s.StartTime)!;
+                  const sEnd = parseTimeToMinutes(s.EndTime)!;
+                  return sStart <= t && sEnd >= (t + 30);
+                });
+                if (!seg) {
+                  isCovered = false;
                   break;
                 }
               }
+            }
 
-              if (availableCourt) {
-                const totalComboPrice = coachFee + courtPrice;
-                session.coachBookingDraft = {
-                  coachId: resolvedCoach.coachId,
-                  coachName: resolvedCoach.coachName,
-                  bookingDate: date,
-                  startTime,
-                  endTime,
-                  needCourtTogether: true,
-                  courtId: availableCourt.CourtID,
-                  courtName: availableCourt.CourtName,
-                  price: totalComboPrice
-                };
-                replyMessage = `Huấn luyện viên **${resolvedCoach.coachName}** rảnh lúc **${startTime} - ${endTime}** ngày **${date}** và còn sân trống **${availableCourt.CourtName}**. Bạn có muốn đặt lịch học Combo (học phí HLV + thuê sân: **${totalComboPrice.toLocaleString("vi-VN")}đ**) không?`;
-                actionType = "CONFIRM_COACH_BOOKING";
-              } else {
-                replyMessage = `Rất tiếc, HLV **${resolvedCoach.coachName}** rảnh nhưng hệ thống đã hết sân trống lúc ${startTime} - ${endTime} ngày ${date}. Bạn vui lòng chọn khung giờ khác nhé!`;
-                actionType = "TEXT";
+            if (isCovered) {
+              // Find slot details to calculate real price
+              const coveredSlotIds = new Set<number>();
+              for (let t = startMin; t < endMin; t += 30) {
+                const seg = availSlots.find((s: any) => {
+                  const sStart = parseTimeToMinutes(s.StartTime)!;
+                  const sEnd = parseTimeToMinutes(s.EndTime)!;
+                  return sStart <= t && sEnd >= (t + 30);
+                });
+                if (seg) coveredSlotIds.add(seg.SlotID);
               }
-            } else {
-              // Just book coach
-              session.coachBookingDraft = {
-                coachId: resolvedCoach.coachId,
-                coachName: resolvedCoach.coachName,
+              coveredSlotIds.forEach(id => {
+                const slot = availSlots.find(s => s.SlotID === id);
+                if (slot) totalPrice += Number(slot.Price);
+              });
+
+              session.bookingDraft = {
+                courtId: resolvedCourt.courtId,
+                courtName: resolvedCourt.courtName,
                 bookingDate: date,
                 startTime,
                 endTime,
-                needCourtTogether: false,
-                price: coachFee
+                price: totalPrice
               };
-              replyMessage = `Huấn luyện viên **${resolvedCoach.coachName}** còn trống lịch lúc **${startTime} - ${endTime}** ngày **${date}** với học phí **${coachFee.toLocaleString("vi-VN")}đ**. Bạn có xác nhận muốn đặt không?`;
-              actionType = "CONFIRM_COACH_BOOKING";
+              replyMessage = `Sân **${resolvedCourt.courtName}** còn trống vào khung giờ **${startTime} - ${endTime}** ngày **${date}** với tổng giá là **${totalPrice.toLocaleString("vi-VN")}đ**. Bạn có xác nhận muốn đặt không?`;
+              actionType = "CONFIRM_COURT_BOOKING";
+            } else {
+              // Sân này không trống, gợi ý giờ khác trên sân này hoặc sân khác cùng giờ
+              const alternatives = findAlternativeBlocks(availSlots, duration, startMin, "05:00", "23:00");
+              if (alternatives.length > 0) {
+                replyMessage = `Sân **${resolvedCourt.courtName}** đã hết slot lúc ${startTime} - ${endTime} ngày ${date}. Tuy nhiên, sân này còn trống các khung giờ khác trong ngày:`;
+                actionType = "COURT_SUGGESTIONS";
+                suggestedSlots = alternatives.slice(0, 3).map(alt => ({
+                  courtId: resolvedCourt.courtId,
+                  courtName: resolvedCourt.courtName,
+                  price: alt.price,
+                  availableTime: `${alt.startTime} - ${alt.endTime}`
+                }));
+              } else {
+                // Gợi ý sân khác cùng giờ
+                const allCourts = await courtService.getAllCourts();
+                const otherCourts = allCourts.filter((c: any) => c.CourtID !== resolvedCourt.courtId);
+                const otherAvail: any[] = [];
+                for (const c of otherCourts) {
+                  const cSlots = await courtService.getCourtSlots(c.CourtID, date);
+                  let cAvail = cSlots.filter((s: any) => s.Status === "Available");
+                  let cCovered = cAvail.length > 0;
+                  if (cCovered) {
+                    for (let t = startMin; t < endMin; t += 30) {
+                      if (!cAvail.some((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30))) {
+                        cCovered = false;
+                        break;
+                      }
+                    }
+                  }
+                  if (cCovered) {
+                    let cPrice = 0;
+                    const ids = new Set<number>();
+                    for (let t = startMin; t < endMin; t += 30) {
+                      const seg = cAvail.find((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30));
+                      if (seg) ids.add(seg.SlotID);
+                    }
+                    ids.forEach(id => {
+                      const slot = cAvail.find(s => s.SlotID === id);
+                      if (slot) cPrice += Number(slot.Price);
+                    });
+                    otherAvail.push({ court: c, price: cPrice });
+                  }
+                }
+
+                if (otherAvail.length > 0) {
+                  replyMessage = `Sân **${resolvedCourt.courtName}** đã bận lúc ${startTime} - ${endTime} ngày ${date}. Nhưng các sân sau vẫn còn trống vào khung giờ này:`;
+                  actionType = "COURT_SUGGESTIONS";
+                  suggestedSlots = otherAvail.slice(0, 3).map(oa => ({
+                    courtId: oa.court.CourtID,
+                    courtName: oa.court.CourtName,
+                    price: oa.price,
+                    availableTime: `${startTime} - ${endTime}`
+                  }));
+                } else {
+                  replyMessage = `Rất tiếc, sân **${resolvedCourt.courtName}** đã hết chỗ và không có sân khác trống vào lúc ${startTime} - ${endTime} ngày ${date}. Bạn vui lòng chọn ngày/giờ khác nhé!`;
+                  actionType = "TEXT";
+                }
+              }
             }
           } else {
-            // Coach not available, find alternative slots for this coach
-            const coachAvailSlots = schedules.filter((s: any) => s.WorkingDate === date && s.Status === "Available");
-            if (coachAvailSlots.length > 0) {
-              replyMessage = `HLV **${resolvedCoach.coachName}** đã bận lúc ${startTime} - ${endTime} ngày ${date}. Các giờ rảnh khác của coach trong ngày này:`;
-              actionType = "COACH_SUGGESTIONS";
-              suggestedSlots = coachAvailSlots.map((s: any) => ({
-                coachId: resolvedCoach.coachId,
-                coachName: resolvedCoach.coachName,
-                price: resolvedCoach.hourlyRate * (duration / 60),
-                availableTime: `${s.StartTime.substring(0, 5)} - ${s.EndTime.substring(0, 5)}`
+            // No specific court mentioned, check all available courts
+            const allCourts = await courtService.getAllCourts();
+            const availableCourtsAtTime: any[] = [];
+            for (const c of allCourts) {
+              const cSlots = await courtService.getCourtSlots(c.CourtID, date);
+              let cAvail = cSlots.filter((s: any) => s.Status === "Available");
+              let cCovered = cAvail.length > 0;
+              if (cCovered) {
+                for (let t = startMin; t < endMin; t += 30) {
+                  if (!cAvail.some((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30))) {
+                    cCovered = false;
+                    break;
+                  }
+                }
+              }
+              if (cCovered) {
+                let cPrice = 0;
+                const ids = new Set<number>();
+                for (let t = startMin; t < endMin; t += 30) {
+                  const seg = cAvail.find((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30));
+                  if (seg) ids.add(seg.SlotID);
+                }
+                ids.forEach(id => {
+                  const slot = cAvail.find(s => s.SlotID === id);
+                  if (slot) cPrice += Number(slot.Price);
+                });
+                availableCourtsAtTime.push({ court: c, price: cPrice });
+              }
+            }
+
+            if (availableCourtsAtTime.length > 0) {
+              replyMessage = `Mình tìm thấy một vài sân còn trống vào khung giờ **${startTime} - ${endTime}** ngày **${date}**. Bạn muốn đặt sân nào?`;
+              actionType = "COURT_SUGGESTIONS";
+              suggestedSlots = availableCourtsAtTime.map(act => ({
+                courtId: act.court.CourtID,
+                courtName: act.court.CourtName,
+                price: act.price,
+                availableTime: `${startTime} - ${endTime}`
               }));
             } else {
-              // Suggest other coaches at this time
-              const allCoaches = await coachService.getAllCoaches();
-              const otherCoaches = allCoaches.filter((c: any) => c.CoachID !== resolvedCoach.coachId);
-              const availableOthers: any[] = [];
-              for (const c of otherCoaches) {
-                const cSchedules = await coachService.getCoachSchedules(c.CoachID);
-                const cAvail = cSchedules.some((s: any) =>
-                  s.WorkingDate === date &&
-                  s.Status === "Available" &&
-                  parseTimeToMinutes(s.StartTime)! <= startMin &&
-                  parseTimeToMinutes(s.EndTime)! >= endMin
-                );
-                if (cAvail) {
-                  availableOthers.push(c);
+              // No courts available, find alternative slots on any court
+              const alternativeList: any[] = [];
+              for (const c of allCourts) {
+                const cSlots = await courtService.getCourtSlots(c.CourtID, date);
+                const cAvail = cSlots.filter((s: any) => s.Status === "Available");
+                const alternatives = findAlternativeBlocks(cAvail, duration, startMin, c.OpenTime, c.CloseTime);
+                for (const alt of alternatives) {
+                  alternativeList.push({ court: c, ...alt });
                 }
               }
 
-              if (availableOthers.length > 0) {
-                replyMessage = `HLV **${resolvedCoach.coachName}** đã bận lúc ${startTime} - ${endTime} ngày ${date}. Bạn tham khảo các huấn luyện viên khác còn rảnh lúc này:`;
-                actionType = "COACH_SUGGESTIONS";
-                suggestedCoaches = availableOthers.slice(0, 3).map((c: any) => ({
-                  coachId: c.CoachID,
-                  name: c.FullName,
-                  hourlyRate: Number(c.HourlyRate),
-                  skillLevel: c.SkillLevel,
-                  specialization: c.Specialization
+              alternativeList.sort((a, b) => Math.abs(parseTimeToMinutes(a.startTime)! - startMin) - Math.abs(parseTimeToMinutes(b.startTime)! - startMin));
+
+              if (alternativeList.length > 0) {
+                replyMessage = `Rất tiếc, không có sân nào còn trống vào khung giờ ${startTime} - ${endTime} ngày ${date}. Bạn tham khảo các khung giờ trống khác dưới đây:`;
+                actionType = "COURT_SUGGESTIONS";
+                suggestedSlots = alternativeList.slice(0, 3).map(alt => ({
+                  courtId: alt.court.CourtID,
+                  courtName: alt.court.CourtName,
+                  price: alt.price,
+                  availableTime: `${alt.startTime} - ${alt.endTime}`
                 }));
               } else {
-                replyMessage = `Rất tiếc, HLV **${resolvedCoach.coachName}** và các huấn luyện viên khác đều bận vào lúc ${startTime} - ${endTime} ngày ${date}.`;
+                replyMessage = `Rất tiếc, tất cả các sân đều bận vào ngày ${date}. Bạn vui lòng chọn ngày khác nhé!`;
                 actionType = "TEXT";
               }
             }
           }
-        } else {
-          // No specific coach requested, find all approved coaches available at requested time
-          const allCoaches = await coachService.getAllCoaches();
-          const availableCoachesAtTime: any[] = [];
-          
-          for (const c of allCoaches) {
-            const cSchedules = await coachService.getCoachSchedules(c.CoachID);
-            const cAvail = cSchedules.some((s: any) =>
-              s.WorkingDate === date &&
-              s.Status === "Available" &&
-              parseTimeToMinutes(s.StartTime)! <= startMin &&
-              parseTimeToMinutes(s.EndTime)! >= endMin
-            );
-            if (cAvail) {
-              availableCoachesAtTime.push(c);
-            }
+          break;
+        }
+
+        case "BOOK_COACH":
+        case "CHECK_COACH_AVAILABILITY": {
+          const rawDate = parsedData.dateText || parsedData.date;
+          const rawTime = parsedData.startTimeText || parsedData.startTime;
+
+          const date = normalizeDate(rawDate || session.coachBookingDraft?.bookingDate || "");
+          const startTime = normalizeTime(rawTime || session.coachBookingDraft?.startTime || "");
+          const duration = parsedData.durationMinutes || 60;
+          const needCourtTogether = parsedData.needCourtTogether !== undefined ? parsedData.needCourtTogether : (session.coachBookingDraft?.needCourtTogether || false);
+
+          if (!date || !startTime) {
+            session.coachBookingDraft = {
+              coachId: 0,
+              coachName: "",
+              bookingDate: date,
+              startTime,
+              endTime: "",
+              needCourtTogether
+            };
+            replyMessage = !date
+              ? "Bạn muốn đặt lịch học với huấn luyện viên vào ngày nào ạ? (Ví dụ: ngày mai, thứ hai)"
+              : "Bạn muốn học vào mấy giờ? (Ví dụ: 8h sáng, 18:00)";
+            actionType = "TEXT";
+            break;
           }
 
-          if (availableCoachesAtTime.length > 0) {
-            replyMessage = `Dưới đây là danh sách huấn luyện viên có lịch trống lúc **${startTime} - ${endTime}** ngày **${date}**:`;
+          const startMin = parseTimeToMinutes(startTime)!;
+          const endMin = startMin + duration;
+          const toTimeStr = (mins: number) => {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          };
+          const endTime = toTimeStr(endMin);
+
+          // Resolve coach
+          const resolvedCoach = await resolveCoachAlias(parsedData.coachNameRaw);
+
+          if (parsedData.coachNameRaw && !resolvedCoach) {
+            const allCoaches = await coachService.getAllCoaches();
+            replyMessage = `Pickle Club không tìm thấy HLV nào có tên **${parsedData.coachNameRaw}**. Dưới đây là danh sách các huấn luyện viên đang hoạt động tại CLB:`;
             actionType = "COACH_SUGGESTIONS";
-            suggestedCoaches = availableCoachesAtTime.map((c: any) => ({
+            suggestedCoaches = allCoaches.map((c: any) => ({
               coachId: c.CoachID,
               name: c.FullName,
               hourlyRate: Number(c.HourlyRate),
               skillLevel: c.SkillLevel,
               specialization: c.Specialization
             }));
-          } else {
-            replyMessage = `Rất tiếc, không có huấn luyện viên nào còn trống lịch vào khung giờ ${startTime} - ${endTime} ngày ${date}. Bạn vui lòng chọn khung giờ khác nhé!`;
-            actionType = "TEXT";
+            break;
           }
+
+          if (resolvedCoach) {
+            // Specific coach requested, check schedule
+            const schedules = await coachService.getCoachSchedules(resolvedCoach.coachId);
+            // Look for an Available slot covering requested range
+            const isCoachAvailable = schedules.some((s: any) =>
+              s.WorkingDate === date &&
+              s.Status === "Available" &&
+              parseTimeToMinutes(s.StartTime)! <= startMin &&
+              parseTimeToMinutes(s.EndTime)! >= endMin
+            );
+
+            if (isCoachAvailable) {
+              const coachFee = resolvedCoach.hourlyRate * (duration / 60);
+
+              if (needCourtTogether) {
+                // Intersect with court availability
+                const allCourts = await courtService.getAllCourts();
+                let availableCourt: any = null;
+                let courtPrice = 0;
+
+                for (const c of allCourts) {
+                  const cSlots = await courtService.getCourtSlots(c.CourtID, date);
+                  let cAvail = cSlots.filter((s: any) => s.Status === "Available");
+                  let cCovered = cAvail.length > 0;
+                  if (cCovered) {
+                    for (let t = startMin; t < endMin; t += 30) {
+                      if (!cAvail.some((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30))) {
+                        cCovered = false;
+                        break;
+                      }
+                    }
+                  }
+                  if (cCovered) {
+                    let cPrice = 0;
+                    const ids = new Set<number>();
+                    for (let t = startMin; t < endMin; t += 30) {
+                      const seg = cAvail.find((s: any) => parseTimeToMinutes(s.StartTime)! <= t && parseTimeToMinutes(s.EndTime)! >= (t + 30));
+                      if (seg) ids.add(seg.SlotID);
+                    }
+                    ids.forEach(id => {
+                      const slot = cAvail.find(s => s.SlotID === id);
+                      if (slot) cPrice += Number(slot.Price);
+                    });
+                    availableCourt = c;
+                    courtPrice = cPrice;
+                    break;
+                  }
+                }
+
+                if (availableCourt) {
+                  const totalComboPrice = coachFee + courtPrice;
+                  session.coachBookingDraft = {
+                    coachId: resolvedCoach.coachId,
+                    coachName: resolvedCoach.coachName,
+                    bookingDate: date,
+                    startTime,
+                    endTime,
+                    needCourtTogether: true,
+                    courtId: availableCourt.CourtID,
+                    courtName: availableCourt.CourtName,
+                    price: totalComboPrice
+                  };
+                  replyMessage = `Huấn luyện viên **${resolvedCoach.coachName}** rảnh lúc **${startTime} - ${endTime}** ngày **${date}** và còn sân trống **${availableCourt.CourtName}**. Bạn có muốn đặt lịch học Combo (học phí HLV + thuê sân: **${totalComboPrice.toLocaleString("vi-VN")}đ**) không?`;
+                  actionType = "CONFIRM_COACH_BOOKING";
+                } else {
+                  replyMessage = `Rất tiếc, HLV **${resolvedCoach.coachName}** rảnh nhưng hệ thống đã hết sân trống lúc ${startTime} - ${endTime} ngày ${date}. Bạn vui lòng chọn khung giờ khác nhé!`;
+                  actionType = "TEXT";
+                }
+              } else {
+                // Just book coach
+                session.coachBookingDraft = {
+                  coachId: resolvedCoach.coachId,
+                  coachName: resolvedCoach.coachName,
+                  bookingDate: date,
+                  startTime,
+                  endTime,
+                  needCourtTogether: false,
+                  price: coachFee
+                };
+                replyMessage = `Huấn luyện viên **${resolvedCoach.coachName}** còn trống lịch lúc **${startTime} - ${endTime}** ngày **${date}** với học phí **${coachFee.toLocaleString("vi-VN")}đ**. Bạn có xác nhận muốn đặt không?`;
+                actionType = "CONFIRM_COACH_BOOKING";
+              }
+            } else {
+              // Coach not available, find alternative slots for this coach
+              const coachAvailSlots = schedules.filter((s: any) => s.WorkingDate === date && s.Status === "Available");
+              if (coachAvailSlots.length > 0) {
+                replyMessage = `HLV **${resolvedCoach.coachName}** đã bận lúc ${startTime} - ${endTime} ngày ${date}. Các giờ rảnh khác của coach trong ngày này:`;
+                actionType = "COACH_SUGGESTIONS";
+                suggestedSlots = coachAvailSlots.map((s: any) => ({
+                  coachId: resolvedCoach.coachId,
+                  coachName: resolvedCoach.coachName,
+                  price: resolvedCoach.hourlyRate * (duration / 60),
+                  availableTime: `${s.StartTime.substring(0, 5)} - ${s.EndTime.substring(0, 5)}`
+                }));
+              } else {
+                // Suggest other coaches at this time
+                const allCoaches = await coachService.getAllCoaches();
+                const otherCoaches = allCoaches.filter((c: any) => c.CoachID !== resolvedCoach.coachId);
+                const availableOthers: any[] = [];
+                for (const c of otherCoaches) {
+                  const cSchedules = await coachService.getCoachSchedules(c.CoachID);
+                  const cAvail = cSchedules.some((s: any) =>
+                    s.WorkingDate === date &&
+                    s.Status === "Available" &&
+                    parseTimeToMinutes(s.StartTime)! <= startMin &&
+                    parseTimeToMinutes(s.EndTime)! >= endMin
+                  );
+                  if (cAvail) {
+                    availableOthers.push(c);
+                  }
+                }
+
+                if (availableOthers.length > 0) {
+                  replyMessage = `HLV **${resolvedCoach.coachName}** đã bận lúc ${startTime} - ${endTime} ngày ${date}. Bạn tham khảo các huấn luyện viên khác còn rảnh lúc này:`;
+                  actionType = "COACH_SUGGESTIONS";
+                  suggestedCoaches = availableOthers.slice(0, 3).map((c: any) => ({
+                    coachId: c.CoachID,
+                    name: c.FullName,
+                    hourlyRate: Number(c.HourlyRate),
+                    skillLevel: c.SkillLevel,
+                    specialization: c.Specialization
+                  }));
+                } else {
+                  replyMessage = `Rất tiếc, HLV **${resolvedCoach.coachName}** và các huấn luyện viên khác đều bận vào lúc ${startTime} - ${endTime} ngày ${date}.`;
+                  actionType = "TEXT";
+                }
+              }
+            }
+          } else {
+            // No specific coach requested, find all approved coaches available at requested time
+            const allCoaches = await coachService.getAllCoaches();
+            const availableCoachesAtTime: any[] = [];
+
+            for (const c of allCoaches) {
+              const cSchedules = await coachService.getCoachSchedules(c.CoachID);
+              const cAvail = cSchedules.some((s: any) =>
+                s.WorkingDate === date &&
+                s.Status === "Available" &&
+                parseTimeToMinutes(s.StartTime)! <= startMin &&
+                parseTimeToMinutes(s.EndTime)! >= endMin
+              );
+              if (cAvail) {
+                availableCoachesAtTime.push(c);
+              }
+            }
+
+            if (availableCoachesAtTime.length > 0) {
+              replyMessage = `Dưới đây là danh sách huấn luyện viên có lịch trống lúc **${startTime} - ${endTime}** ngày **${date}**:`;
+              actionType = "COACH_SUGGESTIONS";
+              suggestedCoaches = availableCoachesAtTime.map((c: any) => ({
+                coachId: c.CoachID,
+                name: c.FullName,
+                hourlyRate: Number(c.HourlyRate),
+                skillLevel: c.SkillLevel,
+                specialization: c.Specialization
+              }));
+            } else {
+              replyMessage = `Rất tiếc, không có huấn luyện viên nào còn trống lịch vào khung giờ ${startTime} - ${endTime} ngày ${date}. Bạn vui lòng chọn khung giờ khác nhé!`;
+              actionType = "TEXT";
+            }
+          }
+          break;
         }
-        break;
-      }
 
-      case "FIND_COACH": {
-        const coaches = await coachService.getAllCoaches();
-        replyMessage = "Dưới đây là danh sách các huấn luyện viên đang hoạt động tại Pickle Club. Bạn muốn đặt lịch học với HLV nào ạ?";
-        actionType = "COACH_SUGGESTIONS";
-        suggestedCoaches = coaches.map((c: any) => ({
-          coachId: c.CoachID,
-          name: c.FullName,
-          hourlyRate: Number(c.HourlyRate),
-          skillLevel: c.SkillLevel,
-          specialization: c.Specialization
-        }));
-        break;
-      }
-
-      case "ASK_COACH_INFO": {
-        const coachNameRaw = parsedData.coachNameRaw;
-        const resolvedCoach = await resolveCoachAlias(coachNameRaw);
-        if (resolvedCoach) {
-          const coach = await coachService.getCoachById(resolvedCoach.coachId);
-          replyMessage = `Thông tin về HLV **${coach.FullName}**:\n- **Trình độ**: ${coach.SkillLevel || "N/A"}\n- **Chuyên môn**: ${coach.Specialization || "N/A"}\n- **Kinh nghiệm**: ${coach.ExperienceYears || 0} năm\n- **Học phí**: ${Number(coach.HourlyRate).toLocaleString("vi-VN")}đ/giờ\n- **Giới thiệu**: ${coach.Biography || "Chưa có tiểu sử chi tiết."}`;
-          actionType = "TEXT";
-        } else {
+        case "FIND_COACH":
+        case "ASK_COACH_RECOMMENDATION": {
           const coaches = await coachService.getAllCoaches();
-          replyMessage = `Không tìm thấy huấn luyện viên nào tên là **${coachNameRaw || ""}**. Bạn vui lòng chọn một trong các HLV đang dạy tại CLB:`;
+          replyMessage = "Dưới đây là danh sách các huấn luyện viên đang hoạt động tại Pickle Club. Bạn muốn đặt lịch học với HLV nào ạ?";
           actionType = "COACH_SUGGESTIONS";
           suggestedCoaches = coaches.map((c: any) => ({
             coachId: c.CoachID,
@@ -851,87 +832,108 @@ export async function handleChatbotMessage(
             skillLevel: c.SkillLevel,
             specialization: c.Specialization
           }));
-        }
-        break;
-      }
-
-
-      case "CONFIRM_BOOKING":
-      case "CONFIRM_COURT_BOOKING":
-      case "CONFIRM_COACH_BOOKING": {
-        if (!userId) {
-          replyMessage = "Vui lòng đăng nhập hệ thống để thực hiện đặt chỗ.";
-          actionType = "LOGIN_REQUIRED";
           break;
         }
 
-        if (session.bookingDraft && session.bookingDraft.courtId > 0) {
-          // Confirm Court booking
-          const draft = session.bookingDraft;
-          const bookingResult = await bookingsService.createCourtBooking({
-            userId,
-            courtId: draft.courtId,
-            bookingDate: draft.bookingDate,
-            startTime: draft.startTime,
-            endTime: draft.endTime
-          });
-
-          replyMessage = `Đặt sân thành công! Mã đặt chỗ của bạn là **${bookingResult.BookingCode}**. Tổng số tiền cần thanh toán: **${bookingResult.TotalAmount.toLocaleString("vi-VN")}đ**. Bạn vui lòng thanh toán trong vòng 10 phút để xác nhận giữ chỗ.`;
-          actionType = "TEXT";
-          session.bookingDraft = undefined; // clear draft
-        } else if (session.coachBookingDraft && session.coachBookingDraft.coachId > 0) {
-          // Confirm Coach / Combo booking
-          const draft = session.coachBookingDraft;
-          let bookingResult: any;
-
-          if (draft.needCourtTogether && draft.courtId && draft.courtId > 0) {
-            bookingResult = await bookingsService.createComboBooking({
-              userId,
-              courtId: draft.courtId,
-              coachId: draft.coachId,
-              bookingDate: draft.bookingDate,
-              startTime: draft.startTime,
-              endTime: draft.endTime
-            });
-            replyMessage = `Đặt lịch Combo sân + HLV thành công! Mã đơn đặt: **${bookingResult.BookingCode}**. Sân: **${draft.courtName}**, HLV: **${draft.coachName}**. Số tiền cần thanh toán: **${bookingResult.TotalAmount.toLocaleString("vi-VN")}đ**. Bạn vui lòng hoàn tất thanh toán trong vòng 10 phút.`;
+        case "ASK_COACH_INFO": {
+          const coachNameRaw = parsedData.coachNameRaw;
+          const resolvedCoach = await resolveCoachAlias(coachNameRaw);
+          if (resolvedCoach) {
+            const coach = await coachService.getCoachById(resolvedCoach.coachId);
+            replyMessage = `Thông tin về HLV **${coach.FullName}**:\n- **Trình độ**: ${coach.SkillLevel || "N/A"}\n- **Chuyên môn**: ${coach.Specialization || "N/A"}\n- **Kinh nghiệm**: ${coach.ExperienceYears || 0} năm\n- **Học phí**: ${Number(coach.HourlyRate).toLocaleString("vi-VN")}đ/giờ\n- **Giới thiệu**: ${coach.Biography || "Chưa có tiểu sử chi tiết."}`;
+            actionType = "TEXT";
           } else {
-            bookingResult = await bookingsService.createCoachBooking({
-              userId,
-              coachId: draft.coachId,
-              bookingDate: draft.bookingDate,
-              startTime: draft.startTime,
-              endTime: draft.endTime
-            });
-            replyMessage = `Đặt huấn luyện viên **${draft.coachName}** thành công! Mã đơn đặt: **${bookingResult.BookingCode}**. Số tiền cần thanh toán: **${bookingResult.TotalAmount.toLocaleString("vi-VN")}đ**. Vui lòng thanh toán trong 10 phút để giữ lịch dạy.`;
+            const coaches = await coachService.getAllCoaches();
+            replyMessage = `Không tìm thấy huấn luyện viên nào tên là **${coachNameRaw || ""}**. Bạn vui lòng chọn một trong các HLV đang dạy tại CLB:`;
+            actionType = "COACH_SUGGESTIONS";
+            suggestedCoaches = coaches.map((c: any) => ({
+              coachId: c.CoachID,
+              name: c.FullName,
+              hourlyRate: Number(c.HourlyRate),
+              skillLevel: c.SkillLevel,
+              specialization: c.Specialization
+            }));
+          }
+          break;
+        }
+
+
+        case "CONFIRM_BOOKING":
+        case "CONFIRM_COURT_BOOKING":
+        case "CONFIRM_COACH_BOOKING": {
+          if (!userId) {
+            replyMessage = "Vui lòng đăng nhập hệ thống để thực hiện đặt chỗ.";
+            actionType = "LOGIN_REQUIRED";
+            break;
           }
 
-          actionType = "TEXT";
-          session.coachBookingDraft = undefined; // clear draft
-        } else {
-          replyMessage = "Mình chưa thấy thông tin đặt sân hay HLV nào đang chờ xác nhận của bạn. Bạn muốn đặt lịch gì ạ?";
-          actionType = "TEXT";
+          if (session.bookingDraft && session.bookingDraft.courtId > 0) {
+            // Confirm Court booking
+            const draft = session.bookingDraft;
+            const bookingResult = await bookingsService.createCourtBooking({
+              userId,
+              courtId: draft.courtId,
+              bookingDate: draft.bookingDate,
+              startTime: draft.startTime,
+              endTime: draft.endTime
+            });
+
+            replyMessage = `Đặt sân thành công! Mã đặt chỗ của bạn là **${bookingResult.BookingCode}**. Tổng số tiền cần thanh toán: **${bookingResult.TotalAmount.toLocaleString("vi-VN")}đ**. Bạn vui lòng thanh toán trong vòng 10 phút để xác nhận giữ chỗ.`;
+            actionType = "TEXT";
+            session.bookingDraft = undefined; // clear draft
+          } else if (session.coachBookingDraft && session.coachBookingDraft.coachId > 0) {
+            // Confirm Coach / Combo booking
+            const draft = session.coachBookingDraft;
+            let bookingResult: any;
+
+            if (draft.needCourtTogether && draft.courtId && draft.courtId > 0) {
+              bookingResult = await bookingsService.createComboBooking({
+                userId,
+                courtId: draft.courtId,
+                coachId: draft.coachId,
+                bookingDate: draft.bookingDate,
+                startTime: draft.startTime,
+                endTime: draft.endTime
+              });
+              replyMessage = `Đặt lịch Combo sân + HLV thành công! Mã đơn đặt: **${bookingResult.BookingCode}**. Sân: **${draft.courtName}**, HLV: **${draft.coachName}**. Số tiền cần thanh toán: **${bookingResult.TotalAmount.toLocaleString("vi-VN")}đ**. Bạn vui lòng hoàn tất thanh toán trong vòng 10 phút.`;
+            } else {
+              bookingResult = await bookingsService.createCoachBooking({
+                userId,
+                coachId: draft.coachId,
+                bookingDate: draft.bookingDate,
+                startTime: draft.startTime,
+                endTime: draft.endTime
+              });
+              replyMessage = `Đặt huấn luyện viên **${draft.coachName}** thành công! Mã đơn đặt: **${bookingResult.BookingCode}**. Số tiền cần thanh toán: **${bookingResult.TotalAmount.toLocaleString("vi-VN")}đ**. Vui lòng thanh toán trong 10 phút để giữ lịch dạy.`;
+            }
+
+            actionType = "TEXT";
+            session.coachBookingDraft = undefined; // clear draft
+          } else {
+            replyMessage = "Mình chưa thấy thông tin đặt sân hay HLV nào đang chờ xác nhận của bạn. Bạn muốn đặt lịch gì ạ?";
+            actionType = "TEXT";
+          }
+          break;
         }
-        break;
+
+        case "REJECT_SUGGESTION":
+          session.bookingDraft = undefined;
+          session.coachBookingDraft = undefined;
+          replyMessage = "Dạ, mình đã hủy yêu cầu đặt lịch cũ. Bạn muốn đổi thông tin đặt sân/HLV như thế nào ạ? (Hãy cho mình biết ngày, giờ hoặc tên sân mong muốn nhé)";
+          actionType = "TEXT";
+          break;
+
+        case "UNKNOWN":
+        default:
+          replyMessage = "Xin lỗi, mình chưa hiểu ý của bạn. Bạn muốn đặt sân, tìm HLV Pickleball hay cần xem giá cả/lịch sử đặt chỗ?";
+          actionType = "TEXT";
+          break;
       }
-
-      case "REJECT_SUGGESTION":
-        session.bookingDraft = undefined;
-        session.coachBookingDraft = undefined;
-        replyMessage = "Dạ, mình đã hủy yêu cầu đặt lịch cũ. Bạn muốn đổi thông tin đặt sân/HLV như thế nào ạ? (Hãy cho mình biết ngày, giờ hoặc tên sân mong muốn nhé)";
-        actionType = "TEXT";
-        break;
-
-      case "UNKNOWN":
-      default:
-        replyMessage = "Xin lỗi, mình chưa hiểu ý của bạn. Bạn muốn đặt sân, tìm HLV Pickleball hay cần xem giá cả/lịch sử đặt chỗ?";
-        actionType = "TEXT";
-        break;
+    } catch (error: any) {
+      console.error(`[Chatbot Error] Handler crashed:`, error);
+      replyMessage = `Đã xảy ra lỗi khi xử lý yêu cầu: ${error.message}`;
+      actionType = "ERROR";
     }
-  } catch (error: any) {
-    console.error(`[Chatbot Error] Handler crashed:`, error);
-    replyMessage = `Đã xảy ra lỗi khi xử lý yêu cầu: ${error.message}`;
-    actionType = "ERROR";
-  }
   }
 
   // Save session state to the manager
@@ -1035,7 +1037,7 @@ export async function recommendCoaches(request: CoachRecommendRequest): Promise<
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/ai/coaches/recommend", {
+    const response = await fetch(`${AI_SERVICE_BASE_URL}/api/ai/coaches/recommend`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -1240,7 +1242,7 @@ export async function matchTeammates(userId: number): Promise<any> {
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/ai/players/match-teammates", {
+    const response = await fetch(`${AI_SERVICE_BASE_URL}/api/ai/players/match-teammates`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -1581,7 +1583,7 @@ export async function matchOpponentTeams(userId: number): Promise<any> {
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/ai/players/match-opponents", {
+    const response = await fetch(`${AI_SERVICE_BASE_URL}/api/ai/players/match-opponents`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

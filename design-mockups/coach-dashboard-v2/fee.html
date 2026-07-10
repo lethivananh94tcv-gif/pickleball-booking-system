@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coach Dashboard V2 - Học phí</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark">P</span><span>Pickle<span class="brand-accent">Club</span></span></div>
+      <nav class="nav" aria-label="Coach dashboard">
+        <a href="profile.html">Hồ sơ</a>
+        <a href="expertise.html">Chuyên môn</a>
+        <a class="active" href="fee.html">Học phí</a>
+        <a href="schedules.html">Lịch dạy</a>
+        <a href="bookings.html">Đơn đặt lịch</a>
+        <a href="income.html">Thống kê & Thu nhập</a>
+      </nav>
+      <div class="account">
+        <button class="icon-btn" aria-label="Thông báo">!<span class="count-dot">6</span></button>
+        <div class="user-pill">Le Quoc Huy <span class="logout">↗</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="coach-hero">
+      <div class="coach-id">
+        <div class="avatar"><span>LH</span></div>
+        <div>
+          <span class="hero-kicker">Coach workspace</span>
+          <h1 class="coach-title">Le Quoc Huy</h1>
+          <p class="coach-meta">4.8 điểm đánh giá · 5 năm kinh nghiệm · 120 học viên</p>
+          <div class="badge-row"><span class="badge success">Đã được duyệt</span><span class="badge amber">Giá cạnh tranh</span></div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="hero-stat"><span>Học phí</span><strong>500K</strong></div>
+        <div class="hero-stat"><span>Biên độ</span><strong>150K-2M</strong></div>
+        <div class="hero-stat"><span>Dự báo</span><strong>8.5M</strong></div>
+        <div class="hero-note"><strong>Gợi ý</strong><span>Mức 500K phù hợp nhóm Professional trong khu vực hiện tại.</span><span>Ổn</span></div>
+      </div>
+    </section>
+
+    <section class="page-card">
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">Thiết lập giá</span>
+          <h2>Cấu hình học phí</h2>
+          <p>Điều chỉnh giá theo vị thế, tỷ lệ đặt lịch và năng lực giảng dạy.</p>
+        </div>
+        <button class="primary-btn">Lưu học phí</button>
+      </div>
+      <div class="content-pad grid-2">
+        <div>
+          <div class="price-hero">
+            <div>
+              <span class="label" style="color:rgba(255,255,255,.72)">Học phí hiện tại</span>
+              <p style="margin:8px 0 0;color:rgba(255,255,255,.68)">Áp dụng cho mỗi giờ dạy riêng hoặc combo sân + Coach.</p>
+            </div>
+            <div class="price">500.000 đ / giờ</div>
+          </div>
+
+          <div class="panel mt-18">
+            <div class="panel-head">
+              <h3>Điều chỉnh nhanh</h3>
+              <p>Khoảng hợp lệ: 150.000 - 2.000.000 đ mỗi giờ.</p>
+            </div>
+            <div class="panel-body">
+              <div class="field">
+                <label for="fee">Học phí (VNĐ/giờ)</label>
+                <input id="fee" class="input" value="500000">
+              </div>
+              <div class="range-shell mt-18">
+                <div class="range-line"></div>
+                <div class="range-labels"><span>150K</span><span>500K</span><span>2.000K</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-3 mt-18">
+            <div class="panel"><div class="panel-body"><span class="label">Nếu giảm 10%</span><strong>450K</strong><p class="muted">Dễ tăng lịch mới</p></div></div>
+            <div class="panel"><div class="panel-body"><span class="label">Giữ hiện tại</span><strong>500K</strong><p class="muted">Cân bằng tốt</p></div></div>
+            <div class="panel"><div class="panel-body"><span class="label">Nếu tăng 10%</span><strong>550K</strong><p class="muted">Phù hợp giờ cao điểm</p></div></div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>So sánh thị trường</h3>
+              <p>Coach cùng cấp độ trong khu vực.</p>
+            </div>
+            <div class="panel-body benchmark">
+              <div class="bench-row"><span>Beginner</span><div class="bench-track"><span style="width:36%"></span></div><span>320K</span></div>
+              <div class="bench-row"><span>Intermediate</span><div class="bench-track"><span style="width:48%"></span></div><span>430K</span></div>
+              <div class="bench-row"><span>Professional</span><div class="bench-track"><span style="width:58%"></span></div><span>520K</span></div>
+              <div class="bench-row"><span>Top coach</span><div class="bench-track"><span style="width:76%"></span></div><span>760K</span></div>
+            </div>
+          </div>
+
+          <div class="panel dark mt-18">
+            <div class="panel-head">
+              <h3>Dự báo thu nhập</h3>
+              <p>Nếu giữ 17 giờ dạy/tháng với mức giá hiện tại.</p>
+            </div>
+            <div class="panel-body">
+              <div class="split"><span class="label">Số giờ dự kiến</span><strong>17 giờ</strong></div>
+              <div class="split mt-14"><span class="label">Doanh thu trước phí</span><strong>8.500.000 đ</strong></div>
+              <div class="split mt-14"><span class="label">Xu hướng đặt lịch</span><strong>Ổn định</strong></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <div class="floating-chat">?</div>
+</body>
+</html>

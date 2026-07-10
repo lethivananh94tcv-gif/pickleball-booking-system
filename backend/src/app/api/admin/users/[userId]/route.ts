@@ -5,13 +5,7 @@ import {
 } from "@/modules/users/users.controller";
 
 interface RouteContext {
-  params:
-    | Promise<{
-        userId: string;
-      }>
-    | {
-        userId: string;
-      };
+  params: Promise<{ userId: string }>;
 }
 
 async function parseUserId(context: RouteContext) {

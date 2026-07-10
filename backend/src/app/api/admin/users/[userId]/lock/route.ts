@@ -7,13 +7,7 @@ import {
 } from "@/modules/roles/roles.controller";
 
 interface RouteContext {
-  params:
-    | Promise<{
-        userId: string;
-      }>
-    | {
-        userId: string;
-      };
+  params: Promise<{ userId: string }>;
 }
 
 export async function POST(

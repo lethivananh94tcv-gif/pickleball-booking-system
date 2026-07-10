@@ -1,0 +1,4 @@
+export const SYSTEM_CONFIG = {
+  OPENING_HOUR: 5,
+  CLOSING_HOUR: 23,
+};

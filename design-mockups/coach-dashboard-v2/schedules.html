@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coach Dashboard V2 - Lịch dạy</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark">P</span><span>Pickle<span class="brand-accent">Club</span></span></div>
+      <nav class="nav" aria-label="Coach dashboard">
+        <a href="profile.html">Hồ sơ</a>
+        <a href="expertise.html">Chuyên môn</a>
+        <a href="fee.html">Học phí</a>
+        <a class="active" href="schedules.html">Lịch dạy</a>
+        <a href="bookings.html">Đơn đặt lịch</a>
+        <a href="income.html">Thống kê & Thu nhập</a>
+      </nav>
+      <div class="account">
+        <button class="icon-btn" aria-label="Thông báo">!<span class="count-dot">6</span></button>
+        <div class="user-pill">Le Quoc Huy <span class="logout">↗</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="coach-hero">
+      <div class="coach-id">
+        <div class="avatar"><span>LH</span></div>
+        <div>
+          <span class="hero-kicker">Coach workspace</span>
+          <h1 class="coach-title">Le Quoc Huy</h1>
+          <p class="coach-meta">4.8 điểm đánh giá · 5 năm kinh nghiệm · 120 học viên</p>
+          <div class="badge-row"><span class="badge success">Đã được duyệt</span><span class="badge blue">26 lịch mở</span></div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="hero-stat"><span>Hôm nay</span><strong>7</strong></div>
+        <div class="hero-stat"><span>Tuần này</span><strong>26</strong></div>
+        <div class="hero-stat"><span>Đang bận</span><strong>0</strong></div>
+        <div class="hero-note"><strong>Khung tốt</strong><span>17:00 - 20:00 đang có nhu cầu đặt Coach cao nhất.</span><span>Hot</span></div>
+      </div>
+    </section>
+
+    <section class="page-card">
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">Quản lý thời gian</span>
+          <h2>Lịch dạy của tôi</h2>
+          <p>Tạo, khóa hoặc xóa các khung giờ nhận học viên.</p>
+        </div>
+        <button class="primary-btn">Thêm lịch</button>
+      </div>
+      <div class="content-pad schedule-layout">
+        <aside class="panel">
+          <div class="panel-head">
+            <h3>Tuần này</h3>
+            <p>Chọn ngày để xem khung giờ.</p>
+          </div>
+          <div class="panel-body mini-calendar">
+            <div class="day-pill active"><span class="day-num">08</span><div><strong>Thứ tư</strong><p>7 lịch mở</p></div><span>Hôm nay</span></div>
+            <div class="day-pill"><span class="day-num">09</span><div><strong>Thứ năm</strong><p>4 lịch mở</p></div><span>4</span></div>
+            <div class="day-pill"><span class="day-num">10</span><div><strong>Thứ sáu</strong><p>5 lịch mở</p></div><span>5</span></div>
+            <div class="day-pill"><span class="day-num">11</span><div><strong>Thứ bảy</strong><p>6 lịch mở</p></div><span>6</span></div>
+            <div class="day-pill"><span class="day-num">12</span><div><strong>Chủ nhật</strong><p>4 lịch mở</p></div><span>4</span></div>
+          </div>
+        </aside>
+
+        <div>
+          <div class="toolbar">
+            <div>
+              <strong>2026-07-08</strong>
+              <p class="muted" style="margin:4px 0 0">7 khung giờ có thể dạy</p>
+            </div>
+            <div class="badge-row"><span class="chip active">Có thể dạy</span><span class="chip">Bận</span><span class="chip">Đã đặt</span></div>
+          </div>
+
+          <div class="schedule-list">
+            <article class="schedule-row available"><div class="time-block">13:00</div><div><strong>13:00 - 14:00</strong><p class="muted">Slot đơn · học phí 500.000 đ</p></div><span class="badge green">Có thể dạy</span><div class="schedule-actions"><button class="ghost-btn small-btn">Bận</button><button class="danger-btn small-btn">Xóa</button></div></article>
+            <article class="schedule-row available"><div class="time-block">14:00</div><div><strong>14:00 - 15:00</strong><p class="muted">Slot đơn · học phí 500.000 đ</p></div><span class="badge green">Có thể dạy</span><div class="schedule-actions"><button class="ghost-btn small-btn">Bận</button><button class="danger-btn small-btn">Xóa</button></div></article>
+            <article class="schedule-row available"><div class="time-block">15:00</div><div><strong>15:00 - 16:00</strong><p class="muted">Slot đơn · học phí 500.000 đ</p></div><span class="badge green">Có thể dạy</span><div class="schedule-actions"><button class="ghost-btn small-btn">Bận</button><button class="danger-btn small-btn">Xóa</button></div></article>
+            <article class="schedule-row available"><div class="time-block">16:00</div><div><strong>16:00 - 17:00</strong><p class="muted">Slot đơn · học phí 500.000 đ</p></div><span class="badge green">Có thể dạy</span><div class="schedule-actions"><button class="ghost-btn small-btn">Bận</button><button class="danger-btn small-btn">Xóa</button></div></article>
+            <article class="schedule-row available"><div class="time-block">17:00</div><div><strong>17:00 - 18:00</strong><p class="muted">Khung giờ nhu cầu cao</p></div><span class="badge amber">Nên giữ</span><div class="schedule-actions"><button class="ghost-btn small-btn">Bận</button><button class="danger-btn small-btn">Xóa</button></div></article>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div class="floating-chat">?</div>
+</body>
+</html>

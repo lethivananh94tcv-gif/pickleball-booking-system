@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coach Dashboard V2 - Đơn đặt lịch</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark">P</span><span>Pickle<span class="brand-accent">Club</span></span></div>
+      <nav class="nav" aria-label="Coach dashboard">
+        <a href="profile.html">Hồ sơ</a>
+        <a href="expertise.html">Chuyên môn</a>
+        <a href="fee.html">Học phí</a>
+        <a href="schedules.html">Lịch dạy</a>
+        <a class="active" href="bookings.html">Đơn đặt lịch</a>
+        <a href="income.html">Thống kê & Thu nhập</a>
+      </nav>
+      <div class="account">
+        <button class="icon-btn" aria-label="Thông báo">!<span class="count-dot">6</span></button>
+        <div class="user-pill">Le Quoc Huy <span class="logout">↗</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="coach-hero">
+      <div class="coach-id">
+        <div class="avatar"><span>LH</span></div>
+        <div>
+          <span class="hero-kicker">Coach workspace</span>
+          <h1 class="coach-title">Le Quoc Huy</h1>
+          <p class="coach-meta">4.8 điểm đánh giá · 5 năm kinh nghiệm · 120 học viên</p>
+          <div class="badge-row"><span class="badge success">Đã được duyệt</span><span class="badge blue">3 đơn cần theo dõi</span></div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="hero-stat"><span>Đơn gần đây</span><strong>5</strong></div>
+        <div class="hero-stat"><span>Hoàn thành</span><strong>1</strong></div>
+        <div class="hero-stat"><span>Đã hủy</span><strong>2</strong></div>
+        <div class="hero-note"><strong>Nhắc lịch</strong><span>Slot tiếp theo: 2026-07-08 · 12:00 - 13:00.</span><span>Hôm nay</span></div>
+      </div>
+    </section>
+
+    <section class="page-card">
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">Học viên</span>
+          <h2>Danh sách đơn đặt lịch</h2>
+          <p>Theo dõi trạng thái đơn và xử lý các trường hợp cần hủy lịch.</p>
+        </div>
+        <button class="ghost-btn">Xuất danh sách</button>
+      </div>
+      <div class="content-pad">
+        <div class="grid-3">
+          <div class="kpi"><span>Sắp tới</span><strong>2</strong></div>
+          <div class="kpi"><span>Đã hoàn thành</span><strong>1</strong></div>
+          <div class="kpi dark"><span>Doanh thu hoàn tất</span><strong>500.000 đ</strong></div>
+        </div>
+
+        <div class="toolbar mt-18">
+          <input class="input search" value="Tìm theo mã đơn, học viên...">
+          <div class="badge-row">
+            <span class="chip active">Tất cả</span>
+            <span class="chip">Upcoming</span>
+            <span class="chip">Completed</span>
+            <span class="chip">Cancelled</span>
+          </div>
+        </div>
+
+        <div class="booking-list">
+          <article class="booking-card cancelled">
+            <div><strong>18/6/2026</strong><p class="muted">08:00 - 09:00</p></div>
+            <div><strong>BK-1781681331422</strong><p class="muted">salana · Không kèm sân</p></div>
+            <span class="badge red">Cancelled</span>
+            <strong>0 đ</strong>
+            <button class="ghost-btn small-btn">Chi tiết</button>
+          </article>
+          <article class="booking-card cancelled">
+            <div><strong>7/6/2026</strong><p class="muted">16:00 - 18:00</p></div>
+            <div><strong>BK-1780755502321</strong><p class="muted">Sang Tran Quoc · Không kèm sân</p></div>
+            <span class="badge red">Cancelled</span>
+            <strong>0 đ</strong>
+            <button class="ghost-btn small-btn">Chi tiết</button>
+          </article>
+          <article class="booking-card completed">
+            <div><strong>7/6/2026</strong><p class="muted">08:00 - 09:00</p></div>
+            <div><strong>BK-1780754774349</strong><p class="muted">Trần Quốc Sang · Không kèm sân</p></div>
+            <span class="badge green">Completed</span>
+            <strong class="amount">500.000 đ</strong>
+            <button class="ghost-btn small-btn">Chi tiết</button>
+          </article>
+          <article class="booking-card">
+            <div><strong>8/7/2026</strong><p class="muted">12:00 - 13:00</p></div>
+            <div><strong>BK-1783347125021</strong><p class="muted">Minh Anh · Có kèm sân A2</p></div>
+            <span class="badge blue">Upcoming</span>
+            <strong>500.000 đ</strong>
+            <button class="danger-btn small-btn">Hủy</button>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div class="floating-chat">?</div>
+</body>
+</html>

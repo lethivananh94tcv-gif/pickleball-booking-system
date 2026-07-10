@@ -487,7 +487,17 @@ export async function processMomoRefund(
 
   // Lấy payment trực tiếp theo PaymentID từ refund record (không query theo BookingID+Paid
   // vì sau khi booking bị cancel, payment status có thể không còn là Paid)
-  const payment = await _getPaymentForRefund(refund.BookingID, refund.PaymentID);
+  const bookingId = refund.BookingID;
+  const paymentId = refund.PaymentID;
+
+  if (!bookingId || !paymentId) {
+    throw Object.assign(
+      new Error("Refund này không có BookingID hoặc PaymentID hợp lệ để xử lý payment gốc"),
+      { statusCode: 400 }
+    );
+  }
+
+  const payment = await _getPaymentForRefund(bookingId, paymentId);
   if (!payment) {
     throw Object.assign(new Error("Không tìm thấy thông tin payment gốc (PaymentID: " + refund.PaymentID + ")."), { statusCode: 400 });
   }
@@ -571,7 +581,7 @@ export async function completeManualRefund(
     if (refund.TournamentPaymentID) {
       await refundRepo.markTournamentPaymentRefunded(refund.TournamentPaymentID);
     }
-    
+
     // Send email / push notification to the user
     try {
       const pool = await getPool();
@@ -589,7 +599,7 @@ export async function completeManualRefund(
             WHERE t.TournamentID = @TournamentID AND d.DivisionID = @DivisionID
           `);
         const names = namesResult.recordset[0] || {};
-        
+
         // Notify in-app
         void createNotification({
           userId: reg.RegisteredBy,
@@ -620,12 +630,22 @@ export async function completeManualRefund(
     }
   } else {
     // Normal court booking flow
-    await refundRepo.markBookingRefunded(refund.BookingID);
+    const bookingId = refund.BookingID;
+    const paymentId = refund.PaymentID;
+
+    if (!bookingId || !paymentId) {
+      throw Object.assign(
+        new Error("Refund này không có BookingID hoặc PaymentID hợp lệ để hoàn tất refund booking."),
+        { statusCode: 400 }
+      );
+    }
+
+    await refundRepo.markBookingRefunded(bookingId);
 
     // Nếu full refund → Update Payment → Refunded
-    const payment = await _getPaymentForRefund(refund.BookingID, refund.PaymentID);
+    const payment = await _getPaymentForRefund(bookingId, paymentId);
     if (payment && Number(refund.RefundAmount) >= Number(payment.Amount)) {
-      await refundRepo.markPaymentRefunded(refund.PaymentID);
+      await refundRepo.markPaymentRefunded(paymentId);
     }
   }
 
@@ -659,7 +679,7 @@ export async function completeManualRefund(
   const userRes = await pool.request().input("UID", sql.Int, refund.CreatedBy).query("SELECT Email FROM Users WHERE UserID = @UID");
   const bookingRes = await pool.request().input("BID", sql.Int, refund.BookingID).query("SELECT BookingCode FROM Bookings WHERE BookingID = @BID");
   const bookingCode = bookingRes.recordset[0]?.BookingCode || "N/A";
-  
+
   if (userRes.recordset[0]?.Email) {
     const { sendRefundCompletedEmail } = await import("@/utils/mail");
     void sendRefundCompletedEmail(userRes.recordset[0].Email, {

@@ -88,7 +88,7 @@ export async function createPayosPaymentLink(params: {
   const payos = getPayosInstance();
 
   // orderCode: payOS yêu cầu số nguyên > 0, dùng paymentId là safe vì unique
-  const orderCode = params.paymentId;
+  const orderCode = Date.now();
 
   // description: tối đa 25 ký tự (giới hạn của payOS)
   const description = `DH${params.bookingId}`;

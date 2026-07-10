@@ -1098,6 +1098,7 @@ export async function findBookingsByCoachUserId(userId: number) {
             c.Location,
             bd.CoachScheduleID
         FROM BookingDetails bd
+        LEFT JOIN Courts c ON bd.CourtID = c.CourtID
         WHERE bd.BookingID = b.BookingID
         ORDER BY bd.StartTime ASC
       ) mainDetail

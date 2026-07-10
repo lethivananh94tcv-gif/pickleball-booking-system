@@ -8,7 +8,7 @@ import { findBookingsByUserId } from "@/modules/bookings/bookings.repository";
 export const dynamic = "force-dynamic";
 
 interface RouteContext {
-  params: Promise<{ userId: string }> | { userId: string };
+  params: Promise<{ userId: string }>;
 }
 
 export async function GET(req: NextRequest, context: RouteContext) {

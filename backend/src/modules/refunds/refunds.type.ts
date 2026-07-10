@@ -43,20 +43,22 @@ export type RefundResult = {
 // Record từ DB — dùng cho Player (my refunds)
 export type RefundRecord = {
   RefundID: number;
-  BookingID: number;
-  PaymentID: number;
+  BookingID: number | null;
+  PaymentID: number | null;
+  RegistrationID: number | null;
+  TournamentPaymentID: number | null;
   RefundCode: string | null;
   RefundMethod: RefundMethod | null;
   RefundAmount: number;
   Reason: string | null;
-  GatewayRefundId: string | null;
-  GatewayResponse: string | null;
   Status: RefundStatus;
-  RequestedAt: Date;
-  ProcessedAt: Date | null;
+  RequestedAt: Date | string;
+  ProcessedAt: Date | string | null;
   CreatedBy: number | null;
   ProcessedBy: number | null;
-  UpdatedAt: Date | null;
+  UpdatedAt: Date | string | null;
+  GatewayRefundId?: string | null;
+  GatewayResponse?: string | null;
   // Joined
   PaymentMethod?: string;
 };

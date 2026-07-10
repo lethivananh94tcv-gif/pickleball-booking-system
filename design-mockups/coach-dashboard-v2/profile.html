@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coach Dashboard V2 - Hồ sơ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark">P</span><span>Pickle<span class="brand-accent">Club</span></span></div>
+      <nav class="nav" aria-label="Coach dashboard">
+        <a class="active" href="profile.html">Hồ sơ</a>
+        <a href="expertise.html">Chuyên môn</a>
+        <a href="fee.html">Học phí</a>
+        <a href="schedules.html">Lịch dạy</a>
+        <a href="bookings.html">Đơn đặt lịch</a>
+        <a href="income.html">Thống kê & Thu nhập</a>
+      </nav>
+      <div class="account">
+        <button class="icon-btn" aria-label="Thông báo">!<span class="count-dot">6</span></button>
+        <div class="user-pill">Le Quoc Huy <span class="logout">↗</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="coach-hero">
+      <div class="coach-id">
+        <div class="avatar"><span>LH</span></div>
+        <div>
+          <span class="hero-kicker">Coach workspace</span>
+          <h1 class="coach-title">Le Quoc Huy</h1>
+          <p class="coach-meta">4.8 điểm đánh giá · 5 năm kinh nghiệm · 120 học viên</p>
+          <div class="badge-row">
+            <span class="badge success">Đã được duyệt</span>
+            <span class="badge success">Hồ sơ hiển thị tốt</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="hero-stat"><span>Hồ sơ</span><strong>100%</strong></div>
+        <div class="hero-stat"><span>Học phí</span><strong>500K</strong></div>
+        <div class="hero-stat"><span>Lịch mở</span><strong>27</strong></div>
+        <div class="hero-note"><strong>Gợi ý</strong><span>Cập nhật ảnh đại diện rõ mặt giúp tăng tỷ lệ đặt lịch.</span><span>+12%</span></div>
+      </div>
+    </section>
+
+    <section class="page-card">
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">Hồ sơ công khai</span>
+          <h2>Thông tin hồ sơ</h2>
+          <p>Cập nhật phần học viên nhìn thấy đầu tiên khi chọn Coach.</p>
+        </div>
+        <button class="primary-btn">Lưu thay đổi</button>
+      </div>
+      <div class="content-pad grid-2">
+        <div>
+          <div class="avatar-uploader">
+            <div class="avatar-preview"></div>
+            <div>
+              <span class="label">Ảnh đại diện</span>
+              <div class="muted">JPG, PNG hoặc WEBP, tối đa 3MB. Ưu tiên ảnh nền sáng, nhìn thẳng.</div>
+            </div>
+            <button class="ghost-btn">Chọn ảnh</button>
+          </div>
+
+          <div class="field-grid mt-18">
+            <div class="field">
+              <label for="years">Số năm kinh nghiệm</label>
+              <input id="years" class="input" value="5">
+            </div>
+            <div class="field">
+              <label for="spec">Chuyên môn chính</label>
+              <input id="spec" class="input" value="Beginner & Intermediate Training">
+            </div>
+          </div>
+
+          <div class="field mt-18">
+            <label for="bio">Giới thiệu bản thân <span class="muted">74/1000</span></label>
+            <textarea id="bio" class="textarea">Experienced coach specializing in beginner and intermediate level players.</textarea>
+          </div>
+
+          <div class="grid-3 mt-18">
+            <div class="panel">
+              <div class="panel-body">
+                <span class="label">Tỷ lệ hoàn thiện</span>
+                <strong>100%</strong>
+                <div class="progress-track mt-14"><div class="progress-bar" style="width:100%"></div></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-body">
+                <span class="label">Lượt xem hồ sơ</span>
+                <strong>248</strong>
+                <p class="muted">30 ngày gần nhất</p>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-body">
+                <span class="label">Tỷ lệ đặt sau xem</span>
+                <strong>18%</strong>
+                <p class="muted">Cao hơn trung bình</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="panel">
+          <div class="panel-head">
+            <h3>Preview hồ sơ</h3>
+            <p>Học viên sẽ thấy thẻ giới thiệu này khi xem danh sách Coach.</p>
+          </div>
+          <div class="panel-body">
+            <div class="live-preview">
+              <div class="preview-top">
+                <div class="preview-avatar"></div>
+                <div>
+                  <strong>Le Quoc Huy</strong>
+                  <p>Professional · 500.000 đ/giờ</p>
+                </div>
+              </div>
+              <p>Beginner & Intermediate Training, hướng dẫn nền tảng kỹ thuật và chiến thuật thi đấu đôi.</p>
+              <div class="badge-row">
+                <span class="badge success">4.8 sao</span>
+                <span class="badge success">120 học viên</span>
+              </div>
+            </div>
+
+            <div class="checklist mt-18">
+              <div class="check-item"><span class="check">✓</span><strong>Ảnh rõ mặt</strong><span class="badge green">Đạt</span></div>
+              <div class="check-item"><span class="check">✓</span><strong>Chuyên môn cụ thể</strong><span class="badge green">Đạt</span></div>
+              <div class="check-item"><span class="check">✓</span><strong>Mô tả ngắn gọn</strong><span class="badge green">Đạt</span></div>
+              <div class="check-item"><span class="check">✓</span><strong>Có lịch mở tuần này</strong><span class="badge green">27 slot</span></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <div class="floating-chat">?</div>
+</body>
+</html>

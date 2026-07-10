@@ -3,7 +3,7 @@ import { unlockUserController } from "@/modules/roles/roles.controller";
 
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ userId: string }> | { userId: string } }
+  context: { params: Promise<{ userId: string }>;}
 ) {
   const params = await context.params;
   const userId = Number(params.userId);

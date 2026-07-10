@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coach Dashboard V2 - Chuyên môn</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark">P</span><span>Pickle<span class="brand-accent">Club</span></span></div>
+      <nav class="nav" aria-label="Coach dashboard">
+        <a href="profile.html">Hồ sơ</a>
+        <a class="active" href="expertise.html">Chuyên môn</a>
+        <a href="fee.html">Học phí</a>
+        <a href="schedules.html">Lịch dạy</a>
+        <a href="bookings.html">Đơn đặt lịch</a>
+        <a href="income.html">Thống kê & Thu nhập</a>
+      </nav>
+      <div class="account">
+        <button class="icon-btn" aria-label="Thông báo">!<span class="count-dot">6</span></button>
+        <div class="user-pill">Le Quoc Huy <span class="logout">↗</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="coach-hero">
+      <div class="coach-id">
+        <div class="avatar"><span>LH</span></div>
+        <div>
+          <span class="hero-kicker">Coach workspace</span>
+          <h1 class="coach-title">Le Quoc Huy</h1>
+          <p class="coach-meta">4.8 điểm đánh giá · 5 năm kinh nghiệm · 120 học viên</p>
+          <div class="badge-row"><span class="badge success">Đã được duyệt</span><span class="badge success">PPR Certified</span></div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="hero-stat"><span>Cấp độ</span><strong>Pro</strong></div>
+        <div class="hero-stat"><span>Chứng chỉ</span><strong>1</strong></div>
+        <div class="hero-stat"><span>Kỹ năng</span><strong>6</strong></div>
+        <div class="hero-note"><strong>Ưu tiên</strong><span>Thêm 3 kỹ năng phụ để hồ sơ xuất hiện nhiều hơn ở bộ lọc Coach.</span><span>+</span></div>
+      </div>
+    </section>
+
+    <section class="page-card">
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">Năng lực giảng dạy</span>
+          <h2>Chuyên môn & Kỹ năng</h2>
+          <p>Chuẩn hóa năng lực để hệ thống gợi ý Coach chính xác hơn.</p>
+        </div>
+        <button class="primary-btn">Lưu chuyên môn</button>
+      </div>
+      <div class="content-pad grid-2">
+        <div>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Trình độ kỹ năng</h3>
+              <p>Chọn cấp độ cao nhất bạn đang nhận đào tạo.</p>
+            </div>
+            <div class="panel-body skill-ladder">
+              <div class="ladder-step"><span class="step-index">1</span><div><strong>Beginner</strong><p class="muted">Người mới, làm quen luật và kỹ thuật cơ bản.</p></div><span class="badge soft">Ẩn</span></div>
+              <div class="ladder-step"><span class="step-index">2</span><div><strong>Intermediate</strong><p class="muted">Ổn định kỹ thuật, bắt đầu chiến thuật đôi.</p></div><span class="badge soft">Ẩn</span></div>
+              <div class="ladder-step"><span class="step-index">3</span><div><strong>Advanced</strong><p class="muted">Tối ưu di chuyển, phản xạ và phối hợp.</p></div><span class="badge soft">Ẩn</span></div>
+              <div class="ladder-step active"><span class="step-index">4</span><div><strong>Professional - Chuyên nghiệp</strong><p class="muted">Nhận học viên luyện thi đấu và nâng cao hiệu suất.</p></div><span class="badge green">Đang chọn</span></div>
+            </div>
+          </div>
+
+          <div class="panel mt-18">
+            <div class="panel-head">
+              <h3>Chuyên môn hiển thị</h3>
+              <p>Nội dung ngắn, rõ nhóm học viên phù hợp.</p>
+            </div>
+            <div class="panel-body">
+              <div class="field">
+                <label for="specialization">Mô tả chuyên môn</label>
+                <input id="specialization" class="input" value="Beginner & Intermediate Training">
+              </div>
+              <div class="chips mt-14">
+                <span class="chip active">Dink control</span>
+                <span class="chip active">Footwork</span>
+                <span class="chip active">Serve & return</span>
+                <span class="chip">Tournament prep</span>
+                <span class="chip">Doubles strategy</span>
+                <span class="chip">Fitness basics</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Chứng chỉ / Giải thưởng</h3>
+              <p>Ảnh chứng chỉ giúp tăng độ tin cậy.</p>
+            </div>
+            <div class="panel-body">
+              <div class="certificate-box">
+                <div class="cert-thumb">PPR</div>
+                <div>
+                  <strong>PPR Certified</strong>
+                  <p class="muted">Đã tải lên · JPG · 1.2MB</p>
+                </div>
+              </div>
+              <button class="ghost-btn mt-14" style="width:100%">Thay chứng chỉ</button>
+            </div>
+          </div>
+
+          <div class="panel dark mt-18">
+            <div class="panel-head">
+              <h3>Tác động hồ sơ</h3>
+              <p>Dựa trên cách học viên lọc Coach trong 30 ngày gần nhất.</p>
+            </div>
+            <div class="panel-body">
+              <div class="split"><span class="label">Khớp bộ lọc Beginner</span><strong>92%</strong></div>
+              <div class="progress-track"><div class="progress-bar" style="width:92%"></div></div>
+              <div class="split mt-14"><span class="label">Khớp bộ lọc Intermediate</span><strong>88%</strong></div>
+              <div class="progress-track"><div class="progress-bar" style="width:88%"></div></div>
+              <div class="split mt-14"><span class="label">Độ tin cậy</span><strong>High</strong></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <div class="floating-chat">?</div>
+</body>
+</html>
