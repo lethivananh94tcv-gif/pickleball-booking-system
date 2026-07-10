@@ -52,18 +52,20 @@ function getStatusClass(status: string): string {
 }
 
 const HOLD_DURATION_MS = 10 * 60 * 1000;
-const VIETNAM_TIMEZONE_OFFSET = "+07:00";
 
-function parseHeldAt(createdAt: string): Date | null {
-  const match = createdAt.trim().match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)/);
-  const heldAt = new Date(match ? `${match[1]}T${match[2]}${VIETNAM_TIMEZONE_OFFSET}` : createdAt);
-  return Number.isNaN(heldAt.getTime()) ? null : heldAt;
+function parseBookingTimestamp(timestamp: string | null | undefined): Date | null {
+  if (!timestamp) return null;
+  const parsed = new Date(timestamp);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getHoldExpiresAt(booking: Booking): Date | null {
-  const heldAt = parseHeldAt(booking.CreatedAt);
-  if (!heldAt) return null;
-  return new Date(heldAt.getTime() + HOLD_DURATION_MS);
+function fallbackFromCreatedAt(createdAt: string): Date | null {
+  const heldAt = parseBookingTimestamp(createdAt);
+  return heldAt ? new Date(heldAt.getTime() + HOLD_DURATION_MS) : null;
+}
+
+function getPaymentExpiresAt(booking: Booking): Date | null {
+  return parseBookingTimestamp(booking.PaymentDeadline) ?? fallbackFromCreatedAt(booking.CreatedAt);
 }
 
 // Countdown timer cho booking PendingPayment
@@ -76,7 +78,7 @@ function useCountdown(booking: Booking) {
       return;
     }
 
-    const expiresAt = getHoldExpiresAt(booking);
+    const expiresAt = getPaymentExpiresAt(booking);
     if (!expiresAt) {
       setSecondsLeft(null);
       return;
@@ -91,7 +93,7 @@ function useCountdown(booking: Booking) {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [booking.BookingID, booking.Status, booking.CreatedAt]);
+  }, [booking.BookingID, booking.Status, booking.PaymentDeadline, booking.CreatedAt]);
 
   return secondsLeft;
 }
@@ -458,8 +460,8 @@ export default function BookingHistoryPage() {
                 {paginated.map((booking) => {
                   const isPending = booking.Status === "PendingPayment";
 
-                  const expiresAt = getHoldExpiresAt(booking);
-                  const isExpired = isPending && (!expiresAt || Date.now() >= expiresAt.getTime());
+                  const expiresAt = getPaymentExpiresAt(booking);
+                  const isExpired = isPending && !!expiresAt && Date.now() >= expiresAt.getTime();
 
                   // Calculate if booking playtime is in the past
                   const bookingDateStr = booking.BookingDate.toString().split("T")[0];
