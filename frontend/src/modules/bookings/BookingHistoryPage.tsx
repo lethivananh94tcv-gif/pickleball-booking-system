@@ -51,24 +51,47 @@ function getStatusClass(status: string): string {
   }
 }
 
+const HOLD_DURATION_MS = 10 * 60 * 1000;
+const VIETNAM_TIMEZONE_OFFSET = "+07:00";
+
+function parseHeldAt(createdAt: string): Date | null {
+  const match = createdAt.trim().match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)/);
+  const heldAt = new Date(match ? `${match[1]}T${match[2]}${VIETNAM_TIMEZONE_OFFSET}` : createdAt);
+  return Number.isNaN(heldAt.getTime()) ? null : heldAt;
+}
+
+function getHoldExpiresAt(booking: Booking): Date | null {
+  const heldAt = parseHeldAt(booking.CreatedAt);
+  if (!heldAt) return null;
+  return new Date(heldAt.getTime() + HOLD_DURATION_MS);
+}
+
 // Countdown timer cho booking PendingPayment
 function useCountdown(booking: Booking) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   useEffect(() => {
-    if (booking.Status !== "PendingPayment" || !booking.PaymentDeadline) return;
+    if (booking.Status !== "PendingPayment") {
+      setSecondsLeft(null);
+      return;
+    }
 
-    const expiresAt = new Date(booking.PaymentDeadline);
+    const expiresAt = getHoldExpiresAt(booking);
+    if (!expiresAt) {
+      setSecondsLeft(null);
+      return;
+    }
+    const expiryTime = expiresAt.getTime();
 
     function tick() {
-      const remaining = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
+      const remaining = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
       setSecondsLeft(remaining);
     }
 
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [booking.BookingID, booking.Status, booking.PaymentDeadline]);
+  }, [booking.BookingID, booking.Status, booking.CreatedAt]);
 
   return secondsLeft;
 }
@@ -435,11 +458,8 @@ export default function BookingHistoryPage() {
                 {paginated.map((booking) => {
                   const isPending = booking.Status === "PendingPayment";
 
-                  // Calculate expiry using PaymentDeadline if available
-                  const expiresAt = booking.PaymentDeadline
-                    ? new Date(booking.PaymentDeadline)
-                    : new Date(new Date(booking.CreatedAt).getTime() + 10 * 60 * 1000);
-                  const isExpired = isPending && Date.now() >= expiresAt.getTime();
+                  const expiresAt = getHoldExpiresAt(booking);
+                  const isExpired = isPending && (!expiresAt || Date.now() >= expiresAt.getTime());
 
                   // Calculate if booking playtime is in the past
                   const bookingDateStr = booking.BookingDate.toString().split("T")[0];
