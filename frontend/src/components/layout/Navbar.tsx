@@ -155,7 +155,7 @@ export default function Navbar() {
   if (role.includes("admin") || role.includes("manager") || role.includes("staff")) {
     profilePath = "/admin";
   } else if (role.includes("coach")) {
-    profilePath = "/profile";
+    profilePath = "/coach-dashboard";
   } else {
     profilePath = "/profile";
   }
