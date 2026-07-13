@@ -572,6 +572,7 @@ export async function completeManualRefund(
 
   // Update Booking / Tournament Registration and Payment Status
   if (refund.RegistrationID) {
+    // ── TOURNAMENT REFUND FLOW ──
     const { getPool } = await import("@/database/connection");
     const sql = await import("mssql");
     await refundRepo.rejectTournamentRegistration(refund.RegistrationID);
@@ -597,7 +598,7 @@ export async function completeManualRefund(
           `);
         const names = namesResult.recordset[0] || {};
         
-        // Notify in-app
+        // Notify in-app to CUSTOMER
         void createNotification({
           userId: reg.RegisteredBy,
           title: "Hoàn tiền đăng ký giải đấu thành công",
@@ -605,28 +606,35 @@ export async function completeManualRefund(
           notificationType: "System",
         });
 
-        // Send email
+        // Send email to CUSTOMER with bill image
         const userRes = await pool.request()
           .input("UserID", sql.Int, reg.RegisteredBy)
           .query("SELECT Email, FullName FROM Users WHERE UserID = @UserID");
         const user = userRes.recordset[0];
         if (user && user.Email) {
-          const { sendNotificationEmail } = await import("../../utils/mail");
-          void sendNotificationEmail({
-            to: user.Email,
-            fullName: user.FullName || "Vận động viên",
-            type: "Giải đấu",
-            subject: `Hoàn tất hoàn tiền lệ phí giải đấu - ${names.TournamentName || ""}`,
-            title: "Hoàn tất hoàn tiền lệ phí giải đấu",
-            message: `Ban tổ chức đã thực hiện hoàn tiền lệ phí đăng ký nội dung <strong>${names.DivisionName || ""}</strong> của giải đấu <strong>${names.TournamentName || ""}</strong> với số tiền là <strong>${Number(refund.RefundAmount).toLocaleString("vi-VN")} ₫</strong>.<br/><br/>Giao dịch chuyển khoản ngân hàng thủ công đã hoàn tất. Bạn vui lòng kiểm tra tài khoản thụ hưởng.<br/><br/>Hồ sơ đăng ký giải đấu của bạn đã được cập nhật chính thức sang trạng thái <strong>Từ chối (Rejected)</strong>.`,
+          const { sendTournamentRefundCompletedEmail } = await import("../../utils/mail");
+          void sendTournamentRefundCompletedEmail(user.Email, {
+            tournamentName: names.TournamentName || "Giải đấu",
+            divisionName: names.DivisionName || "Nội dung",
+            amount: refund.RefundAmount,
+            billImage: billImage,
           });
         }
       }
     } catch (err: any) {
-      console.error("[Refund] Failed to send rejection completion notification:", err.message);
+      console.error("[Refund] Failed to send tournament rejection completion notification:", err.message);
     }
+
+    // Notify in-app to STAFF (who requested the rejection)
+    void createNotification({
+      userId: refund.CreatedBy as number,
+      title: "Hoàn tiền giải đấu thành công",
+      message: `Đã hoàn tất chuyển khoản số tiền ${Number(refund.RefundAmount).toLocaleString("vi-VN")} VND cho đăng ký giải đấu ID: ${refund.RegistrationID}.`,
+      notificationType: "System",
+    });
+
   } else {
-    // Normal court booking flow
+    // ── BOOKING REFUND FLOW ──
     if (!refund.BookingID || !refund.PaymentID) {
       throw Object.assign(
         new Error("Không tìm thấy thông tin Booking hoặc Payment cho yêu cầu hoàn tiền."),
@@ -640,6 +648,44 @@ export async function completeManualRefund(
     if (payment && Number(refund.RefundAmount) >= Number(payment.Amount)) {
       await refundRepo.markPaymentRefunded(refund.PaymentID);
     }
+
+    let targetBankInfo = "tài khoản ngân hàng của bạn";
+    if (refund.Reason) {
+      const bankMatch = refund.Reason.match(/\[Bank:(.+?)\]/);
+      const accountMatch = refund.Reason.match(/\[Account:(.+?)\]/);
+      const nameMatch = refund.Reason.match(/\[Name:(.+?)\]/);
+      if (bankMatch && accountMatch && nameMatch) {
+        targetBankInfo = `tài khoản ${bankMatch[1]} - ${accountMatch[1]} - ${nameMatch[1]}`;
+      }
+    }
+
+    // Notify in-app to CUSTOMER (who requested the refund)
+    void createNotification({
+      userId: refund.CreatedBy as number,
+      title: "Hoàn tiền thành công",
+      message: `Đã hoàn số tiền ${Number(refund.RefundAmount).toLocaleString("vi-VN")} VND về ${targetBankInfo}.`,
+      notificationType: "System",
+    });
+
+    // Send email to CUSTOMER with bill image
+    try {
+      const { getPool, sql } = await import("@/database/connection");
+      const pool = await getPool();
+      const userRes = await pool.request().input("UID", sql.Int, refund.CreatedBy).query("SELECT Email FROM Users WHERE UserID = @UID");
+      const bookingRes = await pool.request().input("BID", sql.Int, refund.BookingID).query("SELECT BookingCode FROM Bookings WHERE BookingID = @BID");
+      const bookingCode = bookingRes.recordset[0]?.BookingCode || "N/A";
+      
+      if (userRes.recordset[0]?.Email) {
+        const { sendRefundCompletedEmail } = await import("@/utils/mail");
+        void sendRefundCompletedEmail(userRes.recordset[0].Email, {
+          bookingCode: bookingCode,
+          amount: refund.RefundAmount,
+          billImage: billImage,
+        });
+      }
+    } catch (err: any) {
+      console.error("[Refund] Failed to send booking refund completion email:", err.message);
+    }
   }
 
   void refundRepo.createAuditLog(
@@ -649,38 +695,6 @@ export async function completeManualRefund(
     refund.RefundID,
     `Admin ${processedBy} hoàn tất thủ công refund ${refundCode}.`
   );
-
-  let targetBankInfo = "tài khoản ngân hàng của bạn";
-  if (refund.Reason) {
-    const bankMatch = refund.Reason.match(/\[Bank:(.+?)\]/);
-    const accountMatch = refund.Reason.match(/\[Account:(.+?)\]/);
-    const nameMatch = refund.Reason.match(/\[Name:(.+?)\]/);
-    if (bankMatch && accountMatch && nameMatch) {
-      targetBankInfo = `tài khoản ${bankMatch[1]} - ${accountMatch[1]} - ${nameMatch[1]}`;
-    }
-  }
-
-  void createNotification({
-    userId: refund.CreatedBy as number,
-    title: "Hoàn tiền thành công",
-    message: `Đã hoàn số tiền ${Number(refund.RefundAmount).toLocaleString("vi-VN")} VND về ${targetBankInfo}.`,
-    notificationType: "System",
-  });
-
-  const { getPool, sql } = await import("@/database/connection");
-  const pool = await getPool();
-  const userRes = await pool.request().input("UID", sql.Int, refund.CreatedBy).query("SELECT Email FROM Users WHERE UserID = @UID");
-  const bookingRes = await pool.request().input("BID", sql.Int, refund.BookingID).query("SELECT BookingCode FROM Bookings WHERE BookingID = @BID");
-  const bookingCode = bookingRes.recordset[0]?.BookingCode || "N/A";
-  
-  if (userRes.recordset[0]?.Email) {
-    const { sendRefundCompletedEmail } = await import("@/utils/mail");
-    void sendRefundCompletedEmail(userRes.recordset[0].Email, {
-      bookingCode: bookingCode,
-      amount: refund.RefundAmount,
-      billImage: billImage,
-    });
-  }
 
   return { success: true, message: "Hoàn tiền thủ công đã được xác nhận thành công." };
 }

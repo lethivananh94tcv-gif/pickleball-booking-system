@@ -192,7 +192,7 @@ export async function getAdminRevenue(
           'Tournament' AS ServiceType,
           tp.Amount,
           tp.PaymentMethod,
-          CASE WHEN tp.PaymentStatus = 'Paid' THEN 'Paid' WHEN tp.PaymentStatus = 'Refunded' THEN 'Refunded' ELSE 'Failed' END AS Status,
+          CASE WHEN tp.PaymentStatus = 'Paid' THEN 'Paid' WHEN tp.PaymentStatus = 'Refunded' OR tp.PaymentStatus = 'Cancelled' THEN 'Refunded' ELSE 'Failed' END AS Status,
           COALESCE(tp.PaidAt, tp.CreatedAt) AS CreatedAt
         FROM TournamentPayments tp
         INNER JOIN TournamentRegistrations tr ON tp.RegistrationID = tr.RegistrationID
@@ -356,7 +356,7 @@ export async function getAdminRevenue(
           'Tournament' AS ServiceType,
           tp.Amount,
           tp.PaymentMethod,
-          CASE WHEN tp.PaymentStatus = 'Paid' THEN 'Paid' WHEN tp.PaymentStatus = 'Refunded' THEN 'Refunded' ELSE 'Failed' END AS Status,
+          CASE WHEN tp.PaymentStatus = 'Paid' THEN 'Paid' WHEN tp.PaymentStatus = 'Refunded' OR tp.PaymentStatus = 'Cancelled' THEN 'Refunded' ELSE 'Failed' END AS Status,
           COALESCE(tp.PaidAt, tp.CreatedAt) AS CreatedAt
         FROM TournamentPayments tp
         INNER JOIN TournamentRegistrations tr ON tp.RegistrationID = tr.RegistrationID

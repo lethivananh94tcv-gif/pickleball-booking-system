@@ -562,6 +562,60 @@ export async function sendRefundCompletedEmail(
   }
 }
 
+// ── Tournament Refund Completed Email ───────────────────
+export async function sendTournamentRefundCompletedEmail(
+  email: string,
+  details: {
+    tournamentName: string;
+    divisionName: string;
+    amount: number;
+    billImage?: any;
+  }
+): Promise<void> {
+  try {
+    if (!email) return;
+    const transporter = getTransporter();
+
+    const hasBillImage = details.billImage && details.billImage.buffer;
+    const attachments: any[] = [];
+    if (hasBillImage) {
+      attachments.push({
+        filename: details.billImage.filename || "bill.jpg",
+        content: details.billImage.buffer,
+        contentType: details.billImage.mimeType || "image/jpeg",
+        cid: "billimage@pickleball",
+        contentDisposition: "inline" as const,
+      });
+    }
+
+    await transporter.sendMail({
+      from: `"PCS Booking" <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: `Hoàn tất hoàn tiền lệ phí giải đấu - ${details.tournamentName}`,
+      html: `
+        <h2>Xác nhận hoàn tiền lệ phí giải đấu thành công</h2>
+        <p>Yêu cầu hoàn tiền lệ phí đăng ký nội dung <strong>${details.divisionName}</strong> của giải đấu <strong>${details.tournamentName}</strong> đã được xử lý thành công.</p>
+        <ul>
+          <li><strong>Số tiền hoàn lại:</strong> ${Number(details.amount).toLocaleString("vi-VN")} ₫</li>
+        </ul>
+        <p>Ban tổ chức đã thực hiện chuyển khoản ngân hàng thủ công. Bạn vui lòng kiểm tra tài khoản thụ hưởng.</p>
+        ${
+          hasBillImage
+            ? `<p><strong>Biên lai chuyển khoản:</strong></p><img src="cid:billimage@pickleball" alt="Biên lai hoàn tiền" style="max-width:500px;height:auto;border-radius:8px;" />`
+            : ""
+        }
+        <p>Hồ sơ đăng ký của bạn đã được cập nhật sang trạng thái <strong>Từ chối (Rejected)</strong>.</p>
+      `,
+      attachments,
+    });
+  } catch (err: any) {
+    console.error(
+      "[Mail] sendTournamentRefundCompletedEmail FAILED:",
+      err?.message ?? err
+    );
+  }
+}
+
 // ── Generic Notification Email ────────────────────────
 export interface NotificationEmailParams {
   to: string;

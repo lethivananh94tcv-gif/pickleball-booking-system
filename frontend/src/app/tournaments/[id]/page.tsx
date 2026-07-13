@@ -308,6 +308,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     dateOfBirth: "",
     photoUrl: "",
     note: "",
+    cccdUrl: "",
   });
 
   // Form error highlights
@@ -443,6 +444,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     if (!athlete1.dateOfBirth) {
       errors.dateOfBirth1 = "Ngày sinh là bắt buộc";
     }
+    if (!athlete1.cccdUrl || !athlete1.cccdUrl.trim()) {
+      errors.cccdUrl1 = "Link Profile DUPR hoặc DUPR ID là bắt buộc";
+    }
 
     // Validate Athlete 2 (Doubles ManualForm option only)
     if (!isSingles && partnerOption === "ManualForm") {
@@ -466,6 +470,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       }
       if (!athlete2.dateOfBirth) {
         errors.dateOfBirth2 = "Ngày sinh là bắt buộc";
+      }
+      if (!athlete2.cccdUrl || !athlete2.cccdUrl.trim()) {
+        errors.cccdUrl2 = "Link Profile DUPR hoặc DUPR ID là bắt buộc";
       }
     }
 
@@ -555,6 +562,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             gender: athlete2.gender,
             dateOfBirth: athlete2.dateOfBirth,
             photoUrl: athlete2.photoUrl || null,
+            cccdUrl: athlete2.cccdUrl || null,
             note: athlete2.note || null,
           }
         ];
@@ -1847,7 +1855,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           athlete1.province,
           athlete1.gender,
           athlete1.dateOfBirth,
-          athlete1.photoUrl
+          athlete1.photoUrl,
+          athlete1.cccdUrl
         ];
         
         const fields2 = !isSingles && partnerOption === "ManualForm" ? [
@@ -1857,7 +1866,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           athlete2.province,
           athlete2.gender,
           athlete2.dateOfBirth,
-          athlete2.photoUrl
+          athlete2.photoUrl,
+          athlete2.cccdUrl
         ] : [];
 
         const allFields = [...fields1, ...fields2];
@@ -2337,7 +2347,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
                             {/* Avatar dashed upload box */}
                             <div className="tm-form-group" style={{ gridColumn: "span 2" }}>
-                              <label className="tm-form-label" style={{ fontWeight: "600", color: "#334155" }}>Ảnh chân dung vận động viên *</label>
+                              <label className="tm-form-label" style={{ fontWeight: "600", color: "#334155" }}>Ảnh cá nhân vận động viên *</label>
                               <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], "athlete1")} style={{ display: "none" }} id="avatar-1-upload" />
                               <label htmlFor="avatar-1-upload" style={{ 
                                 display: "flex", 
@@ -2355,7 +2365,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                 {athlete1.photoUrl ? (
                                   <div style={{ textAlign: "center" }}>
                                     <img src={athlete1.photoUrl} alt="Avatar 1" style={{ width: "120px", height: "120px", borderRadius: "12px", objectFit: "cover", marginBottom: "12px" }} />
-                                    <p style={{ margin: 0, fontSize: "0.85rem", color: "#047857", fontWeight: "700" }}>Thay đổi ảnh chân dung</p>
+                                    <p style={{ margin: 0, fontSize: "0.85rem", color: "#047857", fontWeight: "700" }}>Thay đổi ảnh cá nhân</p>
                                   </div>
                                 ) : (
                                   <div style={{ textAlign: "center" }}>
@@ -2385,6 +2395,20 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                   </div>
                                 )}
                               </label>
+                            </div>
+
+                            {/* DUPR Profile Link/ID input */}
+                            <div className="tm-form-group" style={{ gridColumn: "span 2" }}>
+                              <label className="tm-form-label" style={{ fontWeight: "600", color: "#334155" }}>Link Profile DUPR hoặc DUPR ID *</label>
+                              <input 
+                                type="text"
+                                placeholder="Ví dụ: https://mydupr.com/dashboard/player/123456/info hoặc DUPR-ID-12345"
+                                style={getInputStyle(!!formErrors.cccdUrl1)}
+                                value={athlete1.cccdUrl}
+                                onChange={(e) => setAthlete1({ ...athlete1, cccdUrl: e.target.value })}
+                                required
+                              />
+                              {formErrors.cccdUrl1 && <span style={{ color: "#ef4444", fontSize: "0.75rem", marginTop: "4px", display: "block" }}>{formErrors.cccdUrl1}</span>}
                             </div>
                           </div>
                         </div>
@@ -2519,7 +2543,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
                               {/* Avatar dashed upload box 2 */}
                               <div className="tm-form-group" style={{ gridColumn: "span 2" }}>
-                                <label className="tm-form-label" style={{ fontWeight: "600", color: "#334155" }}>Ảnh chân dung đồng đội *</label>
+                                <label className="tm-form-label" style={{ fontWeight: "600", color: "#334155" }}>Ảnh cá nhân đồng đội *</label>
                                 <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], "athlete2")} style={{ display: "none" }} id="avatar-2-upload" />
                                 <label htmlFor="avatar-2-upload" style={{ 
                                   display: "flex", 
@@ -2537,7 +2561,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                   {athlete2.photoUrl ? (
                                     <div style={{ textAlign: "center" }}>
                                       <img src={athlete2.photoUrl} alt="Avatar 2" style={{ width: "120px", height: "120px", borderRadius: "12px", objectFit: "cover", marginBottom: "12px" }} />
-                                      <p style={{ margin: 0, fontSize: "0.85rem", color: "#047857", fontWeight: "700" }}>Thay đổi ảnh chân dung</p>
+                                      <p style={{ margin: 0, fontSize: "0.85rem", color: "#047857", fontWeight: "700" }}>Thay đổi ảnh cá nhân</p>
                                     </div>
                                   ) : (
                                     <div style={{ textAlign: "center" }}>
@@ -2567,6 +2591,20 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                     </div>
                                   )}
                                 </label>
+                              </div>
+
+                              {/* DUPR Profile Link/ID input 2 */}
+                              <div className="tm-form-group" style={{ gridColumn: "span 2" }}>
+                                <label className="tm-form-label" style={{ fontWeight: "600", color: "#334155" }}>Link Profile DUPR hoặc DUPR ID đồng đội *</label>
+                                <input 
+                                  type="text"
+                                  placeholder="Ví dụ: https://mydupr.com/dashboard/player/123456/info hoặc DUPR-ID-12345"
+                                  style={getInputStyle(!!formErrors.cccdUrl2)}
+                                  value={athlete2.cccdUrl || ""}
+                                  onChange={(e) => setAthlete2({ ...athlete2, cccdUrl: e.target.value })}
+                                  required
+                                />
+                                {formErrors.cccdUrl2 && <span style={{ color: "#ef4444", fontSize: "0.75rem", marginTop: "4px", display: "block" }}>{formErrors.cccdUrl2}</span>}
                               </div>
                             </div>
                           </div>

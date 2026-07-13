@@ -451,7 +451,7 @@ export async function markTournamentPaymentRefunded(paymentId: number): Promise<
     .input("PaymentID", sql.Int, paymentId)
     .query(`
       UPDATE TournamentPayments
-      SET PaymentStatus = 'Refunded'
+      SET PaymentStatus = 'Cancelled'
       WHERE TournamentPaymentID = @PaymentID
     `);
 }

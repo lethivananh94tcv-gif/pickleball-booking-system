@@ -29,7 +29,6 @@ export default function AdminTournamentManagePage({ params }: { params: Promise<
 
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [registrationsLoading, setRegistrationsLoading] = useState(false);
-  const [selectedCccdUrl, setSelectedCccdUrl] = useState<string | null>(null);
 
   // Division Create Modal state
   const [divModalOpen, setDivModalOpen] = useState(false);
@@ -127,7 +126,7 @@ export default function AdminTournamentManagePage({ params }: { params: Promise<
       setError("");
       setSuccess("");
       await tournamentApi.updateRegistrationAction(registrationId, action, !currentValue);
-      setSuccess(action === "verify" ? "Cập nhật duyệt CCCD thành công!" : "Cập nhật điểm danh check-in thành công!");
+      setSuccess(action === "verify" ? "Cập nhật duyệt thông tin DUPR thành công!" : "Cập nhật điểm danh check-in thành công!");
       loadRegistrations();
     } catch (err: any) {
       setError(err.message || "Thao tác thất bại.");
@@ -979,7 +978,7 @@ export default function AdminTournamentManagePage({ params }: { params: Promise<
             {/* Registrations list */}
             {selectedDivisionId && activeTab === "registrations" && (
               <div className={styles.panel}>
-                <h3 className={styles.panelTitle} style={{ marginBottom: "20px" }}>Danh sách đội đăng ký & Xác minh CCCD</h3>
+                <h3 className={styles.panelTitle} style={{ marginBottom: "20px" }}>Danh sách đội đăng ký & Xác minh Profile DUPR</h3>
                 
                 {registrationsLoading ? (
                   <div style={{ textAlign: "center", padding: "40px" }}>
@@ -997,9 +996,9 @@ export default function AdminTournamentManagePage({ params }: { params: Promise<
                           <th>Đội</th>
                           <th>Mã Đội</th>
                           <th>Thành viên & Điểm DUPR</th>
-                          <th>Thông tin CCCD</th>
+                          <th>Profile DUPR</th>
                           <th>Thanh toán</th>
-                          <th>Duyệt CCCD</th>
+                          <th>Duyệt DUPR</th>
                           <th>Điểm danh</th>
                           <th>Thao tác</th>
                         </tr>
@@ -1059,22 +1058,26 @@ export default function AdminTournamentManagePage({ params }: { params: Promise<
                                   {reg.athletes.map((ath: any) => (
                                     <div key={ath.athleteId} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                       {ath.cccdUrl ? (
-                                        <button
-                                          onClick={() => setSelectedCccdUrl(ath.cccdUrl)}
+                                        <a
+                                          href={ath.cccdUrl.startsWith("http") ? ath.cccdUrl : `https://mydupr.com/dashboard/browse?search=${encodeURIComponent(ath.cccdUrl)}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
                                           style={{
                                             padding: "4px 8px",
                                             fontSize: "11px",
-                                            backgroundColor: "#f1f5f9",
-                                            border: "1px solid #cbd5e1",
+                                            backgroundColor: "#f0fdf4",
+                                            border: "1px solid #bbf7d0",
                                             borderRadius: "4px",
-                                            cursor: "pointer",
-                                            color: "#1e293b"
+                                            color: "#166534",
+                                            textDecoration: "none",
+                                            fontWeight: "600",
+                                            display: "inline-block"
                                           }}
                                         >
-                                          Xem ảnh CCCD
-                                        </button>
+                                          Mở Profile DUPR 🔗
+                                        </a>
                                       ) : (
-                                        <span style={{ color: "#94a3b8", fontSize: "11px" }}>Chưa tải ảnh</span>
+                                        <span style={{ color: "#94a3b8", fontSize: "11px" }}>Chưa cung cấp</span>
                                       )}
                                     </div>
                                   ))}
@@ -1102,7 +1105,7 @@ export default function AdminTournamentManagePage({ params }: { params: Promise<
                                     cursor: isEligible ? "pointer" : "not-allowed",
                                     opacity: isEligible ? 1 : 0.6
                                   }}
-                                  title={!isEligible ? "Cần hoàn tất thanh toán trước khi duyệt CCCD" : ""}
+                                  title={!isEligible ? "Cần hoàn tất thanh toán trước khi duyệt hồ sơ" : ""}
                                 >
                                   {reg.cccdVerified ? "Đã duyệt" : "Chờ duyệt"}
                                 </button>
@@ -1421,69 +1424,6 @@ export default function AdminTournamentManagePage({ params }: { params: Promise<
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* CCCD Photo Modal */}
-      {selectedCccdUrl && (
-        <div 
-          onClick={() => setSelectedCccdUrl(null)}
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.75)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 9999,
-            cursor: "pointer"
-          }}
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "relative",
-              backgroundColor: "#ffffff",
-              padding: "16px",
-              borderRadius: "12px",
-              maxWidth: "90%",
-              maxHeight: "90%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center"
-            }}
-          >
-            <button 
-              onClick={() => setSelectedCccdUrl(null)}
-              style={{
-                position: "absolute",
-                top: "8px",
-                right: "8px",
-                border: "none",
-                background: "transparent",
-                fontSize: "24px",
-                cursor: "pointer",
-                color: "#64748b"
-              }}
-            >
-              ×
-            </button>
-            <h3 style={{ margin: "0 0 12px 0", color: "#0f172a", fontSize: "16px" }}>Ảnh Căn cước công dân (CCCD)</h3>
-            <img 
-              src={selectedCccdUrl} 
-              alt="Ảnh CCCD" 
-              style={{
-                maxWidth: "100%",
-                maxHeight: "75vh",
-                objectFit: "contain",
-                borderRadius: "8px",
-                border: "1px solid #e2e8f0"
-              }}
-            />
-          </div>
         </div>
       )}
     </div>
