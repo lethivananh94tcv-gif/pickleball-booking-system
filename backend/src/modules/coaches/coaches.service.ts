@@ -215,20 +215,24 @@ export async function getMySchedules(userId: number) {
   const activeBookedScheduleIdsArr = await coachRepo.findActiveBookedScheduleIds(coach.CoachID);
   const activeBookedScheduleIds = new Set(activeBookedScheduleIdsArr);
 
-  const futureAvailableSchedules = schedules.filter(s => {
-    if (s.Status !== "Available") return false;
-    if (activeBookedScheduleIds.has(s.CoachScheduleID)) return false;
-
-    // ensure strict datetime compare
+  const processedSchedules = schedules.map(s => {
     const dateStr = s.WorkingDate.split('T')[0];
     const scheduleDate = new Date(`${dateStr}T${s.StartTime}:00`);
-    return scheduleDate > nowVN;
+    const isExpired = scheduleDate <= nowVN;
+
+    let finalStatus = s.Status;
+    if (activeBookedScheduleIds.has(s.CoachScheduleID)) {
+      finalStatus = "Booked";
+    }
+
+    return {
+      ...s,
+      Status: finalStatus,
+      isExpired,
+    };
   });
 
-  return futureAvailableSchedules.map(s => ({
-    ...s,
-    isExpired: false,
-  }));
+  return processedSchedules.filter(s => !s.isExpired);
 }
 
 // ─── AUTH: Get schedule options ───────────────────────────────
@@ -671,4 +675,4 @@ export async function getMyIncome(userId: number) {
 
 export async function getCoachSchedules(coachId: number) {
   return coachRepo.findCoachSchedules(coachId);
-}
+}
