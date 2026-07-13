@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 
 from app.services.forecast_service import ForecastModelManager
 from app.services.decision_engine import AIDecisionEngine
-from app.services.llm_service import model
+from app.services.llm_service import client, MODEL_NAME
 
 router = APIRouter()
 
@@ -73,7 +73,9 @@ async def recommend_promotions(request: RecommendRequest):
         # Step 2: Pass predictions to central Decision Engine
         raw_recommendations = AIDecisionEngine.optimize_promotions(
             predictions=predictions,
+            # pyrefly: ignore [bad-argument-type]
             threshold_occupancy=request.thresholdOccupancy,
+            # pyrefly: ignore [bad-argument-type]
             base_price=request.basePrice
         )
         
@@ -90,7 +92,7 @@ async def recommend_promotions(request: RecommendRequest):
             marketing_msg = f"🔥 Khuyến mãi đặt sân đặc biệt lúc {hour}h ngày {request.targetDate}: Giảm ngay {discount}%! Số lượng có hạn, đặt sân ngay!"
             
             # Call Gemini to refine marketing content if api key is configured
-            if model:
+            if client:
                 try:
                     prompt = f"""
 Bạn là chuyên gia marketing và tối ưu doanh thu cho câu lạc bộ Pickleball "Pickle Club".
@@ -113,7 +115,11 @@ Hãy viết 2 nội dung bằng tiếng Việt:
 }}
 Lưu ý: Không bao gồm markdown code block (không có ```json ... ```), chỉ có chuỗi JSON nguyên bản.
 """
-                    response = model.generate_content(prompt, request_options={"timeout": 5.0})
+                    response = client.models.generate_content(
+                        model=MODEL_NAME,
+                        contents=prompt
+                    )
+                    # pyrefly: ignore [missing-attribute]
                     clean_text = response.text.strip()
                     # Strip markdown markers if model included them anyway
                     if clean_text.startswith("```"):

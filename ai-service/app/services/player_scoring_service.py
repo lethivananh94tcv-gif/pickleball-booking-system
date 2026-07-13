@@ -1,6 +1,7 @@
 import os
 import json
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from app.models.player_models import (
     PlayerProfileData,
     TeammateMatchRequest,
@@ -15,16 +16,15 @@ from app.models.player_models import (
 )
 
 API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
 
 print(f"GEMINI_API_KEY exists: {bool(API_KEY)}")
 print(f"MODEL_NAME: {MODEL_NAME}")
 
-model = None
+client = None
 if API_KEY:
     try:
-        genai.configure(api_key=API_KEY)
-        model = genai.GenerativeModel(MODEL_NAME)
+        client = genai.Client(api_key=API_KEY)
     except Exception as e:
         print(f"Error configuring Gemini for Player Scoring: {e}")
 
@@ -56,7 +56,7 @@ async def analyze_and_score_teammates(request: TeammateMatchRequest) -> Teammate
     has_desc_user = bool(request.user.playStyle.strip()) or bool(request.user.goal.strip())
     has_desc_candidates = any(bool(c.playStyle.strip()) or bool(c.goal.strip()) for c in request.candidates)
     
-    if not model or not API_KEY or not (has_desc_user and has_desc_candidates):
+    if not client or not API_KEY or not (has_desc_user and has_desc_candidates):
         reason = "GEMINI_API_KEY missing" if not API_KEY else ("No playStyle or goal description in profiles" if not (has_desc_user and has_desc_candidates) else "Model not configured")
         print(f"fallbackReason: {reason}")
         return handle_teammate_fallback(request, reason)
@@ -85,14 +85,16 @@ Lưu ý quan trọng: Chỉ đánh giá các ID có trong danh sách candidates 
 
     print("Gemini call started")
     try:
-        response = await model.generate_content_async(
-            prompt,
-            generation_config=genai.GenerationConfig(
+        response = await client.aio.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt,
+            config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=LLMTeammateResponse
             )
         )
         print("Gemini call success")
+        # pyrefly: ignore [bad-argument-type]
         llm_result = json.loads(response.text)
         llm_response = LLMTeammateResponse(**llm_result)
         eval_dict = {ev.playerId: ev for ev in llm_response.results}
@@ -116,6 +118,7 @@ Lưu ý quan trọng: Chỉ đánh giá các ID có trong danh sách candidates 
             )
             
             results.append(TeammateMatchResult(
+                # pyrefly: ignore [deprecated]
                 player=PlayerProfileData(**candidate.dict()),
                 score=round(final_score, 1),
                 reasons=reasons
@@ -189,7 +192,7 @@ async def analyze_and_score_opponents(request: OpponentMatchRequest) -> Opponent
         for ot in request.opponentTeams
     )
 
-    if not model or not API_KEY or not (has_desc_my and has_desc_opp):
+    if not client or not API_KEY or not (has_desc_my and has_desc_opp):
         reason = "GEMINI_API_KEY missing" if not API_KEY else ("No playStyle or goal description in profiles" if not (has_desc_my and has_desc_opp) else "Model not configured")
         print(f"fallbackReason: {reason}")
         return handle_opponent_fallback(request, reason)
@@ -219,14 +222,16 @@ Lưu ý: Chỉ chọn các opponentTeamId trong danh sách trên. Không tự ý
 
     print("Gemini call started")
     try:
-        response = await model.generate_content_async(
-            prompt,
-            generation_config=genai.GenerationConfig(
+        response = await client.aio.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt,
+            config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=LLMOpponentResponse
             )
         )
         print("Gemini call success")
+        # pyrefly: ignore [bad-argument-type]
         llm_result = json.loads(response.text)
         llm_response = LLMOpponentResponse(**llm_result)
         eval_dict = {ev.opponentTeamId: ev for ev in llm_response.results}

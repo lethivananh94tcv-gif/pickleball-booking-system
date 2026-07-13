@@ -3,7 +3,8 @@ import sys
 if hasattr(sys, 'set_int_max_str_digits'):
     sys.set_int_max_str_digits(100000)
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import json
 import datetime
 from dotenv import load_dotenv
@@ -13,20 +14,19 @@ from pathlib import Path
 
 # Load dotenv from correct path
 dotenv_path = Path(__file__).resolve().parent.parent.parent / '.env'
-load_dotenv(dotenv_path=dotenv_path)
+load_dotenv(dotenv_path=dotenv_path, override=True)
 
 # Cấu hình API Key cho Gemini
 API_KEY = os.getenv("GEMINI_API_KEY")
+client = None
 if API_KEY:
-    genai.configure(api_key=API_KEY)
+    try:
+        client = genai.Client(api_key=API_KEY)
+    except Exception as e:
+        print(f"Error initializing Gemini client: {e}")
 
 # Khởi tạo mô hình
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
-try:
-    model = genai.GenerativeModel(MODEL_NAME)
-except Exception as e:
-    model = None
-    print(f"Error initializing Gemini model: {e}")
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
 
 
 # Cấu trúc prompt mẫu cho việc phân tích intent
@@ -199,7 +199,7 @@ def pydantic_to_gemini_schema(model_class):
 CHATBOT_SCHEMA = pydantic_to_gemini_schema(ChatbotIntentResponse)
 
 def analyze_user_intent(message: str) -> ChatbotIntentResponse:
-    if not API_KEY or not model:
+    if not API_KEY or not client:
         # Fallback if key missing
         fallback_data = {
             "intent": "UNKNOWN",
@@ -236,15 +236,17 @@ def analyze_user_intent(message: str) -> ChatbotIntentResponse:
 
     # Sử dụng response_schema được làm sạch để ép Gemini trả về đúng format
     try:
-        response = model.generate_content(
-            f"{SYSTEM_PROMPT}\n\nContext: {context}\n\nCâu của người dùng: '{message}'",
-            generation_config=genai.GenerationConfig(
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=f"{SYSTEM_PROMPT}\n\nContext: {context}\n\nCâu của người dùng: '{message}'",
+            config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=CHATBOT_SCHEMA
             )
         )
         
         # Parse chuỗi JSON trả về thành Pydantic Model
+        # pyrefly: ignore [bad-argument-type]
         result_json = json.loads(response.text)
         if 'parsedData' in result_json:
             if not result_json['parsedData'].get('originalMessage'):

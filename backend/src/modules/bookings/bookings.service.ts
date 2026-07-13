@@ -819,9 +819,16 @@ export async function completeCheckedInBookings() {
 
 function calculatePaymentDeadline(createdAt: Date, bookingDate: Date | string, startTime: string): string {
   // DB stores local time via GETDATE(), but mssql driver treats it as UTC.
-  // So '2026-06-06 10:59:00' becomes '2026-06-06T10:59:00Z' (which is 17:59 local).
-  // We must subtract 7 hours to get the real UTC time.
-  const realUtcTime = new Date(createdAt).getTime() - 7 * 60 * 60 * 1000;
+  // Fix timezone issue when deployed to AWS (UTC) vs Local (UTC+7).
+  let realUtcTime = new Date(createdAt).getTime();
+
+  // If the parsed DB time is significantly in the future compared to now (e.g., > 4 hours),
+  // it means the DB returned a UTC+7 time but the mssql driver parsed it as UTC.
+  // We subtract 7 hours to get the real UTC time.
+  if (realUtcTime > Date.now() + 4 * 60 * 60 * 1000) {
+    realUtcTime -= 7 * 60 * 60 * 1000;
+  }
+  
   const deadline1 = new Date(realUtcTime + 10 * 60 * 1000);
 
   const dateStr = new Date(bookingDate).toLocaleDateString("en-US", {

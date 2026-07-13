@@ -1,6 +1,7 @@
 import os
 import json
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from pathlib import Path
 from dotenv import load_dotenv
 from app.models.coach_models import CoachRecommendRequest, CoachRecommendResponse, LLMCoachResponse, CoachScoreResult, CoachIntent
@@ -11,12 +12,11 @@ load_dotenv(dotenv_path=dotenv_path)
 
 # Khởi tạo model Gemini nếu có key
 API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
-model = None
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
+client = None
 if API_KEY:
     try:
-        genai.configure(api_key=API_KEY)
-        model = genai.GenerativeModel(MODEL_NAME)
+        client = genai.Client(api_key=API_KEY)
     except Exception as e:
         print(f"Error configuring Gemini for Coach Scoring: {e}")
 
@@ -39,7 +39,7 @@ async def analyze_and_score_coaches(request: CoachRecommendRequest) -> CoachReco
         return handle_fallback(request, reason="No styleText provided for analysis")
 
     # Nếu chưa cấu hình model hoặc API key, trả về fallback thay vì crash
-    if not API_KEY or not model:
+    if not API_KEY or not client:
         return handle_fallback(request, reason="GEMINI_API_KEY missing or model not initialized")
 
     # 2. Xây dựng prompt chứa danh sách ứng viên
@@ -57,9 +57,10 @@ async def analyze_and_score_coaches(request: CoachRecommendRequest) -> CoachReco
 
     try:
         # Gọi LLM sử dụng Structured Output
-        response = await model.generate_content_async(
-            f"{SYSTEM_PROMPT}\n\n{user_prompt}",
-            generation_config=genai.GenerationConfig(
+        response = await client.aio.models.generate_content(
+            model=MODEL_NAME,
+            contents=f"{SYSTEM_PROMPT}\n\n{user_prompt}",
+            config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=LLMCoachResponse
             )
