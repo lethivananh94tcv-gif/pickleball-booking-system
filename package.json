@@ -1,4 +1,13 @@
 {
+  "name": "pickleball-booking-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"cd frontend && npm run dev\" \"cd backend && npm run dev\" \"cd ai-service && python -m app.main\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
   "dependencies": {
     "react-icons": "^5.6.0"
   }

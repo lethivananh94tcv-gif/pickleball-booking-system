@@ -159,6 +159,20 @@ export default function CoachDashboard({ token }: Props) {
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [bookingActionId, setBookingActionId] = useState<number | null>(null);
 
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmStyle?: "success" | "warning" | "danger";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    confirmStyle: "success",
+  });
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAvatarError("");
     const file = e.target.files?.[0];
@@ -714,63 +728,84 @@ export default function CoachDashboard({ token }: Props) {
     }
   }
 
-  async function handleDeleteSchedule(scheduleId: number) {
-    if (!window.confirm("Bạn có chắc muốn xóa lịch này không?")) return;
-
-    try {
-      setScheduleActionId(scheduleId);
-      await deleteMySchedule(token, scheduleId);
-      await loadSchedules();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Xóa lịch thất bại");
-    } finally {
-      setScheduleActionId(null);
-    }
+  function handleDeleteSchedule(scheduleId: number) {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Xác nhận xóa lịch",
+      message: "Bạn có chắc muốn xóa lịch này không?",
+      confirmStyle: "danger",
+      onConfirm: async () => {
+        try {
+          setScheduleActionId(scheduleId);
+          await deleteMySchedule(token, scheduleId);
+          await loadSchedules();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : "Xóa lịch thất bại");
+        } finally {
+          setScheduleActionId(null);
+        }
+      },
+    });
   }
 
-  async function handleSetUnavailable(scheduleId: number) {
-    try {
-      setScheduleActionId(scheduleId);
-      await updateMySchedule(token, scheduleId, { status: "Unavailable" });
-      await loadSchedules();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Cập nhật lịch thất bại");
-    } finally {
-      setScheduleActionId(null);
-    }
+  function handleSetUnavailable(scheduleId: number) {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Xác nhận báo bận",
+      message: "Bạn có chắc muốn khóa khung giờ này không?",
+      confirmStyle: "warning",
+      onConfirm: async () => {
+        try {
+          setScheduleActionId(scheduleId);
+          await updateMySchedule(token, scheduleId, { status: "Unavailable" });
+          await loadSchedules();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : "Cập nhật lịch thất bại");
+        } finally {
+          setScheduleActionId(null);
+        }
+      },
+    });
   }
 
-  async function handleSetAvailable(scheduleId: number) {
-    try {
-      setScheduleActionId(scheduleId);
-      await updateMySchedule(token, scheduleId, { status: "Available" });
-      await loadSchedules();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Cập nhật lịch thất bại");
-    } finally {
-      setScheduleActionId(null);
-    }
+  function handleSetAvailable(scheduleId: number) {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Xác nhận mở lại lịch",
+      message: "Bạn muốn mở lại khung giờ này để học viên có thể đặt lịch?",
+      confirmStyle: "success",
+      onConfirm: async () => {
+        try {
+          setScheduleActionId(scheduleId);
+          await updateMySchedule(token, scheduleId, { status: "Available" });
+          await loadSchedules();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : "Cập nhật lịch thất bại");
+        } finally {
+          setScheduleActionId(null);
+        }
+      },
+    });
   }
 
-  async function handleCancelBooking(bookingId: number) {
-    if (
-      !window.confirm(
-        "Bạn có chắc muốn hủy đơn đặt lịch này? Hệ thống sẽ tự động hoàn 100% tiền cho Player."
-      )
-    ) {
-      return;
-    }
-
-    try {
-      setBookingActionId(bookingId);
-      await cancelBookingByCoach(token, bookingId);
-      alert("Hủy lịch thành công!");
-      await loadBookings();
-    } catch (err: any) {
-      alert(err.message || "Hủy lịch thất bại");
-    } finally {
-      setBookingActionId(null);
-    }
+  function handleCancelBooking(bookingId: number) {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Xác nhận hủy đơn",
+      message: "Bạn có chắc muốn hủy đơn đặt lịch này? Hệ thống sẽ tự động hoàn 100% tiền cho Player.",
+      onConfirm: async () => {
+        try {
+          setBookingActionId(bookingId);
+          await cancelBookingByCoach(token, bookingId);
+          alert("Hủy lịch thành công!");
+          await loadBookings();
+        } catch (err: any) {
+          alert(err.message || "Hủy lịch thất bại");
+        } finally {
+          setBookingActionId(null);
+        }
+      },
+    });
   }
 
   const isSuccessMessage = (message: string) => message.includes("thành công");
@@ -1492,7 +1527,7 @@ export default function CoachDashboard({ token }: Props) {
                                       handleSetUnavailable(schedule.CoachScheduleID)
                                     }
                                     disabled={isActioning}
-                                    className={styles.btnUnavailable}
+                                    className={styles.btnWarning}
                                   >
                                     {isActioning ? "..." : "Bận"}
                                   </button>
@@ -1814,6 +1849,38 @@ export default function CoachDashboard({ token }: Props) {
           </section>
         )}
       </div>
+
+      {confirmConfig.isOpen && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h3>{confirmConfig.title}</h3>
+            <p>{confirmConfig.message}</p>
+            <div className={styles.modalActions}>
+              <button
+                className={styles.cancelBtn}
+                onClick={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+              >
+                Hủy
+              </button>
+              <button
+                className={`${styles.saveBtn} ${
+                  confirmConfig.confirmStyle === "danger"
+                    ? styles.confirmDanger
+                    : confirmConfig.confirmStyle === "warning"
+                    ? styles.confirmWarning
+                    : ""
+                }`}
+                onClick={() => {
+                  confirmConfig.onConfirm();
+                  setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+                }}
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
