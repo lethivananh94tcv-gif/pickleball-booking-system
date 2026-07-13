@@ -10,6 +10,7 @@ export const databaseConfig: config = {
   options: {
     encrypt: false,
     trustServerCertificate: true,
+    requestTimeout: 60000,
   },
   pool: {
     max: 10,
