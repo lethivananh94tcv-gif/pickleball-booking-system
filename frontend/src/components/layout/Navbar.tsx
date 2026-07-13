@@ -155,7 +155,7 @@ export default function Navbar() {
   if (role.includes("admin") || role.includes("manager") || role.includes("staff")) {
     profilePath = "/admin";
   } else if (role.includes("coach")) {
-    profilePath = "/coach-dashboard";
+    profilePath = "/profile";
   } else {
     profilePath = "/profile";
   }
@@ -170,16 +170,6 @@ export default function Navbar() {
     { href: "/bookings", label: "Lịch sử booking" },
   ];
 
-  if (role.includes("coach")) {
-    navItems = [
-      { href: "/coach-dashboard?tab=profile", label: "Hồ sơ" },
-      { href: "/coach-dashboard?tab=expertise", label: "Chuyên môn" },
-      { href: "/coach-dashboard?tab=fee", label: "Học phí" },
-      { href: "/coach-dashboard?tab=schedules", label: "Lịch dạy" },
-      { href: "/coach-dashboard?tab=bookings", label: "Đơn đặt lịch" },
-      { href: "/coach-dashboard?tab=income", label: "Thống kê & Thu nhập" },
-    ];
-  }
 
   const isAdminOrStaff = role.includes("admin") || role.includes("manager") || role.includes("staff");
 
@@ -310,6 +300,18 @@ export default function Navbar() {
                 >
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                   <span>Quản trị</span>
+                </Link>
+              )}
+
+              {/* COACH DASHBOARD LINK */}
+              {role.includes("coach") && (
+                <Link
+                  href="/coach-dashboard"
+                  className={styles.adminLink}
+                  title="Quản lý Coach"
+                >
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  <span>Quản lý</span>
                 </Link>
               )}
 
