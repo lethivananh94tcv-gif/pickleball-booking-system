@@ -170,6 +170,17 @@ export default function Navbar() {
     { href: "/bookings", label: "Lịch sử booking" },
   ];
 
+  if (pathname.startsWith("/coach-dashboard")) {
+    navItems = [
+      { href: "/coach-dashboard?tab=profile", label: "Hồ sơ" },
+      { href: "/coach-dashboard?tab=expertise", label: "Chuyên môn" },
+      { href: "/coach-dashboard?tab=fee", label: "Học phí" },
+      { href: "/coach-dashboard?tab=schedules", label: "Lịch dạy" },
+      { href: "/coach-dashboard?tab=bookings", label: "Đơn đặt lịch" },
+      { href: "/coach-dashboard?tab=income", label: "Thu nhập" },
+    ];
+  }
+
 
   const isAdminOrStaff = role.includes("admin") || role.includes("manager") || role.includes("staff");
 
