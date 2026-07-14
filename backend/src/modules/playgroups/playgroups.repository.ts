@@ -70,6 +70,7 @@ export async function listGroups(filters: { skillLevel?: string; keyword?: strin
       4 AS MaxPlayers,
       COUNT(gm.GroupMemberID) AS CurrentPlayers,
       g.SkillLevel,
+      g.AverageExperience,
       g.Status,
       g.Description,
       g.CreatedAt,
@@ -99,6 +100,7 @@ export async function listGroups(filters: { skillLevel?: string; keyword?: strin
       g.GroupName,
       g.CreatedBy,
       g.SkillLevel,
+      g.AverageExperience,
       g.Status,
       g.Description,
       g.CreatedAt,
@@ -122,6 +124,7 @@ export async function getGroupDetails(groupId: number) {
         g.GroupName,
         g.CreatedBy AS CreatorID,
         g.SkillLevel,
+        g.AverageExperience,
         g.Status,
         g.Description,
         g.CreatedAt,
@@ -151,7 +154,8 @@ export async function getGroupDetails(groupId: number) {
         u.AvatarURL,
         u.Gender,
         p.SkillLevel,
-        p.PlayingRole
+        p.PlayingRole,
+        p.ExperienceYears
       FROM GroupMembers m
       INNER JOIN Users u ON m.UserID = u.UserID
       LEFT JOIN PlayerProfiles p ON p.UserID = u.UserID

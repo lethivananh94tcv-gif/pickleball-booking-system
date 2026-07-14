@@ -268,6 +268,9 @@ export async function findSuitableOpponents(userId: number, groupId: number) {
 
     const metricsB = await calculateTeamMetrics(otherId);
 
+    // Ensure groupB has the most up-to-date average experience calculated from active members
+    groupB.AverageExperience = parseFloat(metricsB.avgExp.toFixed(1));
+
     // Similarity calculations
     const skillSimilarity = Math.max(0, 100 - Math.abs(metricsA.avgSkill - metricsB.avgSkill) * 25);
     const experienceSimilarity = Math.max(0, 100 - Math.abs(metricsA.avgExp - metricsB.avgExp) * 10);
