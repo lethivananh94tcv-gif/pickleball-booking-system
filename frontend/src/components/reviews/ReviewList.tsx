@@ -114,13 +114,13 @@ export default function ReviewList({ reviews, loading, page, totalPages, onPageC
                 <div className={styles.authorInfo}>
                   <div className={styles.authorAvatar}>
                     {review.AvatarURL ? (
-                      <img src={review.AvatarURL} alt={review.FullName} />
+                      <img src={review.AvatarURL} alt={review.FullName || "User"} />
                     ) : (
-                      <span>{review.FullName.charAt(0).toUpperCase()}</span>
+                      <span>{(review.FullName || "U").charAt(0).toUpperCase()}</span>
                     )}
                   </div>
                   <div className={styles.authorText}>
-                    <strong>{review.FullName}</strong>
+                    <strong>{review.FullName || "Người dùng"}</strong>
                     <span className={styles.authorTarget}>
                       Học viên PickleClub
                     </span>

@@ -378,6 +378,24 @@ export async function updateTournament(id: number, data: UpdateTournamentInput, 
     throw Object.assign(new Error("Ngày bắt đầu giải đấu phải trước ngày kết thúc giải đấu"), { statusCode: 400 });
   }
 
+  // Chặn cập nhật ngày về quá khứ
+  const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  const todayStr = `${nowVN.getFullYear()}-${String(nowVN.getMonth() + 1).padStart(2, "0")}-${String(nowVN.getDate()).padStart(2, "0")}`;
+
+  if (data.registrationStart) {
+    const regStartStr = data.registrationStart.split("T")[0];
+    if (regStartStr < todayStr) {
+      throw Object.assign(new Error("Ngày bắt đầu đăng ký không được ở quá khứ"), { statusCode: 400 });
+    }
+  }
+
+  if (data.tournamentStart) {
+    const tourStartStr = data.tournamentStart.split("T")[0];
+    if (tourStartStr < todayStr) {
+      throw Object.assign(new Error("Ngày bắt đầu giải đấu không được ở quá khứ"), { statusCode: 400 });
+    }
+  }
+
   // BR-T01 / BR-T37: Không cho sửa nếu đã Completed hoặc Cancelled
   if (tournament.Status === TOURNAMENT_STATUS.COMPLETED || tournament.Status === TOURNAMENT_STATUS.CANCELLED) {
     throw Object.assign(
@@ -439,7 +457,11 @@ export async function updateTournament(id: number, data: UpdateTournamentInput, 
  * Clean up matches for a division
  */
 export async function resetDivisionMatches(divisionId: number): Promise<void> {
+  const division = await tournamentRepo.findDivisionById(divisionId);
+  if (!division) return;
   await tournamentRepo.deleteDivisionMatches(divisionId);
+  await tournamentRepo.updateDivisionStatus(divisionId, DIVISION_STATUS.REGISTRATION_CLOSED);
+  await recomputeTournamentStatus(division.TournamentID);
 }
 
 /**
@@ -1583,7 +1605,7 @@ export async function handleTournamentPaymentWebhook(params: {
 /**
  * Generate Single Elimination bracket for a division (Admin only)
  */
-export async function generateBracket(tournamentId: number, divisionId: number, userId: number) {
+export async function generateBracket(tournamentId: number, divisionId: number, userId: number, randomize: boolean = false) {
   const tournament = await tournamentRepo.findTournamentById(tournamentId);
   if (!tournament) {
     throw Object.assign(new Error("Không tìm thấy giải đấu"), { statusCode: 404 });
@@ -1615,7 +1637,7 @@ export async function generateBracket(tournamentId: number, divisionId: number, 
   const R = Math.log2(P); // Total rounds
 
   // Shuffle teams for random seeding or use as sorted seeds
-  const shuffledTeams = shuffleTeams(confirmedTeams);
+  const shuffledTeams = randomize ? shuffleTeams(confirmedTeams) : [...confirmedTeams];
 
   // 3. Create matches in memory
   // Match index 1 is Final (parent of index 2 & 3). Leaves are indices P/2 to P - 1.
@@ -1750,6 +1772,7 @@ export async function generateBracket(tournamentId: number, divisionId: number, 
   await tournamentRepo.saveBracketMatchesTransaction(divisionId, matchesList, "SingleElimination");
   // Update division status
   await tournamentRepo.updateDivisionStatus(divisionId, DIVISION_STATUS.DRAW_GENERATED);
+  await applyDefaultRoundScheduleConfig(tournamentId, divisionId, userId);
 
   // Recompute tournament status
   await recomputeTournamentStatus(tournamentId);
@@ -1768,7 +1791,7 @@ export async function generateBracket(tournamentId: number, divisionId: number, 
 /**
  * Generate Round Robin schedule for a division (Admin only)
  */
-export async function generateRoundRobinMatches(tournamentId: number, divisionId: number, userId: number) {
+export async function generateRoundRobinMatches(tournamentId: number, divisionId: number, userId: number, randomize: boolean = false) {
   const tournament = await tournamentRepo.findTournamentById(tournamentId);
   if (!tournament) {
     throw Object.assign(new Error("Không tìm thấy giải đấu"), { statusCode: 404 });
@@ -1807,7 +1830,7 @@ export async function generateRoundRobinMatches(tournamentId: number, divisionId
 
   const numTeams = confirmedTeams.length;
   const isOdd = numTeams % 2 !== 0;
-  const roundTeams = [...confirmedTeams];
+  const roundTeams = randomize ? shuffleTeams(confirmedTeams) : [...confirmedTeams];
   if (isOdd) {
     roundTeams.push(null);
   }
@@ -1847,6 +1870,7 @@ export async function generateRoundRobinMatches(tournamentId: number, divisionId
   await tournamentRepo.saveBracketMatchesTransaction(divisionId, matchesList, "RoundRobin");
 
   await tournamentRepo.updateDivisionStatus(divisionId, DIVISION_STATUS.DRAW_GENERATED);
+  await applyDefaultRoundScheduleConfig(tournamentId, divisionId, userId);
   await recomputeTournamentStatus(tournamentId);
 
   // Write audit log
@@ -1869,7 +1893,8 @@ export async function generateGroupKnockoutMatches(
   tournamentId: number,
   divisionId: number,
   groupCount: number,
-  userId: number
+  userId: number,
+  randomize: boolean = false
 ): Promise<any[]> {
   const tournament = await tournamentRepo.findTournamentById(tournamentId);
   if (!tournament) {
@@ -1920,7 +1945,7 @@ export async function generateGroupKnockoutMatches(
       ORDER BY AVG(ISNULL(a.Rating, 0.0)) DESC, t.TeamID ASC
     `);
 
-  const confirmedTeams = teamsRes.recordset;
+  const confirmedTeams = randomize ? shuffleTeams(teamsRes.recordset) : teamsRes.recordset;
   if (confirmedTeams.length < groupCount) {
     throw Object.assign(new Error(`Số lượng đội tham gia (${confirmedTeams.length}) phải lớn hơn hoặc bằng số lượng bảng đấu (${groupCount})`), { statusCode: 400 });
   }
@@ -1995,6 +2020,7 @@ export async function generateGroupKnockoutMatches(
 
   // Update division status & recompute tournament status
   await tournamentRepo.updateDivisionStatus(divisionId, DIVISION_STATUS.DRAW_GENERATED);
+  await applyDefaultRoundScheduleConfig(tournamentId, divisionId, userId);
   await recomputeTournamentStatus(tournamentId);
 
   // Write audit log
@@ -2016,7 +2042,8 @@ export async function generateGroupKnockoutMatches(
 export async function generateGroupKnockoutBracket(
   tournamentId: number,
   divisionId: number,
-  userId: number
+  userId: number,
+  randomize: boolean = false
 ): Promise<any[]> {
   const tournament = await tournamentRepo.findTournamentById(tournamentId);
   if (!tournament) {
@@ -2099,18 +2126,46 @@ export async function generateGroupKnockoutBracket(
     throw Object.assign(new Error("Không đủ số đội vượt qua vòng bảng để tạo nhánh đấu"), { statusCode: 400 });
   }
 
-  // 2. Build cross-over pairings: Nhất Bảng i đấu Nhì Bảng (i+1) % M
-  const M = sortedGroupNames.length;
+  // 2. Build cross-over pairings with optional derangement random seeding
   const pairedTeams: any[] = [];
-  for (let i = 0; i < M; i++) {
-    const firstGroup = sortedGroupNames[i];
-    const secondGroup = sortedGroupNames[(i + 1) % M];
+  if (randomize) {
+    const rank1s = sortedGroupNames.map(gn => qualifiedTeams.find(t => t.groupName === gn && t.rank === 1)).filter(Boolean) as any[];
+    const rank2s = sortedGroupNames.map(gn => qualifiedTeams.find(t => t.groupName === gn && t.rank === 2)).filter(Boolean) as any[];
 
-    const team1st = qualifiedTeams.find(t => t.groupName === firstGroup && t.rank === 1);
-    const team2nd = qualifiedTeams.find(t => t.groupName === secondGroup && t.rank === 2);
+    let shuffledRank2s = [...rank2s];
+    let attempts = 0;
+    let valid = false;
 
-    if (team1st) pairedTeams.push(team1st);
-    if (team2nd) pairedTeams.push(team2nd);
+    while (!valid && attempts < 1000) {
+      shuffledRank2s = shuffleTeams(rank2s);
+      valid = true;
+      for (let i = 0; i < rank1s.length; i++) {
+        if (i < shuffledRank2s.length && rank1s[i].groupName === shuffledRank2s[i].groupName) {
+          valid = false;
+          break;
+        }
+      }
+      attempts++;
+    }
+
+    for (let i = 0; i < rank1s.length; i++) {
+      pairedTeams.push(rank1s[i]);
+      if (i < shuffledRank2s.length) {
+        pairedTeams.push(shuffledRank2s[i]);
+      }
+    }
+  } else {
+    const M = sortedGroupNames.length;
+    for (let i = 0; i < M; i++) {
+      const firstGroup = sortedGroupNames[i];
+      const secondGroup = sortedGroupNames[(i + 1) % M];
+
+      const team1st = qualifiedTeams.find(t => t.groupName === firstGroup && t.rank === 1);
+      const team2nd = qualifiedTeams.find(t => t.groupName === secondGroup && t.rank === 2);
+
+      if (team1st) pairedTeams.push(team1st);
+      if (team2nd) pairedTeams.push(team2nd);
+    }
   }
 
   // 3. Compute power of 2 bracket size for qualified teams
@@ -2243,6 +2298,7 @@ export async function generateGroupKnockoutBracket(
   await tournamentRepo.saveKnockoutMatchesTransaction(divisionId, matchesList);
 
   await tournamentRepo.updateDivisionStatus(divisionId, DIVISION_STATUS.KNOCKOUT_STAGE);
+  await applyDefaultRoundScheduleConfig(tournamentId, divisionId, userId);
   await recomputeTournamentStatus(tournamentId);
 
   // Write audit log
@@ -2286,6 +2342,7 @@ export async function allocateDivisionSchedule(
     minRestMinutes?: number;
     dailyStartHour?: string;
     dailyEndHour?: string;
+    roundNo?: number;
   },
   userId: number
 ) {
@@ -2297,6 +2354,10 @@ export async function allocateDivisionSchedule(
   const division = await tournamentRepo.findDivisionById(divisionId);
   if (!division) {
     throw Object.assign(new Error("Không tìm thấy nội dung thi đấu"), { statusCode: 404 });
+  }
+
+  if (new Date(body.startDateTime).getTime() < Date.now() - 15 * 60 * 1000) {
+    throw Object.assign(new Error("Thời gian bắt đầu xếp lịch không thể ở quá khứ"), { statusCode: 400 });
   }
 
   const allowedStatuses = [
@@ -2350,8 +2411,8 @@ export async function allocateDivisionSchedule(
   const blocksRes = await pool.request()
     .query(`
       SELECT CourtID, 
-             CONVERT(VARCHAR(19), StartDateTime, 120) AS StartTimeStr, 
-             CONVERT(VARCHAR(19), EndDateTime, 120) AS EndTimeStr 
+             CONVERT(VARCHAR(19), DATEADD(hour, 7, StartDateTime), 120) AS StartTimeStr, 
+             CONVERT(VARCHAR(19), DATEADD(hour, 7, EndDateTime), 120) AS EndTimeStr 
       FROM TournamentCourtBlocks
       WHERE Status = 'Active' 
         AND CourtID IN (${activeCourtIds.join(",")})
@@ -2365,12 +2426,16 @@ export async function allocateDivisionSchedule(
   }
 
   // 1. Filter out only matches that are in Scheduled status and have both teams assigned
-  const activeMatches = matches.filter(
+  let activeMatches = matches.filter(
     (m) =>
       (m.MatchStatus === "Scheduled" || m.MatchStatus === "NotStarted") &&
       m.TeamAID &&
       m.TeamBID
   );
+
+  if (body.roundNo !== undefined && body.roundNo > 0) {
+    activeMatches = activeMatches.filter(m => m.RoundNo === body.roundNo);
+  }
 
   // 2. Sort active matches by RoundNo and MatchNo to schedule chronologically per round
   activeMatches.sort((a, b) => {
@@ -2751,6 +2816,9 @@ export async function getDivisionRegistrations(divisionId: number) {
         confirmedAt: row.ConfirmedAt,
         cccdVerified: row.CccdVerified,
         isCheckedIn: row.IsCheckedIn,
+        isCertificateSent: row.IsCertificateSent,
+        certificateSentAt: row.CertificateSentAt,
+        certificatePdfUrl: row.CertificatePdfUrl,
         teamName: row.TeamName,
         teamCode: row.TeamCode,
         refundStatus: row.RefundStatus,
@@ -2771,6 +2839,7 @@ export async function getDivisionRegistrations(divisionId: number) {
         dateOfBirth: row.DateOfBirth,
         photoUrl: row.PhotoURL,
         cccdUrl: row.CccdURL,
+        email: row.Email,
         note: row.Note
       });
     }
@@ -3022,4 +3091,223 @@ export async function getMyRegistrationForTournament(tournamentId: number, userI
   }
   return finalList;
 }
+
+/**
+ * Cập nhật cột mốc thời gian (ScheduledStart) cho các vòng đấu của một nội dung
+ */
+export async function updateRoundMilestones(
+  tournamentId: number,
+  divisionId: number,
+  milestones: Array<{ roundNo: number; roundName?: string; scheduledStart: string; courtId?: number }>,
+  userId: number
+): Promise<void> {
+  const tournament = await tournamentRepo.findTournamentById(tournamentId);
+  if (!tournament) {
+    throw Object.assign(new Error("Không tìm thấy giải đấu"), { statusCode: 404 });
+  }
+
+  const division = await tournamentRepo.findDivisionById(divisionId);
+  if (!division) {
+    throw Object.assign(new Error("Không tìm thấy nội dung thi đấu"), { statusCode: 404 });
+  }
+
+  const pool = await getPool();
+  
+  for (const m of milestones) {
+    const hasRoundName = !!m.roundName;
+    const hasCourtId = m.courtId !== undefined && m.courtId > 0;
+    
+    let query = "";
+    if (hasRoundName) {
+      query = `UPDATE TournamentMatches 
+               SET ScheduledStart = @scheduledStart
+                   ${hasCourtId ? ", CourtID = @courtId" : ""} 
+               WHERE DivisionID = @divisionId 
+                 AND RoundNo = @roundNo 
+                 AND (KnockoutRound = @roundName OR KnockoutRound IS NULL)`;
+    } else {
+      query = `UPDATE TournamentMatches 
+               SET ScheduledStart = @scheduledStart
+                   ${hasCourtId ? ", CourtID = @courtId" : ""} 
+               WHERE DivisionID = @divisionId 
+                 AND RoundNo = @roundNo`;
+    }
+
+    const request = pool.request()
+      .input("divisionId", sql.Int, divisionId)
+      .input("roundNo", sql.Int, m.roundNo)
+      .input("scheduledStart", sql.DateTime, new Date(m.scheduledStart));
+
+    if (hasRoundName) {
+      request.input("roundName", sql.NVarChar, m.roundName);
+    }
+    if (hasCourtId) {
+      request.input("courtId", sql.Int, m.courtId);
+    }
+
+    await request.query(query);
+  }
+
+  // Ghi AuditLog
+  await createAuditLog({
+    userId,
+    actionName: "UPDATE_ROUND_MILESTONES",
+    tableName: "TournamentMatches",
+    entityId: divisionId,
+    description: `Admin cập nhật cột mốc thời gian cho ${milestones.length} vòng đấu của nội dung ID: ${divisionId}`,
+  });
+}
+
+export async function applyDefaultRoundScheduleConfig(tournamentId: number, divisionId: number, userId: number) {
+  const division = await tournamentRepo.findDivisionById(divisionId);
+  if (division && (division as any).RoundScheduleConfig) {
+    try {
+      const config = JSON.parse((division as any).RoundScheduleConfig);
+      if (Array.isArray(config) && config.length > 0) {
+        await updateRoundMilestones(tournamentId, divisionId, config, userId);
+      }
+    } catch (e) {
+      console.error("Error applying pre-configured round milestones", e);
+    }
+  }
+}
+
+/**
+ * Gửi email chứng nhận giải đấu cho đội đăng ký
+ */
+export async function sendCertificateEmail(registrationId: number, rankOverride: string, userId: number) {
+  const registrationRows = await tournamentRepo.getRegistrationForCertificate(registrationId);
+  if (!registrationRows || registrationRows.length === 0) {
+    throw Object.assign(new Error("Không tìm thấy thông tin đăng ký hoặc thành viên đội hợp lệ"), { statusCode: 404 });
+  }
+
+  const firstRow = registrationRows[0];
+  if (firstRow.RegistrationStatus !== "Confirmed") {
+    throw Object.assign(new Error("Đơn đăng ký phải ở trạng thái đã duyệt (Confirmed) mới được gửi chứng chỉ"), { statusCode: 400 });
+  }
+
+  // Resolve rank
+  let rankValue: number | null = null;
+  if (rankOverride === "1") rankValue = 1;
+  else if (rankOverride === "2") rankValue = 2;
+  else if (rankOverride === "3") rankValue = 3;
+  else if (rankOverride === "none") rankValue = null;
+  else { // "auto"
+    if (firstRow.BracketType === "RoundRobin") {
+      const standings = await tournamentRepo.getDivisionStandings(firstRow.DivisionID);
+      const sorted = [...standings].sort((a, b) => (a.RankNo || 99) - (b.RankNo || 99));
+      const idx = sorted.findIndex(s => s.TeamID === firstRow.TeamID);
+      if (idx >= 0 && idx < 3) {
+        rankValue = idx + 1;
+      } else {
+        rankValue = null;
+      }
+    } else {
+      const matches = await tournamentRepo.getDivisionMatches(firstRow.DivisionID);
+      const finalMatch = matches.find((m: any) => m.KnockoutRound === "Chung kết");
+      const thirdMatch = matches.find((m: any) => m.KnockoutRound === "Tranh hạng 3");
+      if (finalMatch && finalMatch.WinnerTeamID) {
+        if (finalMatch.WinnerTeamID === firstRow.TeamID) {
+          rankValue = 1;
+        } else if (finalMatch.TeamAID === firstRow.TeamID || finalMatch.TeamBID === firstRow.TeamID) {
+          rankValue = 2;
+        }
+      }
+      if (thirdMatch && thirdMatch.WinnerTeamID && thirdMatch.WinnerTeamID === firstRow.TeamID) {
+        rankValue = 3;
+      }
+    }
+  }
+
+  // Resolve visual properties based on rank
+  const isChampion = rankValue === 1;
+  const isRunnerUp = rankValue === 2;
+  const isThird = rankValue === 3;
+
+  let rankLabel = "Chứng nhận hoàn thành giải đấu";
+  let badgeIcon = "🎁";
+  let rewardText = "Hộp quà lưu niệm BTC & Huy hiệu lưu niệm";
+
+  // Parse Prize Info
+  const getPrizeText = (place: number, prizeInfo?: string) => {
+    if (!prizeInfo) {
+      if (place === 1) return "20.000.000 VNĐ";
+      if (place === 2) return "10.000.000 VNĐ";
+      return "5.000.000 VNĐ";
+    }
+    const info = prizeInfo.toLowerCase();
+    if (place === 1) {
+      const m = info.match(/(nhất|vô địch|champion|1st)[:\-\s]+([\d\.,\s]+(vnđ|vnd|đ|đồng|triệu)?)/i);
+      return m ? m[2].trim().toUpperCase() : "20.000.000 VNĐ";
+    } else if (place === 2) {
+      const m = info.match(/(nhì|á quân|runner|2nd)[:\-\s]+([\d\.,\s]+(vnđ|vnd|đ|đồng|triệu)?)/i);
+      return m ? m[2].trim().toUpperCase() : "10.000.000 VNĐ";
+    } else {
+      const m = info.match(/(ba|hạng ba|third|3rd)[:\-\s]+([\d\.,\s]+(vnđ|vnd|đ|đồng|triệu)?)/i);
+      return m ? m[2].trim().toUpperCase() : "5.000.000 VNĐ";
+    }
+  };
+
+  if (isChampion) {
+    rankLabel = "Giải Vô Địch (Hạng 1)";
+    badgeIcon = "🏆";
+    rewardText = `CÚP VÔ ĐỊCH, Huy chương Vàng & Tiền thưởng ${getPrizeText(1, firstRow.PrizeInfo)}`;
+  } else if (isRunnerUp) {
+    rankLabel = "Giải Á Quân (Hạng 2)";
+    badgeIcon = "🥈";
+    rewardText = `Huy chương Bạc & Tiền thưởng ${getPrizeText(2, firstRow.PrizeInfo)}`;
+  } else if (isThird) {
+    rankLabel = "Đồng Giải Ba (Hạng 3)";
+    badgeIcon = "🥉";
+    rewardText = `Huy chương Đồng & Tiền thưởng ${getPrizeText(3, firstRow.PrizeInfo)}`;
+  }
+
+  // Gửi email cho từng thành viên
+  const { sendTournamentCertificateEmail } = await import("../../utils/mail");
+  for (const athlete of registrationRows) {
+    if (athlete.Email) {
+      await sendTournamentCertificateEmail(athlete.Email, {
+        recipientName: athlete.FullName,
+        tournamentName: athlete.TournamentName,
+        divisionName: athlete.DivisionName,
+        teamCode: athlete.TeamCode,
+        rankLabel,
+        badgeIcon,
+        rewardText,
+        certificateUrl: `${process.env.FRONTEND_URL || "http://localhost:3000"}/tournaments/${athlete.TournamentID}?certRegId=${athlete.RegistrationID}`,
+        certificatePdfUrl: athlete.CertificatePdfUrl || null
+      });
+    }
+  }
+
+  // Cập nhật database
+  await tournamentRepo.updateCertificateSent(registrationId);
+
+  // Ghi AuditLog
+  await createAuditLog({
+    userId,
+    actionName: "SEND_CERTIFICATE_EMAIL",
+    tableName: "TournamentRegistrations",
+    entityId: registrationId,
+    description: `Gửi email chứng chỉ giải đấu cho đội: ${firstRow.TeamName} (Mã đội: ${firstRow.TeamCode}), Hạng: ${rankLabel}`,
+  });
+
+  return { success: true };
+}
+
+/**
+ * Cập nhật đường dẫn file PDF chứng chỉ giải đấu
+ */
+export async function updateCertificatePdfUrl(registrationId: number, pdfUrl: string | null, userId: number) {
+  await tournamentRepo.updateCertificatePdfUrl(registrationId, pdfUrl);
+
+  await createAuditLog({
+    userId,
+    actionName: "UPDATE_CERTIFICATE_PDF_URL",
+    tableName: "TournamentRegistrations",
+    entityId: registrationId,
+    description: `Cập nhật đường dẫn file PDF chứng chỉ cho đơn đăng ký ID: ${registrationId} thành: ${pdfUrl || "Trống"}`,
+  });
+}
+
 

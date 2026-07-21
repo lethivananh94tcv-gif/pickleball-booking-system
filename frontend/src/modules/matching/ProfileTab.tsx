@@ -31,6 +31,8 @@ export default function ProfileTab({ token, onProfileUpdated, showToast }: Profi
     AvailableEndTime: "10:00",
   });
 
+  const [errors, setErrors] = useState<{ playStyle?: boolean; goal?: boolean }>({});
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -70,6 +72,22 @@ export default function ProfileTab({ token, onProfileUpdated, showToast }: Profi
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Reset previous errors
+    const newErrors: { playStyle?: boolean; goal?: boolean } = {};
+    if (!profileForm.PlayStyle || !profileForm.PlayStyle.trim()) {
+      newErrors.playStyle = true;
+    }
+    if (!profileForm.Goal || !profileForm.Goal.trim()) {
+      newErrors.goal = true;
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      showToast("Vui lòng nhập phong cách chơi và mục tiêu tập luyện để tìm được người chơi tối ưu nhất cho bạn!", "error");
+      return;
+    }
+    setErrors({});
 
     if (!profileForm.AvailableStartTime || !profileForm.AvailableStartTime.trim()) {
       showToast("Vui lòng nhập giờ bắt đầu rảnh.", "error");
@@ -144,10 +162,13 @@ export default function ProfileTab({ token, onProfileUpdated, showToast }: Profi
               onChange={(e) => setProfileForm({ ...profileForm, SkillLevel: e.target.value })}
               className={styles.select}
             >
-              <option value="Beginner">Mới chơi (Beginner)</option>
-              <option value="Intermediate">Khá (Intermediate)</option>
-              <option value="Advanced">Giỏi (Advanced)</option>
-              <option value="Professional">Chuyên nghiệp (Professional)</option>
+              <option value="Beginner">🟢 Mới bắt đầu — Beginner (2.0 - 2.5)</option>
+              <option value="Novice">🔵 Sơ cấp — Novice (2.5 - 3.0)</option>
+              <option value="Intermediate">🟡 Trung bình — Intermediate (3.0 - 3.5)</option>
+              <option value="Advanced Intermediate">🟠 Khá — Advanced Intermediate (3.5 - 4.0)</option>
+              <option value="Advanced">🔴 Giỏi — Advanced (4.0 - 4.5)</option>
+              <option value="Expert">🟣 Cao thủ — Expert (4.5 - 5.0)</option>
+              <option value="Professional">⭐ Chuyên nghiệp — Professional (5.0+)</option>
             </select>
           </div>
         </div>
@@ -200,25 +221,51 @@ export default function ProfileTab({ token, onProfileUpdated, showToast }: Profi
         </div>
 
         <div className={styles.formGroup}>
-          <label className={styles.label}>Phong cách chơi (Play Style)</label>
+          <label className={styles.label}>
+            Phong cách chơi (Play Style) <span style={{ color: "var(--pcs-status-error)" }}>*</span>
+          </label>
           <input
             type="text"
             placeholder="Ví dụ: Thích ép trái bóng, tấn công nhanh, bám lưới..."
             value={profileForm.PlayStyle || ""}
-            onChange={(e) => setProfileForm({ ...profileForm, PlayStyle: e.target.value })}
+            onChange={(e) => {
+              setProfileForm({ ...profileForm, PlayStyle: e.target.value });
+              if (e.target.value.trim()) {
+                setErrors((prev) => ({ ...prev, playStyle: false }));
+              }
+            }}
             className={styles.input}
+            style={errors.playStyle ? { borderColor: "var(--pcs-status-error)", boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.15)" } : undefined}
           />
+          {errors.playStyle && (
+            <span style={{ color: "var(--pcs-status-error)", fontSize: "12px", fontWeight: "500", marginTop: "2px" }}>
+              Vui lòng nhập phong cách chơi để tìm đồng đội phù hợp nhất
+            </span>
+          )}
         </div>
 
         <div className={styles.formGroup}>
-          <label className={styles.label}>Mục tiêu tập luyện/thi đấu (Goal)</label>
+          <label className={styles.label}>
+            Mục tiêu tập luyện/thi đấu (Goal) <span style={{ color: "var(--pcs-status-error)" }}>*</span>
+          </label>
           <input
             type="text"
             placeholder="Ví dụ: Tìm đối tác lên trình nhanh, giao lưu vui vẻ..."
             value={profileForm.Goal || ""}
-            onChange={(e) => setProfileForm({ ...profileForm, Goal: e.target.value })}
+            onChange={(e) => {
+              setProfileForm({ ...profileForm, Goal: e.target.value });
+              if (e.target.value.trim()) {
+                setErrors((prev) => ({ ...prev, goal: false }));
+              }
+            }}
             className={styles.input}
+            style={errors.goal ? { borderColor: "var(--pcs-status-error)", boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.15)" } : undefined}
           />
+          {errors.goal && (
+            <span style={{ color: "var(--pcs-status-error)", fontSize: "12px", fontWeight: "500", marginTop: "2px" }}>
+              Vui lòng nhập mục tiêu tập luyện/thi đấu để AI đề xuất chính xác
+            </span>
+          )}
         </div>
 
         <div style={{ marginTop: "1.5rem" }}>

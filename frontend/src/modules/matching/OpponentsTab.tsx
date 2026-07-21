@@ -18,6 +18,10 @@ const timeOptions = Array.from({ length: (23 - 5) * 4 + 1 }, (_, i) => {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 });
 
+function todayVN() {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
+}
+
 export default function OpponentsTab({ token, userProfile, showToast }: OpponentsTabProps) {
   const [myGroups, setMyGroups] = useState<api.PlayGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | "">("");
@@ -144,6 +148,20 @@ export default function OpponentsTab({ token, userProfile, showToast }: Opponent
     const [endH, endM] = challengeEndTime.split(":").map(Number);
     const startVal = startH * 60 + startM;
     const endVal = endH * 60 + endM;
+
+    const todayStr = todayVN();
+    if (challengeDate < todayStr) {
+      showToast("Ngày thi đấu không được ở quá khứ.", "error");
+      return;
+    }
+    if (challengeDate === todayStr) {
+      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+      const currentVal = now.getHours() * 60 + now.getMinutes();
+      if (startVal <= currentVal) {
+        showToast("Giờ bắt đầu phải ở tương lai đối với hôm nay.", "error");
+        return;
+      }
+    }
 
     if (endVal <= startVal) {
       showToast("Giờ kết thúc phải lớn hơn giờ bắt đầu.", "error");
@@ -411,6 +429,7 @@ export default function OpponentsTab({ token, userProfile, showToast }: Opponent
                 <input
                   type="date"
                   value={challengeDate}
+                  min={todayVN()}
                   onChange={(e) => setChallengeDate(e.target.value)}
                   className={styles.input}
                   required

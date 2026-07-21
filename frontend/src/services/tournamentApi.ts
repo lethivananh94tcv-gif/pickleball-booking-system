@@ -13,6 +13,7 @@ export interface Tournament {
   OrganizerName: string;
   Status: string;
   Rules?: string;
+  PrizeInfo?: string;
   CreatedAt: string;
   ImageURL?: string;
 }
@@ -167,37 +168,40 @@ export const tournamentApi = {
     return res.data;
   },
 
-  generateBracket: async (tournamentId: number, divisionId: number) => {
+  generateBracket: async (tournamentId: number, divisionId: number, randomize?: boolean) => {
     return apiClient<any>(`/api/tournaments/${tournamentId}/divisions/${divisionId}/generate-bracket`, {
       method: "POST",
+      body: { randomize },
       ...getHeaders(),
     });
   },
 
-  generateSchedule: async (tournamentId: number, divisionId: number) => {
+  generateSchedule: async (tournamentId: number, divisionId: number, randomize?: boolean) => {
     return apiClient<any>(`/api/tournaments/${tournamentId}/divisions/${divisionId}/generate-schedule`, {
       method: "POST",
+      body: { randomize },
       ...getHeaders(),
     });
   },
 
-  generateGroups: async (tournamentId: number, divisionId: number, groupCount: number) => {
+  generateGroups: async (tournamentId: number, divisionId: number, groupCount: number, randomize?: boolean) => {
     return apiClient<any>(`/api/tournaments/${tournamentId}/divisions/${divisionId}/generate-groups`, {
       method: "POST",
-      body: { groupCount },
+      body: { groupCount, randomize },
       ...getHeaders(),
     });
   },
 
-  generateKnockout: async (tournamentId: number, divisionId: number) => {
+  generateKnockout: async (tournamentId: number, divisionId: number, randomize?: boolean) => {
     return apiClient<any>(`/api/tournaments/${tournamentId}/divisions/${divisionId}/generate-knockout`, {
       method: "POST",
+      body: { randomize },
       ...getHeaders(),
     });
   },
 
 
-  allocateSchedule: async (tournamentId: number, divisionId: number, data: { courtIds: number[]; startDateTime: string; matchDurationMinutes: number; breakMinutes: number; dailyStartHour?: string; dailyEndHour?: string }) => {
+  allocateSchedule: async (tournamentId: number, divisionId: number, data: { courtIds: number[]; startDateTime: string; matchDurationMinutes: number; breakMinutes: number; dailyStartHour?: string; dailyEndHour?: string; roundNo?: number }) => {
     return apiClient<any>(`/api/tournaments/${tournamentId}/divisions/${divisionId}/allocate-schedule`, {
       method: "POST",
       body: data,
@@ -266,6 +270,36 @@ export const tournamentApi = {
     return apiClient<any>(`/api/tournament-registrations/${registrationId}/action`, {
       method: "POST",
       body: { action, value },
+      ...getHeaders(),
+    });
+  },
+
+  updateRoundMilestones: async (tournamentId: number, divisionId: number, milestones: Array<{ roundNo: number; roundName?: string; scheduledStart: string; courtId?: number }>) => {
+    return apiClient<any>(`/api/tournaments/${tournamentId}/divisions/${divisionId}/round-milestones`, {
+      method: "POST",
+      body: { milestones },
+      ...getHeaders(),
+    });
+  },
+
+  getTeamMembers: async (tournamentId: number, teamId: number) => {
+    return apiClient<any[]>(`/api/tournaments/${tournamentId}/teams/${teamId}`, {
+      ...getHeaders(),
+    });
+  },
+
+  sendCertificateEmail: async (registrationId: number, rankOverride: string) => {
+    return apiClient<any>(`/api/tournament-registrations/${registrationId}/send-certificate`, {
+      method: "POST",
+      body: { rankOverride },
+      ...getHeaders(),
+    });
+  },
+
+  updateCertificatePdfUrl: async (registrationId: number, pdfUrl: string | null) => {
+    return apiClient<any>(`/api/tournament-registrations/${registrationId}/pdf-url`, {
+      method: "PUT",
+      body: { pdfUrl },
       ...getHeaders(),
     });
   },

@@ -697,3 +697,115 @@ export async function sendNotificationEmail(
     throw err; // throw to let caller know and log as failed in DB
   }
 }
+
+/**
+ * Gửi email chứng nhận giải đấu cho vận động viên
+ */
+export async function sendTournamentCertificateEmail(
+  email: string,
+  details: {
+    recipientName: string;
+    tournamentName: string;
+    divisionName: string;
+    teamCode: string;
+    rankLabel: string;
+    badgeIcon: string;
+    rewardText: string;
+    certificateUrl: string;
+    certificatePdfUrl?: string | null;
+  }
+): Promise<void> {
+  try {
+    if (!email) return;
+    const transporter = getTransporter();
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Chứng Nhận Giải Đấu PickleClub</title>
+      </head>
+      <body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <div style="background-color:#f8fafc;padding:32px 16px;text-align:center;">
+          <div style="max-width:580px;margin:0 auto;background:#ffffff;border:4px double #d97706;border-radius:16px;padding:40px 24px;box-shadow:0 10px 30px rgba(0,0,0,0.05);text-align:center;">
+            
+            <h3 style="margin:0 0 12px 0;font-size:10px;font-weight:800;color:#b45309;letter-spacing:2px;text-transform:uppercase;text-align:center;">
+              HỆ THỐNG GIẢI ĐẤU PICKLEBALL CHUYÊN NGHIỆP • PICKLECLUB
+            </h3>
+            
+            <div style="font-size:42px;margin:16px 0 12px 0;text-align:center;">${details.badgeIcon}</div>
+            
+            <h1 style="margin:0 0 4px 0;font-size:22px;font-weight:900;color:#1e293b;letter-spacing:0.5px;text-align:center;">
+              ${details.rankLabel.toUpperCase()}
+            </h1>
+            
+            <div style="width:80px;height:2px;background:#d97706;margin:12px auto 20px auto;"></div>
+            
+            <p style="margin:0;font-size:13px;color:#64748b;font-style:italic;text-align:center;">
+              Ban Tổ Chức Giải Đấu trân trọng trao tặng cho Vận Động Viên
+            </p>
+            
+            <h2 style="margin:16px 0 8px 0;font-size:24px;font-weight:800;color:#0f172a;text-align:center;">
+              ${details.recipientName}
+            </h2>
+            
+            <p style="margin:0 auto 24px auto;font-size:13px;color:#475569;line-height:1.6;max-width:480px;text-align:center;">
+              Đã hoàn thành thi đấu xuất sắc nội dung <strong>${details.divisionName}</strong> (Mã đội: ${details.teamCode}) tại giải đấu <strong>${details.tournamentName}</strong>.
+            </p>
+            
+            <div style="background:#fffbeb;border:1.5px solid #fef3c7;border-radius:12px;padding:16px 20px;max-width:380px;margin:0 auto 28px auto;text-align:center;">
+              <span style="font-size:10px;text-transform:uppercase;font-weight:800;color:#b45309;letter-spacing:0.5px;display:block;margin-bottom:6px;text-align:center;">
+                GIẢI THƯỞNG & GHI NHẬN
+              </span>
+              <span style="font-size:14px;font-weight:800;color:#1e293b;text-align:center;display:block;">
+                ${details.rewardText}
+              </span>
+            </div>
+
+            <p style="margin:0 auto 28px auto;font-size:13px;color:#475569;text-align:center;max-width:440px;">
+              Bạn có thể xem chứng nhận bản điện tử chính thức, tải về hoặc in trực tiếp bằng cách bấm vào nút bên dưới:
+            </p>
+
+            <div style="text-align:center;margin-bottom:36px;">
+              <a href="${details.certificateUrl}" style="display:inline-block;background:linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);background-color:#7c3aed;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:800;font-size:14px;margin: 4px;">
+                🎓 Xem Chứng Nhận
+              </a>
+              ${details.certificatePdfUrl ? `
+                <a href="${details.certificatePdfUrl}" target="_blank" style="display:inline-block;background-color:#ffffff;color:#059669;border:2px solid #059669;text-decoration:none;padding:10px 22px;border-radius:12px;font-weight:800;font-size:14px;margin: 4px;vertical-align: top;">
+                  📎 Tải File Đính Kèm (PDF/Ảnh)
+                </a>
+              ` : ""}
+            </div>
+
+            <table style="width:100%;margin-top:24px;border-top:1px dashed #e2e8f0;padding-top:16px;">
+              <tr>
+                <td style="text-align:left;vertical-align:bottom;font-size:11px;color:#64748b;">
+                  <span style="color:#94a3b8;text-transform:uppercase;font-size:9px;display:block;">Đại Diện Ban Tổ Chức</span>
+                  <strong style="color:#475569;display:block;margin-top:2px;">Lê Thanh Sơn</strong>
+                  <span style="color:#94a3b8;font-size:10px;">PickleClub President</span>
+                </td>
+                <td style="text-align:right;vertical-align:bottom;font-size:11px;color:#64748b;">
+                  <span style="color:#94a3b8;text-transform:uppercase;font-size:9px;display:block;">Ngày Cấp</span>
+                  <strong style="color:#475569;display:block;margin-top:2px;">${new Date().toLocaleDateString("vi-VN")}</strong>
+                </td>
+              </tr>
+            </table>
+
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await transporter.sendMail({
+      from: `"PCS Booking" <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: `[PickleClub] Chứng Nhận Điện Tử Giải Đấu - ${details.recipientName}`,
+      html,
+    });
+    console.log(`[Mail] Gửi email chứng nhận thành công đến: ${email}`);
+  } catch (err: any) {
+    console.error(`[Mail] sendTournamentCertificateEmail FAILED to ${email}:`, err?.message ?? err);
+  }
+}

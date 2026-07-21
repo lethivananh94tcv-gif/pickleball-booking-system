@@ -18,7 +18,8 @@ import {
   respondInvitationSchema,
   createTournamentPaymentSchema,
   generateScheduleSchema,
-  reportMatchScoreSchema
+  reportMatchScoreSchema,
+  updateRoundMilestonesSchema
 } from "./tournaments.validation";
 import * as tournamentService from "./tournaments.service";
 
@@ -499,7 +500,10 @@ export async function generateBracketController(
     const roleError = requireRoles(auth, ["Admin"]);
     if (roleError) return roleError;
 
-    const matches = await tournamentService.generateBracket(tournamentId, divisionId, auth.userId);
+    const rawBody = await req.json().catch(() => ({}));
+    const randomize = !!rawBody.randomize;
+
+    const matches = await tournamentService.generateBracket(tournamentId, divisionId, auth.userId, randomize);
     return successResponse(matches, "Khởi tạo nhánh đấu loại trực tiếp thành công", 201);
   } catch (error) {
     return handleError(error);
@@ -526,7 +530,10 @@ export async function generateScheduleController(
     const roleError = requireRoles(auth, ["Admin"]);
     if (roleError) return roleError;
 
-    const matches = await tournamentService.generateRoundRobinMatches(tournamentId, divisionId, auth.userId);
+    const rawBody = await req.json().catch(() => ({}));
+    const randomize = !!rawBody.randomize;
+
+    const matches = await tournamentService.generateRoundRobinMatches(tournamentId, divisionId, auth.userId, randomize);
     return successResponse(matches, "Khởi tạo lịch đấu vòng tròn thành công", 201);
   } catch (error) {
     return handleError(error);
@@ -829,11 +836,14 @@ export async function generateGroupsController(
       return errorResponse("Số lượng bảng đấu phải từ 2 trở lên", 400);
     }
 
+    const randomize = !!rawBody.randomize;
+
     const matches = await tournamentService.generateGroupKnockoutMatches(
       tournamentId,
       divisionId,
       groupCount,
-      auth.userId
+      auth.userId,
+      randomize
     );
     return successResponse(matches, "Khởi tạo lịch đấu vòng bảng thành công", 201);
   } catch (error) {
@@ -861,15 +871,91 @@ export async function generateKnockoutController(
     const roleError = requireRoles(auth, ["Admin"]);
     if (roleError) return roleError;
 
+    const rawBody = await req.json().catch(() => ({}));
+    const randomize = !!rawBody.randomize;
+
     const matches = await tournamentService.generateGroupKnockoutBracket(
       tournamentId,
       divisionId,
-      auth.userId
+      auth.userId,
+      randomize
     );
     return successResponse(matches, "Tạo nhánh loại trực tiếp chéo thành công", 201);
   } catch (error) {
     return handleError(error);
   }
 }
+
+/**
+ * POST /api/tournaments/:id/divisions/:divisionId/round-milestones
+ */
+export async function updateRoundMilestonesController(
+  req: NextRequest,
+  params: { id: string; divisionId: string }
+) {
+  try {
+    const tournamentId = parseInt(params.id, 10);
+    const divisionId = parseInt(params.divisionId, 10);
+    if (isNaN(tournamentId) || isNaN(divisionId)) {
+      return errorResponse("Tham số ID giải hoặc nội dung không hợp lệ", 400);
+    }
+
+    const auth = requireAuth(req);
+    if (auth instanceof Response) return auth;
+
+    const roleError = requireRoles(auth, ["Admin"]);
+    if (roleError) return roleError;
+
+    const rawBody = await req.json().catch(() => ({}));
+    const parseResult = updateRoundMilestonesSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return errorResponse("Dữ liệu không hợp lệ", 400, parseResult.error.flatten());
+    }
+
+    await tournamentService.updateRoundMilestones(
+      tournamentId,
+      divisionId,
+      parseResult.data.milestones,
+      auth.userId
+    );
+    return successResponse(null, "Cập nhật cột mốc thời gian các vòng đấu thành công");
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * POST /api/tournament-registrations/:registrationId/send-certificate
+ */
+export async function sendCertificateEmailController(
+  req: NextRequest,
+  params: { registrationId: string }
+) {
+  try {
+    const registrationId = parseInt(params.registrationId, 10);
+    if (isNaN(registrationId)) {
+      return errorResponse("ID đăng ký không hợp lệ", 400);
+    }
+
+    const auth = requireAuth(req);
+    if (auth instanceof Response) return auth;
+
+    const roleError = requireRoles(auth, ["Admin"]);
+    if (roleError) return roleError;
+
+    const rawBody = await req.json().catch(() => ({}));
+    const rankOverride = rawBody.rankOverride || "auto";
+
+    const result = await tournamentService.sendCertificateEmail(
+      registrationId,
+      rankOverride,
+      auth.userId
+    );
+    return successResponse(result, "Gửi email chứng nhận giải đấu thành công");
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 
 

@@ -98,8 +98,8 @@ export async function findAvailableCourts(
           SELECT 1 FROM TournamentCourtBlocks b
           WHERE b.CourtID = c.CourtID
             AND b.Status = 'Active'
-            AND b.StartDateTime < CAST(CAST(cs.SlotDate AS VARCHAR(10)) + ' ' + CAST(cs.EndTime AS VARCHAR(8)) AS DATETIME)
-            AND b.EndDateTime > CAST(CAST(cs.SlotDate AS VARCHAR(10)) + ' ' + CAST(cs.StartTime AS VARCHAR(8)) AS DATETIME)
+            AND DATEADD(hour, 7, b.StartDateTime) < CAST(CAST(cs.SlotDate AS VARCHAR(10)) + ' ' + CAST(cs.EndTime AS VARCHAR(8)) AS DATETIME)
+            AND DATEADD(hour, 7, b.EndDateTime) > CAST(CAST(cs.SlotDate AS VARCHAR(10)) + ' ' + CAST(cs.StartTime AS VARCHAR(8)) AS DATETIME)
         )
   `;
 
@@ -134,7 +134,16 @@ export async function findCourtSlots(courtId: number, slotDate: string) {
         CONVERT(VARCHAR(5), StartTime, 108) AS StartTime,
         CONVERT(VARCHAR(5), EndTime, 108) AS EndTime,
         Price,
-        Status,
+        CASE 
+          WHEN Status = 'Available' AND EXISTS (
+            SELECT 1 FROM TournamentCourtBlocks b
+            WHERE b.CourtID = CourtSlots.CourtID
+              AND b.Status = 'Active'
+              AND DATEADD(hour, 7, b.StartDateTime) < CAST(CAST(CourtSlots.SlotDate AS VARCHAR(10)) + ' ' + CAST(CourtSlots.EndTime AS VARCHAR(8)) AS DATETIME)
+              AND DATEADD(hour, 7, b.EndDateTime) > CAST(CAST(CourtSlots.SlotDate AS VARCHAR(10)) + ' ' + CAST(CourtSlots.StartTime AS VARCHAR(8)) AS DATETIME)
+          ) THEN 'Blocked'
+          ELSE Status
+        END AS Status,
         HoldUntil,
         CreatedAt,
         UpdatedAt

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as path from "path";
 
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".pdf"];
 
 export const dynamic = "force-dynamic";
 

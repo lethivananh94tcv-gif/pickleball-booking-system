@@ -92,6 +92,7 @@ export async function createTournament(data: CreateTournamentInput & { createdBy
     .input("TournamentStart", sql.DateTime, data.tournamentStart)
     .input("TournamentEnd", sql.DateTime, data.tournamentEnd)
     .input("PrizeInfo", sql.NVarChar(sql.MAX), data.prizeInfo || null)
+    .input("Rules", sql.NVarChar(sql.MAX), data.rules || null)
     .input("ImageURL", sql.NVarChar(500), data.imageURL || null)
     .input("OrganizerName", sql.NVarChar(255), data.organizerName || null)
     .input("CreatedBy", sql.Int, data.createdBy)
@@ -99,13 +100,13 @@ export async function createTournament(data: CreateTournamentInput & { createdBy
       INSERT INTO Tournaments (
         TournamentCode, TournamentName, Description, Location,
         RegistrationStart, RegistrationEnd, TournamentStart, TournamentEnd,
-        Status, PrizeInfo, ImageURL, OrganizerName, CreatedBy, CreatedAt, UpdatedAt, IsDeleted
+        Status, PrizeInfo, Rules, ImageURL, OrganizerName, CreatedBy, CreatedAt, UpdatedAt, IsDeleted
       )
       OUTPUT INSERTED.*
       VALUES (
         @TournamentCode, @TournamentName, @Description, @Location,
         @RegistrationStart, @RegistrationEnd, @TournamentStart, @TournamentEnd,
-        'Draft', @PrizeInfo, @ImageURL, @OrganizerName, @CreatedBy, GETDATE(), GETDATE(), 0
+        'Draft', @PrizeInfo, @Rules, @ImageURL, @OrganizerName, @CreatedBy, GETDATE(), GETDATE(), 0
       )
     `);
   return result.recordset[0];
@@ -152,6 +153,10 @@ export async function updateTournament(id: number, data: UpdateTournamentInput):
   if (data.prizeInfo !== undefined) {
     request.input("PrizeInfo", sql.NVarChar(sql.MAX), data.prizeInfo || null);
     sets.push("PrizeInfo = @PrizeInfo");
+  }
+  if (data.rules !== undefined) {
+    request.input("Rules", sql.NVarChar(sql.MAX), data.rules || null);
+    sets.push("Rules = @Rules");
   }
   if (data.imageURL !== undefined) {
     request.input("ImageURL", sql.NVarChar(500), data.imageURL || null);
@@ -251,17 +256,18 @@ export async function createDivision(
     .input("RegistrationFee", sql.Decimal(18,2), data.registrationFee !== undefined ? data.registrationFee : 0)
     .input("BracketType", sql.NVarChar(50), data.bracketType)
     .input("EnableThirdPlace", sql.Bit, (data as any).enableThirdPlace !== false ? 1 : 0)
+    .input("RoundScheduleConfig", sql.NVarChar, (data as any).roundScheduleConfig || null)
     .query(`
       INSERT INTO TournamentDivisions (
         TournamentID, DivisionName, CompetitionFormat, TeamSize, GenderRequirement,
         SkillLevelName, MinDUPR, MaxDUPR, AgeGroup, MinAge, MaxAge, MaxTeams,
-        RegistrationFee, BracketType, EnableThirdPlace, Status, CreatedAt, UpdatedAt
+        RegistrationFee, BracketType, EnableThirdPlace, RoundScheduleConfig, Status, CreatedAt, UpdatedAt
       )
       OUTPUT INSERTED.*
       VALUES (
         @TournamentID, @DivisionName, @CompetitionFormat, @TeamSize, @GenderRequirement,
         @SkillLevelName, @MinDUPR, @MaxDUPR, @AgeGroup, @MinAge, @MaxAge, @MaxTeams,
-        @RegistrationFee, @BracketType, @EnableThirdPlace, 'Draft', GETDATE(), GETDATE()
+        @RegistrationFee, @BracketType, @EnableThirdPlace, @RoundScheduleConfig, 'Draft', GETDATE(), GETDATE()
       )
     `);
   return result.recordset[0];
@@ -322,6 +328,11 @@ export async function updateDivision(id: number, data: UpdateDivisionInput): Pro
   if (data.registrationFee !== undefined) {
     request.input("RegistrationFee", sql.Decimal(18,2), data.registrationFee);
     sets.push("RegistrationFee = @RegistrationFee");
+  }
+
+  if ((data as any).roundScheduleConfig !== undefined) {
+    request.input("RoundScheduleConfig", sql.NVarChar, (data as any).roundScheduleConfig || null);
+    sets.push("RoundScheduleConfig = @RoundScheduleConfig");
   }
 
   sets.push("UpdatedAt = GETDATE()");
@@ -647,15 +658,16 @@ export async function registerManualAthletesTransaction(params: {
         .input("DateOfBirth", sql.Date, ath.dateOfBirth)
         .input("PhotoURL", sql.NVarChar(500), ath.photoUrl || null)
         .input("CccdURL", sql.NVarChar(500), ath.cccdUrl || null)
+        .input("Email", sql.NVarChar(255), ath.email || null)
         .input("Note", sql.NVarChar(500), ath.note || null)
         .query(`
           INSERT INTO TournamentRegistrationAthletes (
             RegistrationID, TournamentID, DivisionID, TeamID, UserID,
-            AthleteNo, FullName, PhoneNumber, Rating, Province, Gender, DateOfBirth, PhotoURL, CccdURL, Note, CreatedAt, UpdatedAt
+            AthleteNo, FullName, PhoneNumber, Rating, Province, Gender, DateOfBirth, PhotoURL, CccdURL, Email, Note, CreatedAt, UpdatedAt
           )
           VALUES (
             @RegistrationID, @TournamentID, @DivisionID, @TeamID, @UserID,
-            @AthleteNo, @FullName, @PhoneNumber, @Rating, @Province, @Gender, @DateOfBirth, @PhotoURL, @CccdURL, @Note, GETDATE(), GETDATE()
+            @AthleteNo, @FullName, @PhoneNumber, @Rating, @Province, @Gender, @DateOfBirth, @PhotoURL, @CccdURL, @Email, @Note, GETDATE(), GETDATE()
           )
         `);
     }
@@ -863,7 +875,7 @@ export async function respondInvitationTransaction(params: {
           .input("User1", sql.Int, params.partnerId)
           .input("User2", sql.Int, params.userId)
           .query(`
-            SELECT u.UserID, u.FullName, u.PhoneNumber, u.Gender, u.DateOfBirth, u.Address,
+            SELECT u.UserID, u.FullName, u.PhoneNumber, u.Gender, u.DateOfBirth, u.Address, u.Email,
                    ISNULL(pp.Rating, 0.0) AS Rating
             FROM Users u
             LEFT JOIN PlayerProfiles pp ON u.UserID = pp.UserID
@@ -886,14 +898,15 @@ export async function respondInvitationTransaction(params: {
             .input("Province", sql.NVarChar(100), player1.Address || "Chưa cập nhật")
             .input("Gender", sql.NVarChar(20), player1.Gender || "Male")
             .input("DateOfBirth", sql.Date, player1.DateOfBirth || new Date("2000-01-01"))
+            .input("Email", sql.NVarChar(255), player1.Email || null)
             .query(`
               INSERT INTO TournamentRegistrationAthletes (
                 RegistrationID, TournamentID, DivisionID, TeamID, UserID,
-                AthleteNo, FullName, PhoneNumber, Rating, Province, Gender, DateOfBirth, CreatedAt, UpdatedAt
+                AthleteNo, FullName, PhoneNumber, Rating, Province, Gender, DateOfBirth, Email, CreatedAt, UpdatedAt
               )
               VALUES (
                 @RegistrationID, @TournamentID, @DivisionID, @TeamID, @UserID,
-                1, @FullName, @PhoneNumber, @Rating, @Province, @Gender, @DateOfBirth, GETDATE(), GETDATE()
+                1, @FullName, @PhoneNumber, @Rating, @Province, @Gender, @DateOfBirth, @Email, GETDATE(), GETDATE()
               )
             `);
         }
@@ -911,14 +924,15 @@ export async function respondInvitationTransaction(params: {
             .input("Province", sql.NVarChar(100), player2.Address || "Chưa cập nhật")
             .input("Gender", sql.NVarChar(20), player2.Gender || "Male")
             .input("DateOfBirth", sql.Date, player2.DateOfBirth || new Date("2000-01-01"))
+            .input("Email", sql.NVarChar(255), player2.Email || null)
             .query(`
               INSERT INTO TournamentRegistrationAthletes (
                 RegistrationID, TournamentID, DivisionID, TeamID, UserID,
-                AthleteNo, FullName, PhoneNumber, Rating, Province, Gender, DateOfBirth, CreatedAt, UpdatedAt
+                AthleteNo, FullName, PhoneNumber, Rating, Province, Gender, DateOfBirth, Email, CreatedAt, UpdatedAt
               )
               VALUES (
                 @RegistrationID, @TournamentID, @DivisionID, @TeamID, @UserID,
-                2, @FullName, @PhoneNumber, @Rating, @Province, @Gender, @DateOfBirth, GETDATE(), GETDATE()
+                2, @FullName, @PhoneNumber, @Rating, @Province, @Gender, @DateOfBirth, @Email, GETDATE(), GETDATE()
               )
             `);
         }
@@ -2152,6 +2166,9 @@ export async function getDivisionRegistrations(divisionId: number): Promise<any[
         r.ConfirmedAt,
         r.CccdVerified,
         r.IsCheckedIn,
+        r.IsCertificateSent,
+        r.CertificateSentAt,
+        r.CertificatePdfUrl,
         r.PaymentExpiredAt,
         t.TeamName,
         t.TeamCode,
@@ -2167,6 +2184,7 @@ export async function getDivisionRegistrations(divisionId: number): Promise<any[
         a.DateOfBirth,
         a.PhotoURL,
         a.CccdURL,
+        a.Email,
         a.Note
       FROM TournamentRegistrations r
       INNER JOIN TournamentTeams t ON r.TeamID = t.TeamID
@@ -2317,13 +2335,14 @@ export async function repoGetMyRegistrationForTournament(tournamentId: number, u
     .input("TournamentID", sql.Int, tournamentId)
     .input("UserID", sql.Int, userId)
     .query(`
-      SELECT 
+      SELECT DISTINCT
         r.RegistrationID,
         r.RegistrationStatus,
         r.PaymentStatus,
         r.RegisteredAt,
         r.PaymentExpiredAt,
         r.DivisionID,
+        r.CertificatePdfUrl,
         d.DivisionName,
         d.RegistrationFee,
         t.TeamName,
@@ -2343,4 +2362,73 @@ export async function repoGetMyRegistrationForTournament(tournamentId: number, u
     `);
   return result.recordset;
 }
+
+/**
+ * Lấy thông tin đăng ký để tạo chứng chỉ gửi email
+ */
+export async function getRegistrationForCertificate(registrationId: number): Promise<any[]> {
+  const pool = await getPool();
+  const result = await pool.request()
+    .input("RegistrationID", sql.Int, registrationId)
+    .query(`
+      SELECT 
+        r.RegistrationID,
+        r.RegistrationStatus,
+        r.PaymentStatus,
+        r.IsCertificateSent,
+        r.CertificateSentAt,
+        r.CertificatePdfUrl,
+        t.TeamID,
+        t.TeamName,
+        t.TeamCode,
+        d.DivisionID,
+        d.DivisionName,
+        d.BracketType,
+        tn.TournamentID,
+        tn.TournamentName,
+        tn.Location,
+        tn.PrizeInfo,
+        ISNULL(a.Email, u.Email) AS Email,
+        u.FullName
+      FROM TournamentRegistrations r
+      INNER JOIN TournamentTeams t ON r.TeamID = t.TeamID
+      INNER JOIN TournamentDivisions d ON r.DivisionID = d.DivisionID
+      INNER JOIN Tournaments tn ON r.TournamentID = tn.TournamentID
+      INNER JOIN TournamentTeamMembers tm ON t.TeamID = tm.TeamID
+      INNER JOIN Users u ON tm.UserID = u.UserID
+      LEFT JOIN TournamentRegistrationAthletes a ON r.RegistrationID = a.RegistrationID AND (a.UserID = u.UserID OR a.FullName = u.FullName)
+      WHERE r.RegistrationID = @RegistrationID AND tm.JoinStatus = 'Accepted'
+    `);
+  return result.recordset;
+}
+
+/**
+ * Cập nhật trạng thái đã gửi chứng chỉ
+ */
+export async function updateCertificateSent(registrationId: number): Promise<void> {
+  const pool = await getPool();
+  await pool.request()
+    .input("RegistrationID", sql.Int, registrationId)
+    .query(`
+      UPDATE TournamentRegistrations
+      SET IsCertificateSent = 1, CertificateSentAt = GETDATE()
+      WHERE RegistrationID = @RegistrationID
+    `);
+}
+
+/**
+ * Cập nhật đường dẫn file PDF chứng chỉ giải đấu
+ */
+export async function updateCertificatePdfUrl(registrationId: number, pdfUrl: string | null): Promise<void> {
+  const pool = await getPool();
+  await pool.request()
+    .input("RegistrationID", sql.Int, registrationId)
+    .input("PdfUrl", sql.NVarChar, pdfUrl)
+    .query(`
+      UPDATE TournamentRegistrations
+      SET CertificatePdfUrl = @PdfUrl
+      WHERE RegistrationID = @RegistrationID
+    `);
+}
+
 

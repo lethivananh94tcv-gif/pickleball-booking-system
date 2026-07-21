@@ -58,12 +58,12 @@ import {
 } from "recharts";
 
 const STATUS_COLORS: Record<string, string> = {
-  Completed: "#3b82f6", // Blue
-  Confirmed: "#22c55e", // Green
-  Paid: "#22c55e",
+  Completed: "#4f46e5", // Indigo
+  Confirmed: "#10b981", // Emerald
+  Paid: "#10b981",
   CheckedIn: "#8b5cf6", // Purple
-  PendingPayment: "#f59e0b", // Yellow
-  Cancelled: "#ef4444", // Red
+  PendingPayment: "#f59e0b", // Amber
+  Cancelled: "#ef4444", // Rose
   Refunded: "#ec4899", // Pink
 };
 
@@ -78,10 +78,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const PAYMENT_COLORS: Record<string, string> = {
-  "VietQR": "#3b82f6",
-  "Tiền mặt (Khách vãng lai)": "#f97316",
+  "VietQR": "#4f46e5", // Indigo
+  "Tiền mặt (Khách vãng lai)": "#f59e0b", // Amber
 };
-const FALLBACK_PAYMENT_COLORS = ["#3b82f6", "#f97316", "#8b5cf6", "#22c55e", "#ec4899"];
+const FALLBACK_PAYMENT_COLORS = ["#4f46e5", "#f59e0b", "#8b5cf6", "#10b981", "#ec4899"];
 
 export default function AdminPage() {
   const router = useRouter();
@@ -276,6 +276,27 @@ export default function AdminPage() {
     }).format(val);
   };
 
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div style={{
+          background: "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(8px)",
+          border: "1px solid rgba(0, 0, 0, 0.05)",
+          padding: "10px 14px",
+          borderRadius: "10px",
+          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 16px -6px rgba(0, 0, 0, 0.05)",
+        }}>
+          <p style={{ margin: 0, fontSize: "11px", color: "#64748b", fontWeight: 500 }}>{label}</p>
+          <p style={{ margin: "4px 0 0 0", fontSize: "13.5px", color: "#0f172a", fontWeight: 600 }}>
+            {formatCurrency(payload[0].value)}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const userName = user?.FullName || user?.fullName || "Admin";
 
   if (loading && !saaSDats) {
@@ -304,6 +325,7 @@ export default function AdminPage() {
     return parseFloat((((current - previous) / previous) * 100).toFixed(1));
   };
   const revGrowth = calculateGrowth(stats.revenue, stats.prevRevenue);
+  const tournamentRevGrowth = calculateGrowth(stats.tournamentRevenue || 0, stats.prevTournamentRevenue || 0);
   const bookingsGrowth = calculateGrowth(stats.bookingsCount, stats.prevBookingsCount);
 
   // Booking status breakdowns
@@ -333,15 +355,15 @@ export default function AdminPage() {
         color: PAYMENT_COLORS[item.paymentMethod] || FALLBACK_PAYMENT_COLORS[idx % FALLBACK_PAYMENT_COLORS.length],
       }));
 
-  // Booking Volume Progress
-  const totalBookingsCount = stats.bookingsCount || 100;
-  const standardCount = dailyBookings.filter(b => b.BookingType === "Court").length || Math.round(totalBookingsCount * 0.65);
-  const premiumCount = dailyBookings.filter(b => b.BookingType === "Combo").length || Math.round(totalBookingsCount * 0.20);
-  const coachingCount = dailyBookings.filter(b => b.BookingType === "Coach").length || Math.round(totalBookingsCount * 0.15);
+  // Booking Volume Progress (Today)
+  const totalBookingsCount = dailyBookings.length;
+  const standardCount = dailyBookings.filter(b => b.BookingType === "Court").length;
+  const premiumCount = dailyBookings.filter(b => b.BookingType === "Combo").length;
+  const coachingCount = dailyBookings.filter(b => b.BookingType === "Coach").length;
 
-  const standardPct = Math.round((standardCount / totalBookingsCount) * 100);
-  const premiumPct = Math.round((premiumCount / totalBookingsCount) * 100);
-  const coachingPct = Math.round((coachingCount / totalBookingsCount) * 100);
+  const standardPct = totalBookingsCount > 0 ? Math.round((standardCount / totalBookingsCount) * 100) : 0;
+  const premiumPct = totalBookingsCount > 0 ? Math.round((premiumCount / totalBookingsCount) * 100) : 0;
+  const coachingPct = totalBookingsCount > 0 ? Math.round((coachingCount / totalBookingsCount) * 100) : 0;
 
   // Occupancy rate
   const occupancyPercent = stats.totalCourts > 0 ? Math.round((stats.activeCourts / stats.totalCourts) * 100) : 78;
@@ -445,7 +467,7 @@ export default function AdminPage() {
       <section className={styles.kpiGrid}>
         
         {/* KPI 1: Total Revenue */}
-        <div className={styles.kpiCard}>
+        <div className={`${styles.kpiCard} ${styles.kpiCardTotalRevenue}`}>
           <div className={styles.kpiHeader}>
             <span className={styles.kpiTitle}>TOTAL REVENUE</span>
             <span className={`${styles.kpiBadge} ${revGrowth >= 0 ? styles.badgeUp : styles.badgeDown}`}>
@@ -457,7 +479,7 @@ export default function AdminPage() {
         </div>
 
         {/* KPI 2: Today's Revenue */}
-        <div className={styles.kpiCard}>
+        <div className={`${styles.kpiCard} ${styles.kpiCardTodayRevenue}`}>
           <div className={styles.kpiHeader}>
             <span className={styles.kpiTitle}>TODAY'S REVENUE</span>
             <span className={styles.kpiBadge}>Live</span>
@@ -466,34 +488,46 @@ export default function AdminPage() {
             {formatCurrency(
               dailyBookings
                 .filter(b => ["Paid", "Confirmed", "CheckedIn", "Completed"].includes(b.Status))
-                .reduce((sum, b) => sum + b.TotalAmount, 0) || stats.revenue * 0.12
+                .reduce((sum, b) => sum + b.TotalAmount, 0)
             )}
           </span>
           {renderKpiSparkline([12, 19, 15, 22, 28, 25, 32], "#3b82f6", "todayRev")}
         </div>
 
         {/* KPI 3: Monthly Revenue */}
-        <div className={styles.kpiCard}>
+        <div className={`${styles.kpiCard} ${styles.kpiCardMonthlyRevenue}`}>
           <div className={styles.kpiHeader}>
             <span className={styles.kpiTitle}>MONTHLY REVENUE</span>
             <span className={`${styles.kpiBadge} ${styles.badgeUp}`}>+9%</span>
           </div>
-          <span className={styles.kpiValue}>{formatCurrency(stats.revenue * 0.85)}</span>
+          <span className={styles.kpiValue}>{formatCurrency(stats.monthRevenue || stats.revenue)}</span>
           {renderKpiSparkline([420, 480, 450, 490, 520, 550, 580], "#8b5cf6", "monthRev")}
         </div>
 
-        {/* KPI 4: Bookings Today */}
-        <div className={styles.kpiCard}>
+        {/* KPI 4: Tournament Revenue */}
+        <div className={`${styles.kpiCard} ${styles.kpiCardTournamentRevenue}`}>
+          <div className={styles.kpiHeader}>
+            <span className={styles.kpiTitle}>TOURNAMENT REVENUE</span>
+            <span className={`${styles.kpiBadge} ${tournamentRevGrowth >= 0 ? styles.badgeUp : styles.badgeDown}`}>
+              {tournamentRevGrowth >= 0 ? "+" : ""}{tournamentRevGrowth}%
+            </span>
+          </div>
+          <span className={styles.kpiValue}>{formatCurrency(stats.tournamentRevenue || 0)}</span>
+          {renderKpiSparkline([100, 120, 115, 130, 125, 142, 156], "#8b5cf6", "tourRev")}
+        </div>
+
+        {/* KPI 5: Bookings Today */}
+        <div className={`${styles.kpiCard} ${styles.kpiCardBookingsToday}`}>
           <div className={styles.kpiHeader}>
             <span className={styles.kpiTitle}>BOOKINGS TODAY</span>
-            <span className={`${styles.kpiBadge} ${styles.badgeLive}`}>Live</span>
+            <span className={`${styles.badgeLive}`}>Live</span>
           </div>
-          <span className={styles.kpiValue}>{dailyBookings.length || 14} đơn</span>
+          <span className={styles.kpiValue}>{dailyBookings.length} đơn</span>
           {renderKpiSparkline(stats.dailyRevenueTrend.map(d => d.bookingsCount), "#3b82f6", "todayBk")}
         </div>
 
-        {/* KPI 5: Bookings Monthly */}
-        <div className={styles.kpiCard}>
+        {/* KPI 6: Bookings Monthly */}
+        <div className={`${styles.kpiCard} ${styles.kpiCardBookingsMonthly}`}>
           <div className={styles.kpiHeader}>
             <span className={styles.kpiTitle}>BOOKINGS MONTHLY</span>
             <span className={`${styles.kpiBadge} ${bookingsGrowth >= 0 ? styles.badgeUp : styles.badgeDown}`}>
@@ -504,8 +538,8 @@ export default function AdminPage() {
           {renderKpiSparkline([110, 120, 115, 130, 125, 142, 156], "#f59e0b", "monthBk")}
         </div>
 
-        {/* KPI 6: Active Courts */}
-        <div className={styles.kpiCard}>
+        {/* KPI 7: Active Courts */}
+        <div className={`${styles.kpiCard} ${styles.kpiCardActiveCourts}`}>
           <div className={styles.kpiHeader}>
             <span className={styles.kpiTitle}>ACTIVE COURTS</span>
             <span className={styles.kpiSubLabel}>{occupancyPercent}% Util</span>
@@ -516,8 +550,8 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* KPI 7: Available Coaches */}
-        <div className={styles.kpiCard}>
+        {/* KPI 8: Available Coaches */}
+        <div className={`${styles.kpiCard} ${styles.kpiCardAvailableCoaches}`}>
           <div className={styles.kpiHeader}>
             <span className={styles.kpiTitle}>AVAILABLE COACHES</span>
             <span className={styles.kpiSubLabel}>of {stats.activeCoaches + 4} total</span>
@@ -529,16 +563,6 @@ export default function AdminPage() {
             ))}
             <span className={styles.stackMore}>+{stats.activeCoaches > 3 ? stats.activeCoaches - 3 : 1}</span>
           </div>
-        </div>
-
-        {/* KPI 8: Registered Players */}
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiHeader}>
-            <span className={styles.kpiTitle}>REGISTERED PLAYERS</span>
-            <span className={`${styles.kpiBadge} ${styles.badgeUp}`}>+{stats.newUsersCount} new</span>
-          </div>
-          <span className={styles.kpiValue}>{stats.activeUsersCount + 80}</span>
-          {renderKpiSparkline([2100, 2200, 2250, 2310, 2390, 2450], "#f97316", "regPl")}
         </div>
       </section>
 
@@ -555,12 +579,12 @@ export default function AdminPage() {
           <div className={styles.chartContainer}>
             {isMounted && (
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={stats.dailyRevenueTrend.slice(-7)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(value: any) => [formatCurrency(value), "Doanh thu"]} />
-                  <Bar dataKey="revenue" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={28} />
+                 <BarChart data={stats.dailyRevenueTrend.slice(-7)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0, 0, 0, 0.03)" />
+                  <XAxis dataKey="date" stroke="#a1a1aa" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#a1a1aa" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="revenue" fill="#4f46e5" radius={[6, 6, 0, 0]} barSize={26} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -569,29 +593,70 @@ export default function AdminPage() {
 
         <div className={styles.bookingVolumeCard}>
           <div className={styles.cardHeader}>
-            <h3>Booking Volume</h3>
+            <h3>Booking Volume (Today)</h3>
           </div>
-          <div className={styles.volumeList}>
-            <div className={styles.volumeItem}>
-              <div className={styles.volumeHeader}>
-                <span>Standard (Court Only)</span>
-                <strong>{standardCount} ({standardPct}%)</strong>
-              </div>
-              <div className={styles.barOuter}><div className={styles.barInner} style={{ width: `${standardPct}%`, backgroundColor: "#3b82f6" }}></div></div>
+          
+          <div style={{ position: "relative", width: "100%", height: 180, display: "flex", alignItems: "center", justifyContent: "center", margin: "10px 0" }}>
+            {isMounted && (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={
+                      totalBookingsCount > 0
+                        ? [
+                            { name: "Standard (Court Only)", value: standardCount, color: "#3b82f6" },
+                            { name: "Premium Combo", value: premiumCount, color: "#f59e0b" },
+                            { name: "Private Coaching", value: coachingCount, color: "#10b981" }
+                          ]
+                        : [
+                            { name: "Trống", value: 1, color: "rgba(0, 0, 0, 0.08)" }
+                          ]
+                    }
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={70}
+                    paddingAngle={totalBookingsCount > 0 ? 5 : 0}
+                    dataKey="value"
+                  >
+                    {(totalBookingsCount > 0
+                      ? [
+                          { color: "#3b82f6" },
+                          { color: "#f59e0b" },
+                          { color: "#10b981" }
+                        ]
+                      : [
+                          { color: "rgba(0, 0, 0, 0.08)" }
+                        ]
+                    ).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value, name) => [totalBookingsCount > 0 ? `${value} đơn` : "Không có lượt đặt", name]} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+            <div style={{ position: "absolute", display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <span style={{ fontSize: "20px", fontWeight: "700", color: "var(--color-slate-800)", lineHeight: "1" }}>{totalBookingsCount}</span>
+              <span style={{ fontSize: "9px", color: "var(--color-slate-400)", textTransform: "uppercase", fontWeight: "600", marginTop: "4px" }}>Bookings</span>
             </div>
-            <div className={styles.volumeItem}>
-              <div className={styles.volumeHeader}>
-                <span>Premium Combo</span>
-                <strong>{premiumCount} ({premiumPct}%)</strong>
-              </div>
-              <div className={styles.barOuter}><div className={styles.barInner} style={{ width: `${premiumPct}%`, backgroundColor: "#f59e0b" }}></div></div>
+          </div>
+
+          <div className={styles.pieLegend}>
+            <div className={styles.legendRow}>
+              <span className={styles.legendDot} style={{ backgroundColor: "#3b82f6" }}></span>
+              <span className={styles.legendText}>Standard</span>
+              <strong className={styles.legendValue}>{standardCount} ({standardPct}%)</strong>
             </div>
-            <div className={styles.volumeItem}>
-              <div className={styles.volumeHeader}>
-                <span>Private Coaching</span>
-                <strong>{coachingCount} ({coachingPct}%)</strong>
-              </div>
-              <div className={styles.barOuter}><div className={styles.barInner} style={{ width: `${coachingPct}%`, backgroundColor: "#10b981" }}></div></div>
+            <div className={styles.legendRow}>
+              <span className={styles.legendDot} style={{ backgroundColor: "#f59e0b" }}></span>
+              <span className={styles.legendText}>Combo</span>
+              <strong className={styles.legendValue}>{premiumCount} ({premiumPct}%)</strong>
+            </div>
+            <div className={styles.legendRow}>
+              <span className={styles.legendDot} style={{ backgroundColor: "#10b981" }}></span>
+              <span className={styles.legendText}>Coaching</span>
+              <strong className={styles.legendValue}>{coachingCount} ({coachingPct}%)</strong>
             </div>
           </div>
         </div>
@@ -613,7 +678,7 @@ export default function AdminPage() {
                     <span>{c.courtName}</span>
                     <strong>{formatCurrency(c.totalRevenue)}</strong>
                   </div>
-                  <div className={styles.barOuter}><div className={styles.barInner} style={{ width: `${barWidth}%`, backgroundColor: "#8b5cf6" }}></div></div>
+                  <div className={styles.barOuter}><div className={styles.barInner} style={{ width: `${barWidth}%`, backgroundColor: "#6366f1" }}></div></div>
                 </div>
               );
             })}
@@ -630,7 +695,7 @@ export default function AdminPage() {
                   <Pie
                     data={[
                       { name: "Occupied", value: occupancyPercent, color: "#10b981" },
-                      { name: "Available", value: 100 - occupancyPercent, color: "#e2e8f0" }
+                      { name: "Available", value: 100 - occupancyPercent, color: "#f1f5f9" }
                     ]}
                     innerRadius={36}
                     outerRadius={46}
@@ -639,7 +704,7 @@ export default function AdminPage() {
                     dataKey="value"
                   >
                     <Cell fill="#10b981" />
-                    <Cell fill="#e2e8f0" />
+                    <Cell fill="#f1f5f9" />
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
@@ -767,7 +832,7 @@ export default function AdminPage() {
       <section className={styles.splitGrid}>
         
         {/* Latest Bookings */}
-        <div className={styles.splitCard}>
+        <div className={`${styles.splitCard} ${styles.latestBookingsCard}`}>
           <h3>Latest Bookings</h3>
           <div className={styles.bookingRowList}>
             {(stats.recentActivities.filter(a => a.activityType === "Booking").length > 0
@@ -795,7 +860,7 @@ export default function AdminPage() {
         </div>
 
         {/* Refund Requests */}
-        <div className={styles.splitCard}>
+        <div className={`${styles.splitCard} ${styles.refundRequestsCard}`}>
           <h3>Refund Requests</h3>
           <div className={styles.refundRowList}>
             {refundRequests.length === 0 ? (
@@ -827,19 +892,19 @@ export default function AdminPage() {
         <div className={styles.courtManagementCard}>
           <h3>Court Management</h3>
           <div className={styles.courtManagementStatusGrid}>
-            <div className={styles.mgtGridItem}>
+            <div className={`${styles.mgtGridItem} ${styles.mgtGridItemOccupied}`}>
               <strong>{stats.activeCourts}</strong>
               <span>Occupied</span>
             </div>
-            <div className={styles.mgtGridItem}>
+            <div className={`${styles.mgtGridItem} ${styles.mgtGridItemAvailable}`}>
               <strong>{stats.totalCourts - stats.activeCourts > 0 ? stats.totalCourts - stats.activeCourts : 1}</strong>
               <span>Available</span>
             </div>
-            <div className={styles.mgtGridItem}>
+            <div className={`${styles.mgtGridItem} ${styles.mgtGridItemMaintenance}`}>
               <strong>1</strong>
               <span>Maintenance</span>
             </div>
-            <div className={styles.mgtGridItem}>
+            <div className={`${styles.mgtGridItem} ${styles.mgtGridItemAlerts}`}>
               <strong>0</strong>
               <span>Alerts</span>
             </div>
@@ -848,11 +913,11 @@ export default function AdminPage() {
             <h4>UPCOMING MAINTENANCE</h4>
             <div className={styles.maintTimelineRow}>
               <span>Court C-03 (Resurfacing)</span>
-              <strong>Nov 12</strong>
+              <strong style={{ color: "#ef4444" }}>Nov 12</strong>
             </div>
             <div className={styles.maintTimelineRow}>
               <span>Net Replacement (Court 2)</span>
-              <strong>Nov 28</strong>
+              <strong style={{ color: "#f59e0b" }}>Nov 28</strong>
             </div>
           </div>
         </div>
@@ -881,10 +946,10 @@ export default function AdminPage() {
                       <div className={styles.coachTableAvatar}>{co.coachName.charAt(0)}</div>
                       <span>{co.coachName}</span>
                     </td>
-                    <td>★ 4.9/5.0</td>
-                    <td>{co.bookingsCount * 6}</td>
-                    <td className={styles.boldText}>{formatCurrency(co.totalRevenue * 5.5)}</td>
-                    <td>{95 + idx}%</td>
+                    <td><span style={{ color: "#eab308", marginRight: "3px" }}>★</span>5.0/5.0</td>
+                    <td style={{ color: "#64748b" }}>{co.bookingsCount} bookings</td>
+                    <td className={styles.boldText} style={{ color: "#10b981" }}>{formatCurrency(co.totalRevenue)}</td>
+                    <td style={{ color: "#3b82f6", fontWeight: 600 }}>100%</td>
                   </tr>
                 ))}
               </tbody>
@@ -897,22 +962,22 @@ export default function AdminPage() {
       <section className={styles.splitGrid}>
         
         {/* Player Statistics */}
-        <div className={styles.splitCard}>
+        <div className={`${styles.splitCard} ${styles.playerStatsCard}`}>
           <h3>Player Statistics</h3>
           <div className={styles.playerStatsWrapper}>
             <div className={styles.topPlayersList}>
               <h4>TOP PLAYERS</h4>
               <div className={styles.playerRow}>
                 <span>Michael J.</span>
-                <strong>42 Bookings</strong>
+                <strong style={{ color: "#3b82f6" }}>42 Bookings</strong>
               </div>
               <div className={styles.playerRow}>
                 <span>Jessica R.</span>
-                <strong>28 Bookings</strong>
+                <strong style={{ color: "#8b5cf6" }}>28 Bookings</strong>
               </div>
               <div className={styles.playerRow}>
                 <span>David S.</span>
-                <strong>21 Bookings</strong>
+                <strong style={{ color: "#06b6d4" }}>21 Bookings</strong>
               </div>
             </div>
             <div className={styles.playerSegments}>
@@ -923,7 +988,7 @@ export default function AdminPage() {
                 <strong>24%</strong>
               </div>
               <div className={styles.segmentRow}>
-                <span className={styles.dot} style={{ backgroundColor: "#3b82f6" }}></span>
+                <span className={styles.dot} style={{ backgroundColor: "#4f46e5" }}></span>
                 <span>Returning</span>
                 <strong>52%</strong>
               </div>
@@ -937,7 +1002,7 @@ export default function AdminPage() {
         </div>
 
         {/* Promotion Performance */}
-        <div className={styles.splitCard}>
+        <div className={`${styles.splitCard} ${styles.promoPerformanceCard}`}>
           <h3>Promotion Performance</h3>
           <div className={styles.tableResponsive}>
             <table className={styles.promoTable}>
@@ -945,7 +1010,7 @@ export default function AdminPage() {
                 <tr>
                   <th>Coupon</th>
                   <th>Usage Count</th>
-                  <th>Revenue</th>
+                  <th>Promotion Name</th>
                 </tr>
               </thead>
               <tbody>
@@ -953,7 +1018,7 @@ export default function AdminPage() {
                   <tr key={idx}>
                     <td className={styles.couponCode}>{promo.promotionCode}</td>
                     <td>{promo.usageCount} usages</td>
-                    <td className={styles.boldText}>{formatCurrency(promo.usageCount * 120000)}</td>
+                    <td className={styles.boldText}>{promo.promotionName}</td>
                   </tr>
                 ))}
               </tbody>
@@ -966,7 +1031,7 @@ export default function AdminPage() {
       <section className={styles.threeColumnGrid}>
         
         {/* Panel 1: All Insights */}
-        <div className={styles.threeColCard}>
+        <div className={`${styles.threeColCard} ${styles.insightsCard}`}>
           <div className={styles.cardTitleRow}><FiCheckCircle /> <h4>All Insights</h4></div>
           <div className={styles.insightBox}>
             <span className={styles.insightLabel}>Revenue Forecast</span>
@@ -981,7 +1046,7 @@ export default function AdminPage() {
         </div>
 
         {/* Panel 2: Upcoming Events */}
-        <div className={styles.threeColCard}>
+        <div className={`${styles.threeColCard} ${styles.eventsCard}`}>
           <div className={styles.cardTitleRow}><FiCalendar /> <h4>Upcoming Events</h4></div>
           <div className={styles.eventsList}>
             <div className={styles.eventItem}>
@@ -1008,7 +1073,7 @@ export default function AdminPage() {
         </div>
 
         {/* Panel 3: System Health */}
-        <div className={styles.threeColCard}>
+        <div className={`${styles.threeColCard} ${styles.healthCard}`}>
           <div className={styles.cardTitleRow}><FiShield /> <h4>System Health</h4></div>
           <div className={styles.healthIndicators}>
             <div className={styles.healthItem}>
@@ -1033,14 +1098,14 @@ export default function AdminPage() {
               <span>CPU USAGE</span>
               <strong>24%</strong>
             </div>
-            <div className={styles.barOuter}><div className={styles.barInner} style={{ width: "24%", backgroundColor: "#3b82f6" }}></div></div>
+            <div className={styles.barOuter}><div className={styles.barInner} style={{ width: "24%", backgroundColor: "#4f46e5" }}></div></div>
           </div>
           <div className={styles.systemResource}>
             <div className={styles.resourceLabel}>
               <span>RAM USAGE</span>
               <strong>62%</strong>
             </div>
-            <div className={styles.barOuter}><div className={styles.barInner} style={{ width: "62%", backgroundColor: "#6366f1" }}></div></div>
+            <div className={styles.barOuter}><div className={styles.barInner} style={{ width: "62%", backgroundColor: "#8b5cf6" }}></div></div>
           </div>
         </div>
       </section>

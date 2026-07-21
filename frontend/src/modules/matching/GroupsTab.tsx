@@ -361,10 +361,13 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
                   onChange={(e) => setCreateForm({ ...createForm, skillLevel: e.target.value })}
                   className={styles.select}
                 >
-                  <option value="Beginner">Mới chơi (Beginner)</option>
-                  <option value="Intermediate">Khá (Intermediate)</option>
-                  <option value="Advanced">Giỏi (Advanced)</option>
-                  <option value="Professional">Chuyên nghiệp (Professional)</option>
+                  <option value="Beginner">🟢 Mới bắt đầu — Beginner (2.0 - 2.5)</option>
+                  <option value="Novice">🔵 Sơ cấp — Novice (2.5 - 3.0)</option>
+                  <option value="Intermediate">🟡 Trung bình — Intermediate (3.0 - 3.5)</option>
+                  <option value="Advanced Intermediate">🟠 Khá — Advanced Intermediate (3.5 - 4.0)</option>
+                  <option value="Advanced">🔴 Giỏi — Advanced (4.0 - 4.5)</option>
+                  <option value="Expert">🟣 Cao thủ — Expert (4.5 - 5.0)</option>
+                  <option value="Professional">⭐ Chuyên nghiệp — Professional (5.0+)</option>
                 </select>
               </div>
 
@@ -423,10 +426,13 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
                   onChange={(e) => setEditForm({ ...editForm, skillLevel: e.target.value })}
                   className={styles.select}
                 >
-                  <option value="Beginner">Mới chơi (Beginner)</option>
-                  <option value="Intermediate">Khá (Intermediate)</option>
-                  <option value="Advanced">Giỏi (Advanced)</option>
-                  <option value="Professional">Chuyên nghiệp (Professional)</option>
+                  <option value="Beginner">🟢 Mới bắt đầu — Beginner (2.0 - 2.5)</option>
+                  <option value="Novice">🔵 Sơ cấp — Novice (2.5 - 3.0)</option>
+                  <option value="Intermediate">🟡 Trung bình — Intermediate (3.0 - 3.5)</option>
+                  <option value="Advanced Intermediate">🟠 Khá — Advanced Intermediate (3.5 - 4.0)</option>
+                  <option value="Advanced">🔴 Giỏi — Advanced (4.0 - 4.5)</option>
+                  <option value="Expert">🟣 Cao thủ — Expert (4.5 - 5.0)</option>
+                  <option value="Professional">⭐ Chuyên nghiệp — Professional (5.0+)</option>
                 </select>
               </div>
 

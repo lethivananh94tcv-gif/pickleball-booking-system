@@ -55,6 +55,11 @@ export default function RevenueStats({
       icon: <FiTrendingUp />,
     },
     {
+      title: "Doanh thu giải đấu",
+      value: formatCurrency(data.summary.tournamentRevenue ?? 0),
+      icon: <FiDollarSign />,
+    },
+    {
       title: "Booking đã thanh toán",
       value: data.summary.paidBookings.toString(),
       icon: <FiCreditCard />,

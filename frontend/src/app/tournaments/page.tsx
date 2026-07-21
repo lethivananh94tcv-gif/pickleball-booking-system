@@ -118,7 +118,7 @@ export default function TournamentsPage() {
     tournamentApi
       .getTournaments()
       .then(async (data) => {
-        // Active tournaments for player view
+        // Active tournaments for player view (including Completed, excluding Draft and Cancelled)
         const activeTourns = data.filter((t) => t.Status !== "Draft" && t.Status !== "Cancelled");
         setTournaments(activeTourns);
 

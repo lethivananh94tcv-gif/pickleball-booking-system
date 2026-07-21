@@ -53,76 +53,118 @@
 }
 
 .statCard {
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
 }
 
 .statCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 20px -3px rgba(0, 0, 0, 0.05), 0 4px 8px -2px rgba(0, 0, 0, 0.03);
 }
 
-.statCardHeader {
+.statHeader {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
+  align-items: center;
+  margin-bottom: 14px;
 }
 
-.statCardIcon {
-  width: 48px;
-  height: 48px;
+.statIconBox {
+  width: 42px;
+  height: 42px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.statCardIcon.blue {
-  background: #DBEAFE;
-  color: #2563EB;
-}
-
-.statCardIcon.green {
-  background: #D1FAE5;
-  color: #10B981;
-}
-
-.statCardIcon.red {
-  background: #FEE2E2;
-  color: #EF4444;
-}
-
-.statCardIcon.purple {
-  background: #EDE9FE;
-  color: #8B5CF6;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
 }
 
 .statCardLabel {
-  font-size: 14px;
-  font-weight: 600;
-  color: #6B7280;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin: 0 0 8px 0;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
 }
 
 .statCardValue {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 800;
-  color: #111827;
-  margin: 0;
+  margin: 6px 0 0;
+  line-height: 1.1;
+  z-index: 2;
+  letter-spacing: -0.02em;
 }
 
 .statCardDescription {
   font-size: 13px;
-  color: #9CA3AF;
+  color: #64748b;
   margin: 8px 0 0 0;
+  z-index: 2;
 }
+
+.sparklineWrap {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.sparkline {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.sparkline path[stroke] {
+  stroke-width: 2.2 !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05));
+}
+
+.stat_blue {
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-left: 5px solid #2563eb !important;
+  background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%) !important;
+}
+.stat_blue .statIconBox { background: #2563eb; color: #ffffff; }
+.stat_blue .statCardValue { color: #1e3a8a; }
+
+.stat_green {
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-left: 5px solid #16a34a !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%) !important;
+}
+.stat_green .statIconBox { background: #16a34a; color: #ffffff; }
+.stat_green .statCardValue { color: #14532d; }
+
+.stat_purple {
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-left: 5px solid #8b5cf6 !important;
+  background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%) !important;
+}
+.stat_purple .statIconBox { background: #8b5cf6; color: #ffffff; }
+.stat_purple .statCardValue { color: #581c87; }
+
+.stat_red {
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-left: 5px solid #ef4444 !important;
+  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%) !important;
+}
+.stat_red .statIconBox { background: #ef4444; color: #ffffff; }
+.stat_red .statCardValue { color: #7f1d1d; }
 
 /* Revenue Overview */
 .revenueSection {
@@ -199,39 +241,92 @@
 
 .revenueKpiGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
 .revenueKpiCard {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border: 1px solid #bfdbfe;
-  border-radius: 16px;
-  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
 }
 
-.revenueKpiCard p {
-  color: #2563eb;
-  font-size: 14px;
+.revenueKpiCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 20px -3px rgba(0, 0, 0, 0.05), 0 4px 8px -2px rgba(0, 0, 0, 0.03);
+}
+
+.revKpiHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.revKpiHeader p {
+  font-size: 11px;
   font-weight: 700;
-  margin: 0 0 10px 0;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.revKpiIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .revenueKpiCard strong {
-  color: #1e3a8a;
-  display: block;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 800;
+  margin: 4px 0 0;
   line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .revenueKpiCard span {
-  color: #6B7280;
-  display: block;
-  font-size: 13px;
-  margin-top: 8px;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 10px;
 }
+
+.rev_green {
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-left: 5px solid #16a34a !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%) !important;
+}
+.rev_green .revKpiIcon { background: #16a34a; color: #ffffff; }
+.rev_green .revKpiHeader p { color: #16a34a; }
+.rev_green strong { color: #14532d; }
+
+.rev_orange {
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  border-left: 5px solid #ea580c !important;
+  background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%) !important;
+}
+.rev_orange .revKpiIcon { background: #ea580c; color: #ffffff; }
+.rev_orange .revKpiHeader p { color: #ea580c; }
+.rev_orange strong { color: #7c2d12; }
+
+.rev_blue {
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-left: 5px solid #2563eb !important;
+  background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%) !important;
+}
+.rev_blue .revKpiIcon { background: #2563eb; color: #ffffff; }
+.rev_blue .revKpiHeader p { color: #2563eb; }
+.rev_blue strong { color: #1e3a8a; }
 
 .revenueDetailGrid {
   display: grid;

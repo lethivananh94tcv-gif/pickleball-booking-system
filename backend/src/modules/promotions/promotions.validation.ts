@@ -48,6 +48,17 @@ export const createPromotionSchema = z
         path: ["endDate"],
       });
     }
+    // startDate >= today VN
+    const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+    const todayStr = `${nowVN.getFullYear()}-${String(nowVN.getMonth() + 1).padStart(2, "0")}-${String(nowVN.getDate()).padStart(2, "0")}`;
+    const startStr = data.startDate.split("T")[0];
+    if (startStr < todayStr) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "startDate không được ở quá khứ",
+        path: ["startDate"],
+      });
+    }
     // Private: userIds không được rỗng
     if (data.applyScope === "Private" && (!data.userIds || data.userIds.length === 0)) {
       ctx.addIssue({
@@ -87,6 +98,18 @@ export const updatePromotionSchema = z
         message: "endDate phải sau hoặc bằng startDate",
         path: ["endDate"],
       });
+    }
+    if (data.startDate) {
+      const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+      const todayStr = `${nowVN.getFullYear()}-${String(nowVN.getMonth() + 1).padStart(2, "0")}-${String(nowVN.getDate()).padStart(2, "0")}`;
+      const startStr = data.startDate.split("T")[0];
+      if (startStr < todayStr) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "startDate không được ở quá khứ",
+          path: ["startDate"],
+        });
+      }
     }
   });
 

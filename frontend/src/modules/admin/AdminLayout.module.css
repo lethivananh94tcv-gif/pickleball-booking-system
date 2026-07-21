@@ -1,13 +1,13 @@
 /* ==========================================================================
-   AdminLayout.module.css - Dark Premium Sidebar Aesthetics
+   AdminLayout.module.css - Premium Sidebar Layout (Stripe & Linear Inspired)
    ========================================================================== */
 
 .admin {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 240px 1fr;
-  background: #f8fafc; /* Premium soft gray page background */
-  font-family: inherit;
+  background: #fafafc; /* Matching premium soft page background */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   transition: grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -16,8 +16,8 @@
 }
 
 .sidebar {
-  background: #0f172a; /* Slate 900 (Dark navy/black) */
-  color: #f8fafc;
+  background: #0b0c0e; /* Matte charcoal dark background */
+  color: #f4f4f5;
   padding: 24px 16px 20px;
   position: sticky;
   top: 0;
@@ -25,7 +25,7 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #1e293b;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
   width: 240px;
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
@@ -71,7 +71,7 @@
 .toggleBtn {
   background: transparent;
   border: none;
-  color: #64748b;
+  color: #52525b;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -83,12 +83,12 @@
 }
 
 .toggleBtn:hover {
-  background: #1e293b;
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  color: #f4f4f5;
 }
 
 .logoIcon {
-  color: #3b82f6; /* Blue icon */
+  color: #6366f1; /* Premium Indigo Logo icon */
   display: flex;
   align-items: center;
 }
@@ -99,41 +99,42 @@
 }
 
 .logoTitle {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: #ffffff;
   text-decoration: none;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.01em;
   line-height: 1.2;
 }
 
 .logoSubtitle {
-  font-size: 9px;
-  font-weight: 700;
-  color: #64748b; /* Slate 500 */
-  letter-spacing: 0.8px;
+  font-size: 8.5px;
+  font-weight: 600;
+  color: #52525b; /* Muted zinc */
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  margin-top: 1px;
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   flex: 1;
 }
 
 .navSection {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .sectionHeader {
   font-size: 9px;
-  font-weight: 700;
-  color: #475569; /* Slate 600 */
-  letter-spacing: 1px;
-  padding-left: 8px;
+  font-weight: 500;
+  color: #52525b;
+  letter-spacing: 0.08em;
+  padding-left: 12px;
   text-transform: uppercase;
   margin: 0 0 4px 0;
   transition: opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease;
@@ -156,7 +157,7 @@
 
 .nav a {
   text-decoration: none;
-  color: #94a3b8; /* Slate 400 */
+  color: #a1a1aa; /* Zinc 400 */
   padding: 8px 12px;
   border-radius: 8px;
   font-weight: 500;
@@ -165,11 +166,14 @@
   align-items: center;
   gap: 10px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
 }
 
 .sidebarCollapsed .nav a {
   justify-content: center;
   padding: 10px;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
 }
 
 .nav a span {
@@ -188,33 +192,46 @@
 }
 
 .nav a svg {
-  color: #64748b;
+  color: #52525b;
   width: 16px;
   height: 16px;
-  transition: color 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .nav a:hover {
-  background: #1e293b; /* Slate 800 */
+  background: rgba(255, 255, 255, 0.03);
   color: #ffffff;
+  transform: translateX(4px);
+}
+
+.sidebarCollapsed .nav a:hover {
+  transform: none; /* Avoid horizontal translating in collapsed sidebar */
 }
 
 .nav a:hover svg {
-  color: #ffffff;
+  color: #10b981;
 }
 
 .nav a.active {
-  background: #1e293b; /* Slate 800 active background */
-  color: #ffffff; /* White text */
+  background: rgba(16, 185, 129, 0.08); /* Emerald transparent tint */
+  color: #10b981; /* Emerald active color */
+  border-left: 3px solid #10b981;
+  border-radius: 0 8px 8px 0;
   font-weight: 600;
 }
 
+.sidebarCollapsed .nav a.active {
+  border-left: 3px solid #10b981;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.08);
+}
+
 .nav a.active svg {
-  color: #3b82f6; /* Blue highlight icon for active */
+  color: #10b981;
 }
 
 .main {
-  background: #f8fafc;
+  background: #f8fafc; /* Cooler premium slate grey */
   overflow-y: auto;
   height: 100vh;
   min-width: 0;
@@ -226,7 +243,7 @@
   gap: 10px;
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid #1e293b;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
   padding-left: 4px;
   padding-right: 4px;
   transition: all 0.25s ease;
@@ -239,16 +256,17 @@
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: #3b82f6;
-  color: #ffffff;
+  background: rgba(99, 102, 241, 0.1);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
+  font-weight: 600;
+  font-size: 13px;
   flex-shrink: 0;
 }
 
@@ -268,8 +286,8 @@
 }
 
 .userName {
-  font-weight: 600;
-  color: #e2e8f0;
+  font-weight: 500;
+  color: #e4e4e7;
   font-size: 12.5px;
   white-space: nowrap;
   overflow: hidden;
@@ -279,7 +297,7 @@
 
 .userEmail {
   font-size: 10px;
-  color: #64748b;
+  color: #52525b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -288,7 +306,7 @@
 .logoutBtn {
   background: transparent;
   border: none;
-  color: #64748b;
+  color: #52525b;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -309,7 +327,7 @@
 }
 
 .logoutBtn:hover {
-  background: #ef444415;
+  background: rgba(239, 68, 68, 0.08);
   color: #f87171;
 }
 
@@ -319,7 +337,7 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    background: var(--pcs-page-bg);
+    background: #fafafc;
   }
 
   .sidebar,
@@ -333,7 +351,7 @@
     padding: 12px 14px;
     align-items: stretch;
     border-right: 0;
-    border-bottom: 1px solid #1e293b;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     overflow-y: auto;
   }
 

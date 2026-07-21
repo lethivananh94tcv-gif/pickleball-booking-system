@@ -12,6 +12,10 @@ import { formatCurrency } from "@/utils/formatCurrency";
 import styles from "../../create/CreatePromotion.module.css";
 import Link from "next/link";
 
+function todayVN() {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
+}
+
 export default function AdminEditPromotionPage() {
   const router = useRouter();
   const { id } = useParams();
@@ -383,6 +387,7 @@ export default function AdminEditPromotionPage() {
                     required 
                     type="date" 
                     className={styles.input} 
+                    min={todayVN()}
                     value={formData.startDate} 
                     onChange={e => setFormData({ ...formData, startDate: e.target.value })} 
                   />
@@ -393,6 +398,7 @@ export default function AdminEditPromotionPage() {
                     required 
                     type="date" 
                     className={styles.input} 
+                    min={formData.startDate || todayVN()}
                     value={formData.endDate} 
                     onChange={e => setFormData({ ...formData, endDate: e.target.value })} 
                   />

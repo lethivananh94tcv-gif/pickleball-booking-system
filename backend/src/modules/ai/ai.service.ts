@@ -1093,11 +1093,14 @@ function parseTimeToMinutes(timeVal: any): number | null {
 }
 
 function getSkillLevelValue(level: string): number {
-  const norm = String(level || "").toLowerCase();
+  const norm = String(level || "").toLowerCase().trim();
+  if (norm.includes("novice")) return 2;
+  if (norm.includes("advanced intermediate")) return 4;
+  if (norm.includes("intermediate")) return 3;
+  if (norm.includes("expert")) return 6;
+  if (norm.includes("advanced")) return 5;
+  if (norm.includes("professional")) return 7;
   if (norm.includes("beginner")) return 1;
-  if (norm.includes("intermediate")) return 2;
-  if (norm.includes("advanced")) return 3;
-  if (norm.includes("professional")) return 4;
   return 0;
 }
 
@@ -1145,8 +1148,12 @@ export async function matchTeammates(userId: number): Promise<any> {
     if (skillUser > 0 && skillCand > 0) {
       const diff = Math.abs(skillUser - skillCand);
       if (diff === 0) skillComp = 100;
-      else if (diff === 1) skillComp = 75;
-      else skillComp = 45;
+      else if (diff === 1) skillComp = 85;
+      else if (diff === 2) skillComp = 70;
+      else if (diff === 3) skillComp = 50;
+      else if (diff === 4) skillComp = 35;
+      else if (diff === 5) skillComp = 20;
+      else skillComp = 10;
     }
 
     let roleComp = 50;
@@ -1205,7 +1212,14 @@ export async function matchTeammates(userId: number): Promise<any> {
     };
   });
 
-  const topCandidates = candidatesWithStructured.slice(0, 15);
+  // Sort candidates by basic structural match score descending so that AI evaluates the most compatible players
+  candidatesWithStructured.sort((a, b) => {
+    const scoreA = 0.30 * a.skillComp + 0.25 * a.roleComp + 0.20 * a.schedOverlap + 0.10 * a.expSim;
+    const scoreB = 0.30 * b.skillComp + 0.25 * b.roleComp + 0.20 * b.schedOverlap + 0.10 * b.expSim;
+    return scoreB - scoreA;
+  });
+
+  const topCandidates = candidatesWithStructured.slice(0, 5);
 
   const payload = {
     user: {
@@ -1237,7 +1251,7 @@ export async function matchTeammates(userId: number): Promise<any> {
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch("http://127.0.0.1:8000/api/ai/players/match-teammates", {
@@ -1337,9 +1351,12 @@ export async function matchOpponentTeams(userId: number): Promise<any> {
 
   const getPlayerPower = async (profile: any) => {
     let skillNum = 40;
-    const skillNorm = String(profile.SkillLevel || "").toLowerCase();
+    const skillNorm = String(profile.SkillLevel || "").toLowerCase().trim();
     if (skillNorm.includes("beginner")) skillNum = 40;
+    else if (skillNorm.includes("novice")) skillNum = 52;
+    else if (skillNorm.includes("advanced intermediate")) skillNum = 78;
     else if (skillNorm.includes("intermediate")) skillNum = 65;
+    else if (skillNorm.includes("expert")) skillNum = 92;
     else if (skillNorm.includes("advanced")) skillNum = 85;
     else if (skillNorm.includes("professional")) skillNum = 100;
 
@@ -1513,7 +1530,7 @@ export async function matchOpponentTeams(userId: number): Promise<any> {
     return scoreB - scoreA;
   });
 
-  const topPairs = evaluatedPairs.slice(0, 15);
+  const topPairs = evaluatedPairs.slice(0, 5);
 
   const payload = {
     myTeam: {
@@ -1578,7 +1595,7 @@ export async function matchOpponentTeams(userId: number): Promise<any> {
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch("http://127.0.0.1:8000/api/ai/players/match-opponents", {

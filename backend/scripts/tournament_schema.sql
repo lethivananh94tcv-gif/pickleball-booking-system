@@ -21,6 +21,7 @@ BEGIN
         Status NVARCHAR(50) DEFAULT 'Draft'
             CHECK (Status IN ('Draft', 'Open', 'Closed', 'Scheduling', 'Ongoing', 'Completed', 'Cancelled')),
         PrizeInfo NVARCHAR(MAX),
+        Rules NVARCHAR(MAX),
         CreatedBy INT NOT NULL,
         CreatedAt DATETIME DEFAULT GETDATE(),
         UpdatedAt DATETIME DEFAULT GETDATE(),

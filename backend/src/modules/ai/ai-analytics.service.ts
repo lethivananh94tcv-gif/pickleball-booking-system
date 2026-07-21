@@ -181,7 +181,7 @@ export async function auditForecastAccuracy(): Promise<any> {
 }
 
 // Global variable tracking last execution timestamp for cron rate limiting
-let lastCronRunTimestamp = 0;
+let lastCronRunTimestamp = Date.now();
 
 /**
  * Cron Job executed via server main interval loop.

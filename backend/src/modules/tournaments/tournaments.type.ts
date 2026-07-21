@@ -15,6 +15,7 @@ export interface Tournament {
   TournamentEnd: string;
   Status: string;
   PrizeInfo?: string;
+  Rules?: string;
   ImageURL?: string;
   OrganizerName?: string;
   CreatedBy: number;
@@ -204,6 +205,7 @@ export interface CreateTournamentInput {
   tournamentStart: string;
   tournamentEnd: string;
   prizeInfo?: string;
+  rules?: string;
   imageURL?: string;
   organizerName?: string;
 }
@@ -217,6 +219,7 @@ export interface UpdateTournamentInput {
   tournamentStart?: string;
   tournamentEnd?: string;
   prizeInfo?: string;
+  rules?: string;
   imageURL?: string;
   organizerName?: string;
   adminOverride?: boolean;
@@ -236,6 +239,7 @@ export interface CreateDivisionInput {
   registrationFee?: number;
   bracketType: "SingleElimination" | "RoundRobin" | "GroupKnockout";
   enableThirdPlace?: boolean;
+  roundScheduleConfig?: string | null;
 }
 
 export interface UpdateDivisionInput {
@@ -247,4 +251,5 @@ export interface UpdateDivisionInput {
   maxAge?: number | null;
   maxTeams?: number;
   registrationFee?: number;
+  roundScheduleConfig?: string | null;
 }

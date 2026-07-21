@@ -105,6 +105,20 @@ export async function createPlayInvitation(
       throw new Error("Khung giờ thi đấu phải nằm trong khoảng từ 05:00 đến 23:00.");
     }
 
+    const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+    const todayStr = `${nowVN.getFullYear()}-${String(nowVN.getMonth() + 1).padStart(2, "0")}-${String(nowVN.getDate()).padStart(2, "0")}`;
+    if (challengeDate < todayStr) {
+      throw new Error("Ngày thi đấu không được ở quá khứ.");
+    }
+    if (challengeDate === todayStr) {
+      const currentHour = nowVN.getHours();
+      const currentMin = nowVN.getMinutes();
+      const currentVal = currentHour * 60 + currentMin;
+      if (startVal <= currentVal) {
+        throw new Error("Giờ bắt đầu phải ở tương lai đối với hôm nay.");
+      }
+    }
+
     const senderGroup = await groupRepo.getGroupDetails(groupId);
     if (!senderGroup) {
       throw new Error("Không tìm thấy nhóm chơi của bạn.");
@@ -283,6 +297,9 @@ export async function acceptInvitation(invitationId: number, userId: number) {
     if (txGroupId) {
       groupId = txGroupId;
     }
+
+    // Also update PlayerMatches table so teammate matching algorithms can locate this pair
+    await matchingRepo.upsertPlayerMatch(invite.SenderID, userId, 100.00, 'Teammate', 'Accepted');
   } else if (invite.InvitationType === 'InviteOpponent') {
     if (!invite.GroupID) throw new Error("Lời mời thách đấu không hợp lệ (thiếu GroupID).");
 

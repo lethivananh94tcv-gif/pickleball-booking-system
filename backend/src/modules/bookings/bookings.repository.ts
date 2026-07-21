@@ -158,8 +158,8 @@ export async function findAvailableCourtSlot(
           SELECT 1 FROM TournamentCourtBlocks b
           WHERE b.CourtID = CourtSlots.CourtID
             AND b.Status = 'Active'
-            AND b.StartDateTime < CAST(CAST(CourtSlots.SlotDate AS VARCHAR(10)) + ' ' + CAST(CourtSlots.EndTime AS VARCHAR(8)) AS DATETIME)
-            AND b.EndDateTime > CAST(CAST(CourtSlots.SlotDate AS VARCHAR(10)) + ' ' + CAST(CourtSlots.StartTime AS VARCHAR(8)) AS DATETIME)
+            AND DATEADD(hour, 7, b.StartDateTime) < CAST(CAST(CourtSlots.SlotDate AS VARCHAR(10)) + ' ' + CAST(CourtSlots.EndTime AS VARCHAR(8)) AS DATETIME)
+            AND DATEADD(hour, 7, b.EndDateTime) > CAST(CAST(CourtSlots.SlotDate AS VARCHAR(10)) + ' ' + CAST(CourtSlots.StartTime AS VARCHAR(8)) AS DATETIME)
         )
     `);
 

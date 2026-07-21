@@ -15,6 +15,7 @@ export const createTournamentSchema = z.object({
   tournamentStart: z.string().min(1, "Ngày bắt đầu giải đấu là bắt buộc"),
   tournamentEnd: z.string().min(1, "Ngày kết thúc giải đấu là bắt buộc"),
   prizeInfo: z.string().optional(),
+  rules: z.string().optional(),
   imageURL: z.string().optional(),
   organizerName: z.string().optional(),
 }).refine(data => {
@@ -27,6 +28,14 @@ export const createTournamentSchema = z.object({
 }, {
   message: "Quy tắc ngày tháng: Bắt đầu đăng ký < Kết thúc đăng ký <= Bắt đầu giải < Kết thúc giải",
   path: ["registrationStart"]
+}).refine(data => {
+  const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  const todayStr = `${nowVN.getFullYear()}-${String(nowVN.getMonth() + 1).padStart(2, "0")}-${String(nowVN.getDate()).padStart(2, "0")}`;
+  const regStartStr = data.registrationStart.split("T")[0];
+  return regStartStr >= todayStr;
+}, {
+  message: "Ngày bắt đầu đăng ký không được ở quá khứ",
+  path: ["registrationStart"]
 });
 
 export const updateTournamentSchema = z.object({
@@ -38,6 +47,7 @@ export const updateTournamentSchema = z.object({
   tournamentStart: z.string().optional(),
   tournamentEnd: z.string().optional(),
   prizeInfo: z.string().optional(),
+  rules: z.string().optional(),
   imageURL: z.string().optional(),
   organizerName: z.string().optional(),
   adminOverride: z.boolean().optional(),
@@ -56,6 +66,7 @@ export const createDivisionSchema = z.object({
   registrationFee: z.number().min(0).optional().default(0),
   bracketType: z.enum(["SingleElimination", "RoundRobin", "GroupKnockout"]),
   enableThirdPlace: z.boolean().optional(),
+  roundScheduleConfig: z.string().optional().nullable(),
 });
 
 export const updateDivisionSchema = z.object({
@@ -67,6 +78,7 @@ export const updateDivisionSchema = z.object({
   maxAge: z.number().min(0).optional().nullable(),
   maxTeams: z.number().int().min(2).optional(),
   registrationFee: z.number().min(0).optional(),
+  roundScheduleConfig: z.string().optional().nullable(),
 });
 
 const athleteSchema = z.object({
@@ -125,6 +137,7 @@ export const generateScheduleSchema = z.object({
   breakMinutes: z.number().int().nonnegative().default(10),
   dailyStartHour: z.string().optional(),
   dailyEndHour: z.string().optional(),
+  roundNo: z.number().int().optional(),
 });
 
 export const reportMatchScoreSchema = z.object({
@@ -135,4 +148,13 @@ export const reportMatchScoreSchema = z.object({
   })).min(1, "Phải cung cấp ít nhất 1 set"),
   adminOverride: z.boolean().optional(),
   reason: z.string().optional(),
+});
+
+export const updateRoundMilestonesSchema = z.object({
+  milestones: z.array(z.object({
+    roundNo: z.number().int().positive(),
+    roundName: z.string().optional(),
+    scheduledStart: z.string().min(1, "Thời gian bắt đầu là bắt buộc"),
+    courtId: z.number().int().optional(),
+  })).min(1, "Phải cung cấp ít nhất 1 cột mốc"),
 });

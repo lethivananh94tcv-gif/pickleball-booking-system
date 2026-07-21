@@ -3,7 +3,8 @@ import { getPool, sql } from "@/database/connection";
 export type RevenueServiceType =
   | "Court"
   | "Coach"
-  | "Combo";
+  | "Combo"
+  | "Tournament";
 
 export interface RevenueQuery {
   fromDate?: string;
@@ -18,6 +19,7 @@ export interface RevenueResponse {
     monthRevenue: number;
     paidBookings: number;
     refundAmount: number;
+    tournamentRevenue: number;
   };
   chart: Array<{
     date: string;
@@ -42,6 +44,7 @@ const VALID_SERVICE_TYPES = [
   "Court",
   "Coach",
   "Combo",
+  "Tournament",
 ] as const;
 
 function isDateString(value: string) {
@@ -209,6 +212,17 @@ export async function getAdminRevenue(
           ),
           0
         ) AS TotalRevenue,
+
+        ISNULL(
+          SUM(
+            CASE
+              WHEN p.Status = 'Paid' AND p.ServiceType = 'Tournament'
+                THEN p.Amount
+              ELSE 0
+            END
+          ),
+          0
+        ) AS TournamentRevenue,
 
         ISNULL(
           SUM(
@@ -396,6 +410,8 @@ export async function getAdminRevenue(
         Number(summary.PaidBookings ?? 0),
       refundAmount:
         Number(summary.RefundAmount ?? 0),
+      tournamentRevenue:
+        Number(summary.TournamentRevenue ?? 0),
     },
 
     chart:

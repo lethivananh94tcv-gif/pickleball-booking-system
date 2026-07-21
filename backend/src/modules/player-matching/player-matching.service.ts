@@ -30,11 +30,14 @@ function timeToMinutes(timeVal: any): number | null {
 
 // Map SkillLevel string to number
 function skillToNumber(level: string): number {
-  const normalized = String(level || "").toLowerCase();
+  const normalized = String(level || "").toLowerCase().trim();
+  if (normalized.includes("novice")) return 2;
+  if (normalized.includes("advanced intermediate")) return 4;
+  if (normalized.includes("intermediate")) return 3;
+  if (normalized.includes("expert")) return 6;
+  if (normalized.includes("advanced")) return 5;
+  if (normalized.includes("professional")) return 7;
   if (normalized.includes("beginner")) return 1;
-  if (normalized.includes("intermediate")) return 2;
-  if (normalized.includes("advanced")) return 3;
-  if (normalized.includes("professional")) return 4;
   return 1;
 }
 
@@ -60,7 +63,8 @@ export function calculateSkillScore(skillA: string, skillB: string): number {
   const valA = skillToNumber(skillA);
   const valB = skillToNumber(skillB);
   const diff = Math.abs(valA - valB);
-  return Math.max(0, 100 - diff * 25);
+  // 7-level scale: diff=0 → 100, diff=1 → 85, diff=2 → 70, ..., diff=6 → 10
+  return Math.max(10, 100 - diff * 15);
 }
 
 // 3. Calculate Experience Score

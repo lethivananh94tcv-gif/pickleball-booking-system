@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { tournamentApi, Tournament, TournamentDivision } from "@/services/tournamentApi";
 import { getMyProfile } from "@/services/profileApi";
 import { getPlayerProfile, getSuitableTeammates, sendInvitation } from "@/services/matchingApi";
-import { LuTrophy, LuClock, LuUser, LuCalendar, LuPhone, LuUsers, LuFileText, LuMapPin, LuBuilding, LuWallet, LuShieldCheck, LuHandshake, LuGift, LuFlame, LuSparkles } from "react-icons/lu";
+import { LuTrophy, LuClock, LuUser, LuCalendar, LuPhone, LuUsers, LuFileText, LuMapPin, LuBuilding, LuWallet, LuShieldCheck, LuHandshake, LuGift, LuFlame, LuSparkles, LuEye, LuX } from "react-icons/lu";
 import "../../tournaments.css";
 
 function PendingRegistrationBanner({ reg, handleRetryPayment, registerLoading, onExpired }: { reg: any; handleRetryPayment: any; registerLoading: boolean; onExpired: () => void }) {
@@ -135,7 +135,19 @@ function PendingRegistrationBanner({ reg, handleRetryPayment, registerLoading, o
   );
 }
 
-function ConfirmedRegistrationBanner({ reg }: { reg: any }) {
+function ConfirmedRegistrationBanner({ 
+  reg, 
+  tournament, 
+  divisions,
+  onViewCertificate 
+}: { 
+  reg: any; 
+  tournament: any; 
+  divisions: any[];
+  onViewCertificate: (reg: any) => void; 
+}) {
+  const division = divisions?.find(d => d.DivisionID === reg.DivisionID);
+  const isCompleted = division?.Status === "Completed";
   return (
     <div style={{
       background: "linear-gradient(135deg, #f0fdf4 0%, #e8fbf0 100%)",
@@ -162,7 +174,7 @@ function ConfirmedRegistrationBanner({ reg }: { reg: any }) {
         </div>
       </div>
       
-      <div style={{ display: "flex", gap: "12px", borderTop: "1px solid #a7f3d0", paddingTop: "20px", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "12px", borderTop: "1px solid #a7f3d0", paddingTop: "20px", flexWrap: "wrap", alignItems: "center" }}>
         <button
           type="button"
           onClick={() => window.location.href = '/bookings'}
@@ -219,6 +231,30 @@ function ConfirmedRegistrationBanner({ reg }: { reg: any }) {
         >
           Liên hệ BTC 💬
         </button>
+
+        {isCompleted && (
+          <button
+            type="button"
+            onClick={() => onViewCertificate(reg)}
+            className="tm-btn"
+            style={{
+              padding: "12px 24px",
+              fontSize: "0.9rem",
+              background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
+              color: "#ffffff",
+              borderRadius: "12px",
+              fontWeight: "800",
+              border: "none",
+              cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(124, 58, 237, 0.25)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px"
+            }}
+          >
+            🎓 Nhận Chứng nhận & Thưởng
+          </button>
+        )}
       </div>
     </div>
   );
@@ -238,7 +274,7 @@ function AccordionItem({ title, content }: { title: string; content: string }) {
       </button>
       {isOpen && (
         <div className="td-accordion-content">
-          <p style={{ margin: 0 }}>{content}</p>
+          <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{content}</p>
         </div>
       )}
     </div>
@@ -264,6 +300,204 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [selectedDivisionId, setSelectedDivisionId] = useState<number | null>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [standings, setStandings] = useState<any[]>([]);
+  const [bracketActiveSubTab, setBracketActiveSubTab] = useState<string>("Overview");
+  const [trackedTeamId, setTrackedTeamId] = useState<number | null>(null);
+
+  const [zoom, setZoom] = useState(1.0);
+  const [connections, setConnections] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [activeMobileRoundIdx, setActiveMobileRoundIdx] = useState(0);
+
+  // Opponent profile modal states
+  const [profileTeamId, setProfileTeamId] = useState<number | null>(null);
+  const [profileTeamName, setProfileTeamName] = useState<string>("");
+  const [profileMembers, setProfileMembers] = useState<any[]>([]);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
+  // Certificate & Prize Modal states
+  const [selectedCertReg, setSelectedCertReg] = useState<any | null>(null);
+  const [showCertModal, setShowCertModal] = useState(false);
+  const [certRankOverride, setCertRankOverride] = useState<string>("auto");
+
+  const handleShowCertificate = async (reg: any) => {
+    setSelectedCertReg({ ...reg, rank: null, loadingRank: true });
+    setShowCertModal(true);
+    setCertRankOverride("auto");
+    
+    try {
+      const divStandings = await tournamentApi.getStandings(tournamentId, reg.DivisionID);
+      const teamStanding = divStandings.find((s: any) => s.TeamID === reg.TeamID);
+      setSelectedCertReg((prev: any) => {
+        if (!prev || prev.RegistrationID !== reg.RegistrationID) return prev;
+        return { 
+          ...prev, 
+          rank: teamStanding ? teamStanding.RankNo : null, 
+          loadingRank: false 
+        };
+      });
+    } catch (err) {
+      console.error("Error loading standings for certificate:", err);
+      setSelectedCertReg((prev: any) => prev ? { ...prev, loadingRank: false } : prev);
+    }
+  };
+
+  const handleShowPlayerProfile = async (teamId: number, teamName: string) => {
+    if (!teamId || !teamName) return;
+    const cleanName = teamName.trim();
+    if (cleanName === "TBD" || cleanName === "Bye" || cleanName.toLowerCase().includes("chờ bốc thăm")) {
+      return; // Skip virtual/placeholder teams
+    }
+    
+    setProfileTeamId(teamId);
+    setProfileTeamName(teamName);
+    setProfileLoading(true);
+    setShowProfileModal(true);
+    setProfileMembers([]);
+    
+    try {
+      const data = await tournamentApi.getTeamMembers(tournamentId, teamId);
+      setProfileMembers(data || []);
+    } catch (err) {
+      console.error("Error loading team member profiles:", err);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  // Polling tự động mỗi 10 giây đối với tab nhánh đấu và bảng xếp hạng
+  useEffect(() => {
+    if (isNaN(tournamentId) || !selectedDivisionId) return;
+    const interval = setInterval(() => {
+      if (activeTab === "bracket" || activeTab === "standings") {
+        tournamentApi.getMatches(tournamentId, selectedDivisionId)
+          .then((data) => setMatches(data || []))
+          .catch(() => {});
+        tournamentApi.getStandings(tournamentId, selectedDivisionId)
+          .then((data) => setStandings(data || []))
+          .catch(() => {});
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [tournamentId, selectedDivisionId, activeTab]);
+
+  // Reset tab phụ khi đổi nội dung thi đấu
+  useEffect(() => {
+    if (selectedDivisionId) {
+      setBracketActiveSubTab("Overview");
+      setTrackedTeamId(null);
+    }
+  }, [selectedDivisionId]);
+
+  // Publicly auto-open certificate from URL parameter certRegId
+  useEffect(() => {
+    if (typeof window !== "undefined" && !isNaN(tournamentId) && divisions.length > 0) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const certRegId = searchParams.get("certRegId");
+      if (certRegId) {
+        const regIdNum = parseInt(certRegId, 10);
+        if (!isNaN(regIdNum)) {
+          const checkDivisions = async () => {
+            for (const div of divisions) {
+              if (div.Status === "Completed") {
+                try {
+                  const regs = await tournamentApi.getRegistrations(tournamentId, div.DivisionID);
+                  const matched = regs.find((r: any) => r.registrationId === regIdNum);
+                  if (matched) {
+                    const adaptedReg = {
+                      RegistrationID: matched.registrationId,
+                      DivisionID: div.DivisionID,
+                      TeamID: matched.teamId,
+                      DivisionName: div.DivisionName,
+                      TeamCode: matched.teamCode,
+                      TeamName: matched.teamName,
+                      athletes: matched.athletes
+                    };
+                    handleShowCertificate(adaptedReg);
+                    break;
+                  }
+                } catch (e) {
+                  console.error("Error checking public certificate registration:", e);
+                }
+              }
+            }
+          };
+          checkDivisions();
+        }
+      }
+    }
+  }, [tournamentId, divisions]);
+
+  const updateConnectorLines = () => {
+    const canvas = document.querySelector(".bracket-tree-container");
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+
+    const newConnections: any[] = [];
+    const selectedDiv = divisions.find(d => d.DivisionID === selectedDivisionId);
+    if (!selectedDiv) return;
+
+    const groupStageMatches = matches.filter(m => m.GroupName && m.GroupName !== "Knockout" && (!m.KnockoutRound));
+    const knockoutMatches = matches.filter(m => m.GroupName === "Knockout" || m.KnockoutRound);
+
+    const targetMatches = knockoutMatches.length > 0 ? knockoutMatches : matches;
+
+    // Use mock matches if targetMatches is empty to draw lines
+    const allMatchesToRender = targetMatches.length > 0 ? targetMatches : [
+      ...Array.from({ length: 4 }, (_, idx) => ({
+        MatchID: -(idx + 1), RoundNo: 1, MatchNo: idx + 1, KnockoutRound: "Tứ kết", MatchStatus: "Scheduled", NextMatchID: -(Math.floor(idx / 2) + 5)
+      })),
+      ...Array.from({ length: 2 }, (_, idx) => ({
+        MatchID: -(idx + 5), RoundNo: 2, MatchNo: idx + 1, KnockoutRound: "Bán kết", MatchStatus: "Scheduled", NextMatchID: -7
+      })),
+      {
+        MatchID: -7, RoundNo: 3, MatchNo: 1, KnockoutRound: "Chung kết", MatchStatus: "Scheduled"
+      }
+    ];
+
+    allMatchesToRender.forEach((m: any) => {
+      if (m.NextMatchID) {
+        const sourceCard = document.getElementById(`match-card-${m.MatchID}`);
+        const destCard = document.getElementById(`match-card-${m.NextMatchID}`);
+        if (sourceCard && destCard) {
+          const sourceRect = sourceCard.getBoundingClientRect();
+          const destRect = destCard.getBoundingClientRect();
+
+          const x1 = (sourceRect.right - canvasRect.left) / zoom;
+          const y1 = (sourceRect.top + sourceRect.height / 2 - canvasRect.top) / zoom;
+          const x2 = (destRect.left - canvasRect.left) / zoom;
+          const y2 = (destRect.top + destRect.height / 2 - canvasRect.top) / zoom;
+
+          const midX = x1 + (x2 - x1) / 2;
+          const path = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
+
+          const isWinnerKnown = m.MatchStatus === "Completed" || m.MatchStatus === "ByeCompleted";
+          const isHighlighted = trackedTeamId && (m.TeamAID === trackedTeamId || m.TeamBID === trackedTeamId);
+
+          newConnections.push({
+            id: `${m.MatchID}-${m.NextMatchID}`,
+            path,
+            isWinnerKnown,
+            isHighlighted
+          });
+        }
+      }
+    });
+    setConnections(newConnections);
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      updateConnectorLines();
+    }, 400);
+
+    window.addEventListener("resize", updateConnectorLines);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", updateConnectorLines);
+    };
+  }, [matches, trackedTeamId, zoom, activeTab, bracketActiveSubTab, selectedDivisionId]);
 
   // Doubles registration state
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
@@ -289,6 +523,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [athlete1, setAthlete1] = useState({
     phoneNumber: "",
     fullName: "",
+    email: "",
     rating: 0.0,
     province: "",
     gender: "Male",
@@ -302,6 +537,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [athlete2, setAthlete2] = useState({
     phoneNumber: "",
     fullName: "",
+    email: "",
     rating: 0.0,
     province: "",
     gender: "Male",
@@ -371,7 +607,26 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   }, [tournamentId]);
 
   useEffect(() => {
-    if (!registerModalOpen) return;
+    if (!registerModalOpen || !selectedDivision) return;
+
+    // Kiểm tra xem có bản nháp được lưu hay không
+    const savedDraft = typeof window !== "undefined" 
+      ? localStorage.getItem(`tournament_reg_draft_${tournamentId}_${selectedDivision.DivisionID}`) 
+      : null;
+
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed.athlete1) setAthlete1(parsed.athlete1);
+        if (parsed.athlete2) setAthlete2(parsed.athlete2);
+        if (parsed.partnerOption) setPartnerOption(parsed.partnerOption);
+        if (parsed.partnerContact) setPartnerContact(parsed.partnerContact);
+        return; // Đã tải bản nháp thành công, không ghi đè từ API nữa
+      } catch (e) {
+        console.error("Lỗi parse dữ liệu nháp:", e);
+      }
+    }
+
     const token = typeof window !== "undefined" ? localStorage.getItem("pickleclub_token") : null;
     if (!token) return;
 
@@ -391,7 +646,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         }));
       }
     });
-  }, [registerModalOpen]);
+  }, [registerModalOpen, selectedDivision, tournamentId]);
 
   useEffect(() => {
     if (!selectedDivisionId) return;
@@ -432,6 +687,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     if (!athlete1.fullName.trim()) {
       errors.fullName1 = "Họ và tên là bắt buộc";
     }
+    if (!athlete1.email || !athlete1.email.trim()) {
+      errors.email1 = "Email là bắt buộc";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(athlete1.email.trim())) {
+      errors.email1 = "Email không đúng định dạng";
+    }
     if (athlete1.rating === undefined || athlete1.rating === null || isNaN(athlete1.rating) || athlete1.rating <= 0) {
       errors.rating1 = "Điểm trình là bắt buộc và phải lớn hơn 0";
     }
@@ -458,6 +718,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
       if (!athlete2.fullName.trim()) {
         errors.fullName2 = "Họ và tên là bắt buộc";
+      }
+      if (!athlete2.email || !athlete2.email.trim()) {
+        errors.email2 = "Email là bắt buộc";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(athlete2.email.trim())) {
+        errors.email2 = "Email không đúng định dạng";
       }
       if (athlete2.rating === undefined || athlete2.rating === null || isNaN(athlete2.rating) || athlete2.rating <= 0) {
         errors.rating2 = "Điểm trình là bắt buộc và phải lớn hơn 0";
@@ -493,6 +758,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         athleteNo: 1,
         fullName: athlete1.fullName,
         phoneNumber: athlete1.phoneNumber,
+        email: athlete1.email || null,
         rating: Number(athlete1.rating),
         province: athlete1.province,
         gender: athlete1.gender,
@@ -505,6 +771,10 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       const res = await tournamentApi.registerSingles(tournamentId, division.DivisionID, {
         athletes: [athletePayload],
       });
+
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(`tournament_reg_draft_${tournamentId}_${division.DivisionID}`);
+      }
 
       setSuccess("Đăng ký nội dung đơn thành công!");
       setRegistrationResult(res.data);
@@ -545,6 +815,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             athleteNo: 1,
             fullName: athlete1.fullName,
             phoneNumber: athlete1.phoneNumber,
+            email: athlete1.email || null,
             rating: Number(athlete1.rating),
             province: athlete1.province,
             gender: athlete1.gender,
@@ -557,6 +828,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             athleteNo: 2,
             fullName: athlete2.fullName,
             phoneNumber: athlete2.phoneNumber,
+            email: athlete2.email || null,
             rating: Number(athlete2.rating),
             province: athlete2.province,
             gender: athlete2.gender,
@@ -569,6 +841,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       }
 
       const res = await tournamentApi.registerDoubles(tournamentId, selectedDivision.DivisionID, payload);
+
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(`tournament_reg_draft_${tournamentId}_${selectedDivision.DivisionID}`);
+      }
+
       setRegistrationResult(res.data);
 
       if (partnerOption === "SuggestOnly") {
@@ -993,6 +1270,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 <div className="td-accordion-wrap">
                   {[
                     { 
+                      title: "Cơ cấu giải thưởng giải đấu", 
+                      content: tournament ? (tournament.PrizeInfo || "Thông tin giải thưởng đang được Ban tổ chức cập nhật.") : "Đang tải thông tin..."
+                    },
+                    { 
+                      title: "Quy chế & Điều lệ chi tiết", 
+                      content: tournament ? (tournament.Rules || "Thông tin quy chế đang được Ban tổ chức cập nhật.") : "Đang tải thông tin..."
+                    },
+                    { 
                       title: "Thể thức thi đấu chi tiết", 
                       content: "Giải đấu áp dụng thể thức thi đấu chia bảng (vòng tròn tính điểm 1 lượt). Chọn ra 2 đội có điểm số cao nhất mỗi bảng để tiến vào vòng loại trực tiếp. Các trận đấu ở vòng bảng thi đấu chạm 11 hoặc 15, vòng knock-out thi đấu chạm 21 hoặc Best of 3 set."
                     },
@@ -1214,7 +1499,10 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               {myRegistrations.filter(r => r.RegistrationStatus === "Confirmed").map((reg) => (
                 <ConfirmedRegistrationBanner 
                   key={reg.RegistrationID} 
-                  reg={reg} 
+                  reg={reg}
+                  tournament={tournament}
+                  divisions={divisions}
+                  onViewCertificate={handleShowCertificate}
                 />
               ))}
 
@@ -1338,6 +1626,52 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                 </span>
                               </div>
                             </div>
+
+                            {/* Lịch trình dự kiến của các vòng đấu */}
+                            {(() => {
+                              const scheduleConfig = (div as any).RoundScheduleConfig || (div as any).roundScheduleConfig;
+                              if (scheduleConfig) {
+                                try {
+                                  const config = typeof scheduleConfig === "string" ? JSON.parse(scheduleConfig) : scheduleConfig;
+                                  if (Array.isArray(config) && config.length > 0) {
+                                    return (
+                                      <div style={{ 
+                                        margin: "12px 0 4px 0", 
+                                        background: "linear-gradient(135deg, #f8fafc, #f1f5f9)", 
+                                        padding: "10px 14px", 
+                                        borderRadius: "10px", 
+                                        border: "1px solid #cbd5e1" 
+                                      }}>
+                                        <p style={{ margin: "0 0 6px 0", fontSize: "0.75rem", fontWeight: "750", color: "#1e293b", display: "flex", alignItems: "center", gap: "4px" }}>
+                                          📅 Lịch trình dự kiến:
+                                        </p>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                          {config.map((item: any, idx: number) => {
+                                            const dateStr = item.scheduledStart 
+                                              ? new Date(item.scheduledStart).toLocaleString("vi-VN", {
+                                                  day: "2-digit",
+                                                  month: "2-digit",
+                                                  hour: "2-digit",
+                                                  minute: "2-digit"
+                                                })
+                                              : "Chưa cấu hình";
+                                            return (
+                                              <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: "#475569" }}>
+                                                <span style={{ fontWeight: "500" }}>{item.roundName || `Vòng ${item.roundNo}`}:</span>
+                                                <span style={{ fontWeight: "700", color: "#0f172a" }}>{dateStr}</span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+                                } catch (e) {
+                                  return null;
+                                }
+                              }
+                              return null;
+                            })()}
 
                             {/* Row 4: Slot status / Progress Bar */}
                             <div className="td-entry-row4-capacity">
@@ -1660,73 +1994,775 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           );
         })()}
 
-        {activeTab === "bracket" && (
-          <div>
-            {/* Division Selector */}
-            <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "12px", marginBottom: "24px" }}>
-              {divisions.map((div) => (
-                <button
-                  key={div.DivisionID}
-                  onClick={() => setSelectedDivisionId(div.DivisionID)}
-                  className={`tm-btn ${selectedDivisionId === div.DivisionID ? "tm-btn-primary" : "tm-btn-secondary"}`}
-                  style={{ padding: "6px 16px", fontSize: "0.75rem" }}
-                >
-                  {div.DivisionName}
-                </button>
-              ))}
-            </div>
+        {activeTab === "bracket" && (() => {
+          const selectedDiv = divisions.find(d => d.DivisionID === selectedDivisionId);
+          if (!selectedDiv) return null;
 
-            {matches.length === 0 ? (
-              <div style={{ padding: "48px", textAlign: "center", border: "1px solid var(--tm-border)", borderRadius: "16px", background: "#fff" }}>
-                <p className="text-slate-400">Sơ đồ nhánh đấu và lịch thi đấu chưa được ban tổ chức tạo.</p>
+          const isGroupKnockout = selectedDiv.BracketType === "GroupKnockout";
+          const isRoundRobin = selectedDiv.BracketType === "RoundRobin";
+          const isSingleElimination = selectedDiv.BracketType === "SingleElimination";
+
+          const groupStageMatches = matches.filter(m => m.GroupName && m.GroupName !== "Knockout" && (!m.KnockoutRound));
+          const knockoutMatches = matches.filter(m => m.GroupName === "Knockout" || m.KnockoutRound);
+          const groupNames = Array.from(new Set(groupStageMatches.map(m => m.GroupName).filter(Boolean))).sort() as string[];
+
+          let subTabs: string[] = [];
+          if (isGroupKnockout) {
+            subTabs = ["Overview", ...groupNames, "Knockout"];
+          } else if (isSingleElimination) {
+            subTabs = ["Overview", "Knockout"];
+          } else {
+            subTabs = ["Overview", "Bảng thi đấu"];
+          }
+
+          const activeSubTab = subTabs.includes(bracketActiveSubTab) ? bracketActiveSubTab : subTabs[0];
+
+          const getTrackedMatchIds = (teamId: number | null, allMatches: any[]) => {
+            if (!teamId) return new Set<number>();
+            const pathIds = new Set<number>();
+            const directMatches = allMatches.filter(m => m.TeamAID === teamId || m.TeamBID === teamId);
+            directMatches.forEach(m => {
+              pathIds.add(m.MatchID);
+              let nextId = m.NextMatchID;
+              while (nextId) {
+                pathIds.add(nextId);
+                const parent = allMatches.find(pm => pm.MatchID === nextId);
+                nextId = parent ? parent.NextMatchID : null;
+              }
+            });
+            return pathIds;
+          };
+
+          const trackedMatchIds = getTrackedMatchIds(trackedTeamId, matches);
+
+          const matchesSearch = (m: any) => {
+            if (searchQuery.trim() === "") return true;
+            const q = searchQuery.toLowerCase();
+            const nameA = (m.TeamAName || "").toLowerCase();
+            const nameB = (m.TeamBName || "").toLowerCase();
+            return nameA.includes(q) || nameB.includes(q);
+          };
+
+          const matchesStatus = (m: any) => {
+            if (statusFilter === "All") return true;
+            if (statusFilter === "Live") return m.MatchStatus === "InProgress" || m.MatchStatus === "Live";
+            if (statusFilter === "Upcoming") return m.MatchStatus === "Scheduled" || m.MatchStatus === "Ready";
+            if (statusFilter === "Completed") return m.MatchStatus === "Completed" || m.MatchStatus === "ByeCompleted";
+            return true;
+          };
+
+          const getTeamPlaceholder = (match: any, slot: "TeamA" | "TeamB", allMatches: any[]) => {
+            if (isGroupKnockout && allMatches.filter(m => m.GroupName === "Knockout").length === 0) {
+              if (slot === "TeamA") return `Hạng 1 Bảng ${match.MatchNo * 2 - 1}`;
+              return `Hạng 2 Bảng ${match.MatchNo * 2}`;
+            }
+            const child = allMatches.find(c => c.NextMatchID === match.MatchID && c.NextMatchSlot === slot);
+            if (child) {
+              const roundName = child.KnockoutRound || `Trận #${child.MatchID}`;
+              return `Thắng ${roundName} ${child.MatchNo}`;
+            }
+            return "Chờ đối thủ (TBD)";
+          };
+
+          const formatMatchDateTime = (dateStr: string | null) => {
+            if (!dateStr) return "Chờ lịch";
+            const d = new Date(dateStr);
+            const day = String(d.getDate()).padStart(2, "0");
+            const month = String(d.getMonth() + 1).padStart(2, "0");
+            const year = d.getFullYear();
+            const hours = String(d.getHours()).padStart(2, "0");
+            const minutes = String(d.getMinutes()).padStart(2, "0");
+            return `${day}/${month}/${year} · ${hours}:${minutes}`;
+          };
+
+          const renderMatchStatusBadge = (status: string) => {
+            let className = "match-status-badge ";
+            let text = status;
+            switch (status) {
+              case "Scheduled":
+                className += "match-status-scheduled";
+                text = "Chưa diễn ra";
+                break;
+              case "Ready":
+                className += "match-status-ready";
+                text = "Sẵn sàng";
+                break;
+              case "InProgress":
+              case "Live":
+                className += "match-status-live";
+                text = "Live";
+                break;
+              case "Completed":
+                className += "match-status-completed";
+                text = "Đã xong";
+                break;
+              case "Forfeit":
+                className += "match-status-forfeit";
+                text = "Xử thua";
+                break;
+              case "ByeCompleted":
+              case "Bye":
+                className += "match-status-bye";
+                text = "Miễn đấu";
+                break;
+              default:
+                className += "match-status-scheduled";
+            }
+            return <span className={className}>{text}</span>;
+          };
+
+          const renderMatchCard = (m: any, isPlaceholder: boolean = false) => {
+            const isLive = m.MatchStatus === "InProgress" || m.MatchStatus === "Live";
+            const isCompleted = m.MatchStatus === "Completed" || m.MatchStatus === "ByeCompleted";
+            const isBye = m.MatchStatus === "ByeCompleted" || m.ScoreText === "BYE";
+            
+            const teamAId = m.TeamAID;
+            const teamBId = m.TeamBID;
+            const teamAName = m.TeamAName || (isPlaceholder ? getTeamPlaceholder(m, "TeamA", matches) : "TBD");
+            const teamBName = m.TeamBName || (isPlaceholder ? getTeamPlaceholder(m, "TeamB", matches) : "TBD");
+
+            const isWinnerA = isCompleted && m.WinnerTeamID === teamAId && teamAId !== undefined;
+            const isWinnerB = isCompleted && m.WinnerTeamID === teamBId && teamBId !== undefined;
+            const isLoserA = isCompleted && m.WinnerTeamID !== teamAId && teamAId !== undefined;
+            const isLoserB = isCompleted && m.WinnerTeamID !== teamBId && teamBId !== undefined;
+
+            let cardClass = "bracket-match-card";
+            const isMatched = matchesSearch(m) && matchesStatus(m);
+
+            if (trackedTeamId) {
+              if (trackedMatchIds.has(m.MatchID)) {
+                cardClass += " highlighted";
+              } else {
+                cardClass += " dimmed";
+              }
+            } else if (searchQuery || statusFilter !== "All") {
+              if (isMatched) {
+                cardClass += " highlighted";
+              } else {
+                cardClass += " dimmed";
+              }
+            }
+
+            let parsedScores: any[] = [];
+            if (m.ScoreJson) {
+              try { parsedScores = JSON.parse(m.ScoreJson); } catch (e) {}
+            }
+
+            return (
+              <div key={m.MatchID || `mock-${m.RoundNo}-${m.MatchNo}`} id={`match-card-${m.MatchID}`} className={cardClass}>
+                <div className="bracket-match-header">
+                  <span className="bracket-match-id">
+                    #{m.MatchID || "TBD"}
+                  </span>
+                  {renderMatchStatusBadge(isBye ? "Bye" : m.MatchStatus)}
+                </div>
+
+                <div className="bracket-match-teams">
+                  {/* Team A */}
+                  <div 
+                    className={`bracket-team-row ${isWinnerA ? "bracket-team-row-winner" : ""} ${isLoserA ? "bracket-team-row-loser" : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (teamAId) setTrackedTeamId(trackedTeamId === teamAId ? null : teamAId);
+                    }}
+                    style={{ cursor: teamAId ? "pointer" : "default" }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden", minWidth: 0, flex: 1 }}>
+                      <span className={`bracket-team-name ${isWinnerA ? "bracket-team-name-winner" : ""}`} title={teamAName} style={{ flexShrink: 1 }}>
+                        🔵 {teamAName} {isWinnerA && "✓"}
+                      </span>
+                      {teamAId && (
+                        <span 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShowPlayerProfile(teamAId, teamAName);
+                          }}
+                          style={{
+                            cursor: "pointer",
+                            flexShrink: 0,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
+                            fontSize: "9px",
+                            fontWeight: "800",
+                            color: "#2563eb",
+                            background: "#eff6ff",
+                            border: "1px solid #dbeafe",
+                            padding: "2px 6px",
+                            borderRadius: "9999px",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                            transition: "all 0.2s"
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#2563eb";
+                            e.currentTarget.style.color = "#ffffff";
+                            e.currentTarget.style.borderColor = "#2563eb";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "#eff6ff";
+                            e.currentTarget.style.color = "#2563eb";
+                            e.currentTarget.style.borderColor = "#dbeafe";
+                          }}
+                          title="Xem hồ sơ đối thủ"
+                        >
+                          <LuEye size={10} />
+                          <span>View</span>
+                        </span>
+                      )}
+                    </div>
+                    <span className="bracket-team-score">{m.TeamASetWon ?? (isWinnerA ? "W" : (isLoserA ? "L" : "-"))}</span>
+                  </div>
+
+                  {/* Team B */}
+                  <div 
+                    className={`bracket-team-row ${isWinnerB ? "bracket-team-row-winner" : ""} ${isLoserB ? "bracket-team-row-loser" : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (teamBId) setTrackedTeamId(trackedTeamId === teamBId ? null : teamBId);
+                    }}
+                    style={{ cursor: teamBId ? "pointer" : "default" }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden", minWidth: 0, flex: 1 }}>
+                      <span className={`bracket-team-name ${isWinnerB ? "bracket-team-name-winner" : ""}`} title={teamBName} style={{ flexShrink: 1 }}>
+                        🔴 {teamBName} {isWinnerB && "✓"}
+                      </span>
+                      {teamBId && (
+                        <span 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShowPlayerProfile(teamBId, teamBName);
+                          }}
+                          style={{
+                            cursor: "pointer",
+                            flexShrink: 0,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
+                            fontSize: "9px",
+                            fontWeight: "800",
+                            color: "#2563eb",
+                            background: "#eff6ff",
+                            border: "1px solid #dbeafe",
+                            padding: "2px 6px",
+                            borderRadius: "9999px",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                            transition: "all 0.2s"
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#2563eb";
+                            e.currentTarget.style.color = "#ffffff";
+                            e.currentTarget.style.borderColor = "#2563eb";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "#eff6ff";
+                            e.currentTarget.style.color = "#2563eb";
+                            e.currentTarget.style.borderColor = "#dbeafe";
+                          }}
+                          title="Xem hồ sơ đối thủ"
+                        >
+                          <LuEye size={10} />
+                          <span>View</span>
+                        </span>
+                      )}
+                    </div>
+                    <span className="bracket-team-score">{m.TeamBSetWon ?? (isWinnerB ? "W" : (isLoserB ? "L" : "-"))}</span>
+                  </div>
+                </div>
+
+                {/* Set scores line */}
+                {parsedScores.length > 0 && (
+                  <div className="bracket-set-scores" style={{ color: isLive ? "#ef4444" : "#64748b" }}>
+                    {isLive && <span className="live-dot" style={{ display: "inline-block", width: "6px", height: "6px", background: "#ef4444", borderRadius: "50%", marginRight: "4px", animation: "pulseLive 1s infinite" }} />}
+                    Set: {parsedScores.map(s => `${s.teamAScore ?? 0}-${s.teamBScore ?? 0}`).join(", ")}
+                  </div>
+                )}
+
+                {/* Metadata footer */}
+                {!isPlaceholder && (
+                  <div className="bracket-match-meta">
+                    <span className="bracket-meta-court">🏟️ {m.CourtName || "Chờ xếp sân"}</span>
+                    <span className="bracket-meta-time">⏱️ {formatMatchDateTime(m.ScheduledStart)}</span>
+                  </div>
+                )}
+                
+                {isBye && (
+                  <div style={{ fontSize: "10.5px", color: "#64748b", fontStyle: "italic", textAlign: "center", marginTop: "2px" }}>
+                    Advanced by BYE
+                  </div>
+                )}
               </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                {matches.map((m) => (
-                  <div key={m.MatchID} className="tm-match-card">
-                    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
-                      <div>
-                        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
-                          <span className="tm-badge tm-badge-draft" style={{ borderRadius: "4px" }}>
-                            Vòng {m.RoundNo} - Trận {m.MatchNo}
-                          </span>
-                          {m.GroupName && (
-                            <span style={{ fontSize: "0.65rem", color: "var(--tm-accent)", fontWeight: "bold", textTransform: "uppercase" }}>{m.GroupName}</span>
-                          )}
-                          <span className={`tm-badge ${m.MatchStatus === "Completed" ? "tm-badge-published" : "tm-badge-closed"}`}>
-                            {m.MatchStatus}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: "0.875rem", display: "flex", flexDirection: "column", gap: "4px", minWidth: "220px" }}>
-                          <p style={{ fontWeight: m.WinnerTeamID === m.TeamAID ? "bold" : "normal", color: m.WinnerTeamID === m.TeamAID ? "var(--tm-primary)" : "inherit" }}>
-                            🔵 {m.TeamAName || "Đợi đối thủ..."}
-                          </p>
-                          <p style={{ fontWeight: m.WinnerTeamID === m.TeamBID ? "bold" : "normal", color: m.WinnerTeamID === m.TeamBID ? "var(--tm-primary)" : "inherit" }}>
-                            🔴 {m.TeamBName || "Đợi đối thủ..."}
-                          </p>
-                        </div>
-                      </div>
+            );
+          };
 
-                      <div style={{ textAlign: "right", fontSize: "0.75rem", borderLeft: "1px solid var(--tm-border)", paddingLeft: "16px" }}>
-                        {m.CourtName && <p style={{ fontWeight: "700" }}>🏟️ {m.CourtName}</p>}
-                        {m.ScheduledStart && (
-                          <p style={{ color: "var(--tm-muted)", marginTop: "2px" }}>
-                            ⏱️ {new Date(m.ScheduledStart).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}
-                          </p>
-                        )}
-                        {m.ScoreText && (
-                          <p style={{ color: "var(--tm-primary)", fontWeight: "bold", marginTop: "6px", background: "rgba(34,197,94,0.1)", padding: "4px 8px", borderRadius: "4px" }}>
-                            🏆 Tỉ số: {m.ScoreText}
-                          </p>
-                        )}
+          const renderOverviewTab = () => {
+            const total = matches.length;
+            const completed = matches.filter(m => m.MatchStatus === "Completed" || m.MatchStatus === "ByeCompleted").length;
+            const live = matches.filter(m => m.MatchStatus === "InProgress" || m.MatchStatus === "Live").length;
+            const waiting = matches.filter(m => m.MatchStatus === "Ready").length;
+            const activeCourts = Array.from(new Set(matches.filter(m => m.MatchStatus === "InProgress").map(m => m.CourtName).filter(Boolean))).length;
+            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            const filteredLiveList = matches.filter(m => m.MatchStatus === "InProgress" || m.MatchStatus === "Live").filter(matchesSearch);
+            const filteredUpcomingList = matches.filter(m => m.MatchStatus === "Scheduled" || m.MatchStatus === "Ready").filter(matchesSearch).slice(0, 5);
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                <div style={{ background: "#ffffff", border: "1px solid var(--tm-border)", borderRadius: "16px", padding: "20px", boxShadow: "var(--tm-shadow)" }}>
+                  <h4 style={{ margin: "0 0 12px 0", fontSize: "13px", fontWeight: "900", color: "#073b2b", textTransform: "uppercase" }}>Tiến Độ Giải Đấu</h4>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--tm-muted)", marginBottom: "8px", fontWeight: "700" }}>
+                    <span>{completed} / {total} Trận đấu đã hoàn thành</span>
+                    <span>{pct}%</span>
+                  </div>
+                  <div style={{ width: "100%", height: "8px", background: "#e2e8f0", borderRadius: "10px", overflow: "hidden", marginBottom: "20px" }}>
+                    <div style={{ width: `${pct}%`, height: "100%", background: "linear-gradient(90deg, #10b981, #059669)", borderRadius: "10px" }} />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "16px" }}>
+                    <div style={{ background: "#eff6ff", border: "1px solid #dbeafe", padding: "12px", borderRadius: "12px", textAlign: "center" }}>
+                      <span style={{ display: "block", fontSize: "10px", color: "#1e40af", fontWeight: "800", textTransform: "uppercase" }}>Đang diễn ra</span>
+                      <strong style={{ fontSize: "20px", color: "#1e3a8a" }}>{live} Live</strong>
+                    </div>
+                    <div style={{ background: "#fffbeb", border: "1px solid #fef3c7", padding: "12px", borderRadius: "12px", textAlign: "center" }}>
+                      <span style={{ display: "block", fontSize: "10px", color: "#854d0e", fontWeight: "800", textTransform: "uppercase" }}>Chờ thi đấu</span>
+                      <strong style={{ fontSize: "20px", color: "#78350f" }}>{waiting} Trận</strong>
+                    </div>
+                    <div style={{ background: "#f0fdf4", border: "1px solid #d1faf0", padding: "12px", borderRadius: "12px", textAlign: "center" }}>
+                      <span style={{ display: "block", fontSize: "10px", color: "#166534", fontWeight: "800", textTransform: "uppercase" }}>Sân đang chạy</span>
+                      <strong style={{ fontSize: "20px", color: "#064e3b" }}>{activeCourts} Sân</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px" }}>
+                  <div style={{ background: "#ffffff", border: "1px solid var(--tm-border)", borderRadius: "16px", padding: "20px", boxShadow: "var(--tm-shadow)" }}>
+                    <h4 style={{ margin: "0 0 16px 0", fontSize: "13px", fontWeight: "900", color: "#ef4444", borderBottom: "2px solid #fee2e2", paddingBottom: "8px", textTransform: "uppercase" }}>🔥 Trận đấu Live</h4>
+                    {filteredLiveList.length === 0 ? (
+                      <p style={{ fontSize: "12px", color: "var(--tm-muted)", textAlign: "center", padding: "20px 0" }}>Không có trận đấu nào đang thi đấu hoặc khớp bộ lọc.</p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {filteredLiveList.map(m => renderMatchCard(m))}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ background: "#ffffff", border: "1px solid var(--tm-border)", borderRadius: "16px", padding: "20px", boxShadow: "var(--tm-shadow)" }}>
+                    <h4 style={{ margin: "0 0 16px 0", fontSize: "13px", fontWeight: "900", color: "#2563eb", borderBottom: "2px solid #dbeafe", paddingBottom: "8px", textTransform: "uppercase" }}>📅 Lịch thi đấu sắp diễn ra</h4>
+                    {filteredUpcomingList.length === 0 ? (
+                      <p style={{ fontSize: "12px", color: "var(--tm-muted)", textAlign: "center", padding: "20px 0" }}>Không có trận đấu sắp diễn ra hoặc khớp bộ lọc.</p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {filteredUpcomingList.map(m => renderMatchCard(m))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          const renderKnockoutTree = () => {
+            const targetMatches = knockoutMatches.length > 0 ? knockoutMatches : matches;
+            
+            if (targetMatches.length === 0) {
+              const mockRounds: any[] = [];
+              const groupCount = groupNames.length || 4;
+              
+              if (groupCount >= 4) {
+                mockRounds.push({ name: "Tứ kết", matches: Array.from({ length: 4 }, (_, idx) => ({ MatchID: -(idx + 1), RoundNo: 1, MatchNo: idx + 1, KnockoutRound: "Tứ kết", MatchStatus: "Scheduled", NextMatchID: -(Math.floor(idx / 2) + 5) })), info: "4 trận" });
+                mockRounds.push({ name: "Bán kết", matches: Array.from({ length: 2 }, (_, idx) => ({ MatchID: -(idx + 5), RoundNo: 2, MatchNo: idx + 1, KnockoutRound: "Bán kết", MatchStatus: "Scheduled", NextMatchID: -7 })), info: "2 trận" });
+                mockRounds.push({ name: "Chung kết", matches: [{ MatchID: -7, RoundNo: 3, MatchNo: 1, KnockoutRound: "Chung kết", MatchStatus: "Scheduled" }], info: "1 trận" });
+              } else {
+                mockRounds.push({ name: "Bán kết", matches: Array.from({ length: 2 }, (_, idx) => ({ MatchID: -(idx + 1), RoundNo: 1, MatchNo: idx + 1, KnockoutRound: "Bán kết", MatchStatus: "Scheduled", NextMatchID: -3 })), info: "2 trận" });
+                mockRounds.push({ name: "Chung kết", matches: [{ MatchID: -3, RoundNo: 2, MatchNo: 1, KnockoutRound: "Chung kết", MatchStatus: "Scheduled" }], info: "1 trận" });
+              }
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <div style={{ background: "#fff7ed", border: "1px solid #ffedd5", color: "#c2410c", padding: "12px 16px", borderRadius: "12px", fontSize: "12px", fontWeight: "700", marginBottom: "20px" }}>
+                    ⚠️ Vòng bảng chưa kết thúc. Dưới đây là sơ đồ nhánh đấu dự kiến của vòng loại trực tiếp.
+                  </div>
+                  
+                  <div style={{ position: "relative" }}>
+
+
+                    <div id="bracket-tree-viewport" style={{ overflowX: "auto", overflowY: "visible", width: "100%", scrollBehavior: "smooth" }}>
+                      <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", width: `${100 / zoom}%`, display: "inline-block", position: "relative" }}>
+                        
+                        <div className="bracket-tree-container" style={{ minHeight: "auto", height: `${mockRounds[0].matches.length * 150}px`, position: "relative" }}>
+                          <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }}>
+                            {connections.map(c => (
+                              <path key={c.id} d={c.path} fill="none" stroke={c.isHighlighted ? "#B91C1C" : (c.isWinnerKnown ? "#EF4444" : "#FCA5A5")} strokeWidth={c.isHighlighted ? 3 : 1.5} style={{ transition: "stroke 0.2s, stroke-width 0.2s" }} />
+                            ))}
+                          </svg>
+
+                          {mockRounds.map((round, rIdx) => (
+                            <div key={rIdx} className="bracket-round-column">
+                              <div className="bracket-column-header-container">
+                                <span className="bracket-column-header-title">{round.name}</span>
+                                <span className="bracket-column-header-info">{round.info}</span>
+                              </div>
+                              {round.matches.map((m: any) => renderMatchCard(m, true))}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                ))}
+                </div>
+              );
+            }
+
+            const matchesByRound: Record<string, any[]> = {};
+            targetMatches.forEach(m => {
+              const rName = m.KnockoutRound || `Vòng ${m.RoundNo}`;
+              if (!matchesByRound[rName]) matchesByRound[rName] = [];
+              matchesByRound[rName].push(m);
+            });
+
+            const sortedRounds = Object.keys(matchesByRound).sort((a, b) => {
+              const rA = matchesByRound[a][0]?.RoundNo || 0;
+              const rB = matchesByRound[b][0]?.RoundNo || 0;
+              return rA - rB;
+            });
+
+            const maxMatches = Math.max(...sortedRounds.map(r => matchesByRound[r].length));
+            const baseHeight = maxMatches * 260;
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {trackedTeamId && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#eff6ff", border: "1px solid #bfdbfe", padding: "8px 16px", borderRadius: "10px", marginBottom: "16px", fontSize: "12px", fontWeight: "700", color: "#1d4ed8" }}>
+                    <span>🔍 Đang hiển thị lộ trình đi tiếp của đội đã chọn</span>
+                    <button 
+                      onClick={() => setTrackedTeamId(null)}
+                      style={{ background: "none", border: "none", color: "#1d4ed8", cursor: "pointer", textDecoration: "underline", fontWeight: "800", padding: 0 }}
+                    >
+                      Bỏ theo dõi
+                    </button>
+                  </div>
+                )}
+
+                {sortedRounds.length > 0 && (
+                  <div className="bracket-mobile-round-nav">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const nextIdx = Math.max(activeMobileRoundIdx - 1, 0);
+                        setActiveMobileRoundIdx(nextIdx);
+                        const col = document.getElementById(`round-col-${sortedRounds[nextIdx]}`);
+                        col?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                      }}
+                      disabled={activeMobileRoundIdx === 0}
+                      className="mobile-nav-btn"
+                    >
+                      ◀ Trước
+                    </button>
+                    
+                    <div className="mobile-round-indicator">
+                      <span className="mobile-round-name">{sortedRounds[activeMobileRoundIdx]}</span>
+                      <span className="mobile-round-progress">Vòng {activeMobileRoundIdx + 1} / {sortedRounds.length}</span>
+                    </div>
+
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const nextIdx = Math.min(activeMobileRoundIdx + 1, sortedRounds.length - 1);
+                        setActiveMobileRoundIdx(nextIdx);
+                        const col = document.getElementById(`round-col-${sortedRounds[nextIdx]}`);
+                        col?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                      }}
+                      disabled={activeMobileRoundIdx === sortedRounds.length - 1}
+                      className="mobile-nav-btn"
+                    >
+                      Sau ▶
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ position: "relative" }}>
+
+
+                  <div id="bracket-tree-viewport" onScroll={handleScroll} style={{ overflowX: "auto", overflowY: "visible", width: "100%", scrollBehavior: "smooth" }}>
+                    <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", width: `${100 / zoom}%`, display: "inline-block", position: "relative" }}>
+                      
+                      <div className="bracket-tree-container" style={{ minHeight: "auto", height: `${baseHeight}px`, position: "relative" }}>
+                        <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }}>
+                          {connections.map(c => (
+                            <path key={c.id} d={c.path} fill="none" stroke={c.isHighlighted ? "#B91C1C" : (c.isWinnerKnown ? "#EF4444" : "#FCA5A5")} strokeWidth={c.isHighlighted ? 3 : 1.5} style={{ transition: "stroke 0.2s, stroke-width 0.2s" }} />
+                          ))}
+                        </svg>
+
+                        {sortedRounds.map((roundName, rIdx) => {
+                          const rMatches = [...matchesByRound[roundName]].sort((a,b) => a.MatchNo - b.MatchNo);
+                          const total = rMatches.length;
+                          const done = rMatches.filter(m => m.MatchStatus === "Completed" || m.MatchStatus === "ByeCompleted").length;
+                          const rPct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+                          return (
+                            <div key={roundName} id={`round-col-${roundName}`} className="bracket-round-column">
+                              <div className="bracket-column-header-container">
+                                <span className="bracket-column-header-title">{roundName}</span>
+                                <span className="bracket-column-header-info">{done}/{total} Đã xong ({rPct}%)</span>
+                              </div>
+                              {rMatches.map(m => renderMatchCard(m))}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
               </div>
-            )}
-          </div>
-        )}
+            );
+          };
+
+          const handleScroll = (e: any) => {
+            const container = e.currentTarget;
+            const scrollLeft = container.scrollLeft;
+            const colWidth = container.clientWidth;
+            const activeIdx = Math.round(scrollLeft / colWidth);
+
+            const targetMatches = knockoutMatches.length > 0 ? knockoutMatches : matches;
+            const matchesByRound: Record<string, any[]> = {};
+            targetMatches.forEach(m => {
+              const rName = m.KnockoutRound || `Vòng ${m.RoundNo}`;
+              if (!matchesByRound[rName]) matchesByRound[rName] = [];
+              matchesByRound[rName].push(m);
+            });
+            const sRounds = Object.keys(matchesByRound).sort((a, b) => {
+              const rA = matchesByRound[a][0]?.RoundNo || 0;
+              const rB = matchesByRound[b][0]?.RoundNo || 0;
+              return rA - rB;
+            });
+
+            if (activeIdx >= 0 && activeIdx < sRounds.length) {
+              setActiveMobileRoundIdx(activeIdx);
+            }
+          };
+
+          return (
+            <div>
+              <div className="bracket-compact-toolbar">
+                <div className="toolbar-section">
+                  <span className="toolbar-label">Nội dung:</span>
+                  <select 
+                    value={selectedDivisionId || ""} 
+                    onChange={(e) => setSelectedDivisionId(Number(e.target.value))}
+                    className="toolbar-select"
+                  >
+                    {divisions.map(div => (
+                      <option key={div.DivisionID} value={div.DivisionID}>{div.DivisionName}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {subTabs.length > 1 && (
+                  <div className="toolbar-section tabs-group">
+                    {subTabs.map(tab => (
+                      <button
+                        key={tab}
+                        onClick={() => setBracketActiveSubTab(tab)}
+                        className={`toolbar-tab-btn ${activeSubTab === tab ? "active" : ""}`}
+                      >
+                        {tab === "Overview" ? "Tổng quan" : (tab === "Knockout" ? "Vòng Knockout" : tab)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="toolbar-section">
+                  <input 
+                    type="text" 
+                    placeholder="Tìm VĐV..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="toolbar-search-input"
+                    style={{ marginRight: "6px" }}
+                  />
+                  <select 
+                    value={statusFilter} 
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="toolbar-select"
+                    style={{ marginRight: "12px" }}
+                  >
+                    <option value="All">Tất cả trận</option>
+                    <option value="Live">Đang đấu (Live)</option>
+                    <option value="Upcoming">Sắp đấu (Upcoming)</option>
+                    <option value="Completed">Đã xong (Completed)</option>
+                  </select>
+
+                  {/* Zoom Controls inside Toolbar */}
+                  <div className="zoom-group">
+                    <span className="toolbar-label">Thu phóng:</span>
+                    <div className="toolbar-btn-group">
+                      <button type="button" onClick={() => setZoom(z => Math.min(z + 0.1, 1.5))} className="toolbar-zoom-btn" title="Phóng to">➕</button>
+                      <button type="button" onClick={() => setZoom(z => Math.max(z - 0.1, 0.5))} className="toolbar-zoom-btn" title="Thu nhỏ">➖</button>
+                      <button type="button" onClick={() => setZoom(1.0)} className="toolbar-zoom-btn">Reset</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {matches.length === 0 ? (
+                <div style={{ padding: "48px", textAlign: "center", border: "1px solid var(--tm-border)", borderRadius: "16px", background: "#fff" }}>
+                  <p className="text-slate-400">Sơ đồ nhánh đấu và lịch thi đấu chưa được ban tổ chức tạo.</p>
+                </div>
+              ) : (
+                <div>
+                  {activeSubTab === "Overview" && renderOverviewTab()}
+
+                  {activeSubTab === "Knockout" && renderKnockoutTree()}
+
+                  {activeSubTab === "Bảng thi đấu" && (() => {
+                    const filteredRRMatches = matches.filter(matchesSearch).filter(matchesStatus);
+                    return (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
+                        <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", flexWrap: "wrap" }}>
+                          <div style={{ flex: "1 1 320px" }}>
+                            <h4 style={{ fontSize: "14px", fontWeight: "900", color: "#073b2b", marginBottom: "12px", textTransform: "uppercase" }}>Bảng xếp hạng</h4>
+                            <div className="tm-table-wrapper">
+                              <table className="tm-table">
+                                <thead>
+                                  <tr>
+                                    <th>Hạng</th>
+                                    <th>Đội</th>
+                                    <th style={{ textAlign: "center" }}>Trận</th>
+                                    <th style={{ textAlign: "center" }}>Thắng</th>
+                                    <th style={{ textAlign: "center" }}>PD</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {standings.map((s, idx) => (
+                                    <tr key={s.StandingID}>
+                                      <td style={{ fontWeight: "bold" }}>#{s.RankNo || idx + 1}</td>
+                                      <td style={{ fontWeight: "700", color: "#0f172a" }}>
+                                        {s.TeamName}
+                                        {s.TeamID && (
+                                          <span 
+                                            onClick={() => handleShowPlayerProfile(s.TeamID, s.TeamName)}
+                                            style={{
+                                              cursor: "pointer",
+                                              marginLeft: "8px",
+                                              display: "inline-flex",
+                                              alignItems: "center",
+                                              gap: "3px",
+                                              fontSize: "9px",
+                                              fontWeight: "800",
+                                              color: "#2563eb",
+                                              background: "#eff6ff",
+                                              border: "1px solid #dbeafe",
+                                              padding: "2px 6px",
+                                              borderRadius: "9999px",
+                                              textTransform: "uppercase",
+                                              letterSpacing: "0.5px",
+                                              transition: "all 0.2s"
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.currentTarget.style.background = "#2563eb";
+                                              e.currentTarget.style.color = "#ffffff";
+                                              e.currentTarget.style.borderColor = "#2563eb";
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.currentTarget.style.background = "#eff6ff";
+                                              e.currentTarget.style.color = "#2563eb";
+                                              e.currentTarget.style.borderColor = "#dbeafe";
+                                            }}
+                                            title="Xem hồ sơ đối thủ"
+                                          >
+                                            <LuEye size={10} />
+                                            <span>View</span>
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td style={{ textAlign: "center" }}>{s.Played}</td>
+                                      <td style={{ textAlign: "center", color: "#10b981", fontWeight: "700" }}>{s.Won}</td>
+                                      <td style={{ textAlign: "center" }}>{s.PointDifference}</td>
+                                    </tr>
+                                  ))}
+                                  {standings.length === 0 && (
+                                    <tr>
+                                      <td colSpan={5} style={{ textAlign: "center", color: "#94a3b8" }}>Chưa có dữ liệu bảng xếp hạng</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <div style={{ flex: "1.8 1 450px" }}>
+                            <h4 style={{ fontSize: "14px", fontWeight: "900", color: "#073b2b", marginBottom: "12px", textTransform: "uppercase" }}>Danh sách trận đấu ({filteredRRMatches.length})</h4>
+                            {filteredRRMatches.length === 0 ? (
+                              <p style={{ fontSize: "12px", color: "var(--tm-muted)", padding: "16px 0" }}>Không tìm thấy trận đấu nào khớp bộ lọc.</p>
+                            ) : (
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
+                                {filteredRRMatches.map(m => renderMatchCard(m))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {groupNames.includes(activeSubTab) && (() => {
+                    const groupMatches = groupStageMatches.filter(m => m.GroupName === activeSubTab).filter(matchesSearch).filter(matchesStatus);
+                    const groupStandings = standings.filter(s => s.GroupName === activeSubTab).sort((a,b) => a.RankNo - b.RankNo);
+                    
+                    return (
+                      <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", flexWrap: "wrap" }}>
+                        <div style={{ flex: "1 1 300px" }}>
+                          <h4 style={{ fontSize: "13px", fontWeight: "900", color: "#073b2b", marginBottom: "12px", textTransform: "uppercase" }}>Bảng xếp hạng {activeSubTab}</h4>
+                          <div className="tm-table-wrapper">
+                            <table className="tm-table" style={{ fontSize: "12.5px" }}>
+                              <thead>
+                                <tr>
+                                  <th>#</th>
+                                  <th>Đội</th>
+                                  <th style={{ textAlign: "center" }}>P</th>
+                                  <th style={{ textAlign: "center" }}>W</th>
+                                  <th style={{ textAlign: "center" }}>PD</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {groupStandings.map((s, idx) => (
+                                  <tr key={s.StandingID}>
+                                    <td style={{ fontWeight: "bold" }}>#{s.RankNo || idx + 1}</td>
+                                    <td style={{ fontWeight: "700", color: "#0f172a" }}>{s.TeamName}</td>
+                                    <td style={{ textAlign: "center" }}>{s.Played}</td>
+                                    <td style={{ textAlign: "center", color: "#10b981", fontWeight: "700" }}>{s.Won}</td>
+                                    <td style={{ textAlign: "center" }}>{s.PointDifference}</td>
+                                  </tr>
+                                ))}
+                                {groupStandings.length === 0 && (
+                                  <tr>
+                                    <td colSpan={5} style={{ textAlign: "center", color: "#94a3b8" }}>Chưa có dữ liệu bảng xếp hạng</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div style={{ flex: "1.8 1 420px" }}>
+                          <h4 style={{ fontSize: "13px", fontWeight: "900", color: "#073b2b", marginBottom: "12px", textTransform: "uppercase" }}>Trận đấu {activeSubTab} ({groupMatches.length})</h4>
+                          {groupMatches.length === 0 ? (
+                            <p style={{ fontSize: "12px", color: "var(--tm-muted)", padding: "16px 0" }}>Không tìm thấy trận đấu nào khớp bộ lọc.</p>
+                          ) : (
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
+                              {groupMatches.map(m => renderMatchCard(m))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {activeTab === "standings" && (
           <div>
@@ -1744,11 +2780,490 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               ))}
             </div>
 
-            {standings.length === 0 ? (
-              <div style={{ padding: "48px", textAlign: "center", border: "1px solid var(--tm-border)", borderRadius: "16px", background: "#fff" }}>
-                <p className="text-slate-400">Bảng xếp hạng rỗng hoặc nội dung này không áp dụng thể thức đấu vòng tròn.</p>
-              </div>
-            ) : (() => {
+            {(() => {
+              const selectedDiv = divisions.find(d => d.DivisionID === selectedDivisionId);
+              if (selectedDiv?.Status !== "Completed") return null;
+
+              const finalMatch = matches.find(m => m.KnockoutRound === "Chung kết");
+              const thirdMatch = matches.find(m => m.KnockoutRound === "Tranh hạng 3");
+              
+              let champName = "";
+              let runnerUpName = "";
+              let thirdName = "";
+
+              if (selectedDiv.BracketType === "RoundRobin") {
+                const sortedStandings = [...standings].sort((a,b) => (a.RankNo || 99) - (b.RankNo || 99));
+                champName = sortedStandings[0]?.TeamName || "Chưa xác định";
+                runnerUpName = sortedStandings[1]?.TeamName || "Chưa xác định";
+                thirdName = sortedStandings[2]?.TeamName || "Chưa xác định";
+              } else {
+                if (finalMatch && finalMatch.WinnerTeamID) {
+                  champName = finalMatch.WinnerTeamID === finalMatch.TeamAID ? finalMatch.TeamAName : finalMatch.TeamBName;
+                  runnerUpName = finalMatch.WinnerTeamID === finalMatch.TeamAID ? finalMatch.TeamBName : finalMatch.TeamAName;
+                }
+                if (thirdMatch && thirdMatch.WinnerTeamID) {
+                  thirdName = thirdMatch.WinnerTeamID === thirdMatch.TeamAID ? thirdMatch.TeamAName : thirdMatch.TeamBName;
+                }
+              }
+
+              if (!champName && !runnerUpName) return null;
+
+              const getTeamCodeByName = (teamName: string) => {
+                if (!teamName) return "";
+                const found = standings.find(s => s.TeamName === teamName);
+                if (found?.TeamCode) return found.TeamCode;
+                const matchFound = matches.find(m => m.TeamAName === teamName || m.TeamBName === teamName);
+                if (matchFound) {
+                  if (matchFound.TeamAName === teamName && matchFound.TeamACode) return matchFound.TeamACode;
+                  if (matchFound.TeamBName === teamName && matchFound.TeamBCode) return matchFound.TeamBCode;
+                }
+                return "";
+              };
+
+              const getPrizeText = (place: number) => {
+                if (!tournament || !tournament.PrizeInfo) {
+                  if (place === 1) return "20.000.000 VNĐ";
+                  if (place === 2) return "10.000.000 VNĐ";
+                  return "5.000.000 VNĐ";
+                }
+                const info = tournament.PrizeInfo.toLowerCase();
+                if (place === 1) {
+                  const m = info.match(/(nhất|vô địch|champion|1st)[:\-\s]+([\d\.,\s]+(vnđ|vnd|đ|đồng|triệu)?)/i);
+                  return m ? m[2].trim().toUpperCase() : "20.000.000 VNĐ";
+                } else if (place === 2) {
+                  const m = info.match(/(nhì|á quân|runner|2nd)[:\-\s]+([\d\.,\s]+(vnđ|vnd|đ|đồng|triệu)?)/i);
+                  return m ? m[2].trim().toUpperCase() : "10.000.000 VNĐ";
+                } else {
+                  const m = info.match(/(ba|hạng ba|third|3rd)[:\-\s]+([\d\.,\s]+(vnđ|vnd|đ|đồng|triệu)?)/i);
+                  return m ? m[2].trim().toUpperCase() : "5.000.000 VNĐ";
+                }
+              };
+
+              return (
+                <div style={{ 
+                  position: "relative",
+                  overflow: "hidden",
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "24px",
+                  padding: "40px 24px 28px 24px",
+                  textAlign: "center",
+                  marginBottom: "32px",
+                  boxShadow: "0 20px 40px rgba(0,0,0,0.03)"
+                }}>
+                  {/* Floating Gold Confetti / Sparkles */}
+                  <div style={{ position: "absolute", top: "10%", left: "12%", width: "8px", height: "8px", background: "#fef08a", transform: "rotate(45deg)", opacity: 0.6 }} />
+                  <div style={{ position: "absolute", top: "25%", right: "10%", width: "6px", height: "12px", background: "#fde047", transform: "rotate(15deg)", opacity: 0.5 }} />
+                  <div style={{ position: "absolute", bottom: "35%", left: "6%", width: "10px", height: "5px", background: "#ca8a04", transform: "rotate(-30deg)", opacity: 0.4 }} />
+                  <div style={{ position: "absolute", bottom: "20%", right: "18%", width: "8px", height: "8px", background: "#fef08a", transform: "rotate(20deg)", opacity: 0.6 }} />
+                  <div style={{ position: "absolute", top: "15%", right: "25%", width: "10px", height: "10px", background: "#fde047", transform: "rotate(10deg)", opacity: 0.4 }} />
+                  <div style={{ position: "absolute", top: "35%", left: "25%", width: "6px", height: "6px", background: "#eab308", transform: "rotate(45deg)", opacity: 0.5 }} />
+
+                  {/* Header Title */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ marginBottom: "8px" }}>
+                      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                        <path d="M4 22h16" />
+                        <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" />
+                        <path d="M12 2a5 5 0 0 0-5 5v5h10V7a5 5 0 0 0-5-5z" />
+                      </svg>
+                    </div>
+                    <h4 style={{ margin: "0", fontSize: "1.65rem", fontWeight: "900", color: "#0f172a", letterSpacing: "1.5px", textTransform: "uppercase" }}>
+                      KẾT QUẢ CHUNG CUỘC
+                    </h4>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", marginTop: "6px", marginBottom: "36px" }}>
+                      <div style={{ height: "1px", width: "80px", background: "linear-gradient(to right, transparent, #eab308)" }} />
+                      <span style={{ fontSize: "11px", fontWeight: "800", color: "#b45309", letterSpacing: "2.5px", textTransform: "uppercase" }}>Vinh danh chiến thắng</span>
+                      <div style={{ height: "1px", width: "80px", background: "linear-gradient(to left, transparent, #eab308)" }} />
+                    </div>
+                  </div>
+
+                  {/* 3-Column Podium Flexbox */}
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: "28px", flexWrap: "wrap", padding: "10px 0" }}>
+                    
+                    {/* 2nd Place (Left) */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "200px" }}>
+                      {/* Card */}
+                      <div style={{ 
+                        position: "relative",
+                        background: "#ffffff",
+                        border: "2px solid #cbd5e1",
+                        borderRadius: "16px",
+                        padding: "28px 12px 14px 12px",
+                        width: "100%",
+                        boxShadow: "0 10px 25px rgba(148,163,184,0.1)",
+                        zIndex: 3,
+                        marginBottom: "-4px"
+                      }}>
+                        {/* Medal */}
+                        <div style={{ position: "absolute", top: "-28px", left: "50%", transform: "translateX(-50%)" }}>
+                          <svg width="56" height="56" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M 30,75 C 15,60 15,40 30,25 C 32,23 35,26 33,28 C 20,41 20,59 33,72 C 35,74 32,77 30,75 Z" fill="#94a3b8" />
+                            <path d="M 70,75 C 85,60 85,40 70,25 C 68,23 65,26 67,28 C 80,41 80,59 67,72 C 65,74 68,77 70,75 Z" fill="#94a3b8" />
+                            <circle cx="50" cy="50" r="32" fill="url(#silver-grad)" stroke="#94a3b8" strokeWidth="2" />
+                            <circle cx="50" cy="50" r="26" fill="none" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 2" />
+                            <text x="50" y="58" fontFamily="'Inter', sans-serif" fontWeight="900" fontSize="28" fill="#475569" textAnchor="middle">2</text>
+                            <defs>
+                              <linearGradient id="silver-grad" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stopColor="#f8fafc" />
+                                <stop offset="50%" stopColor="#cbd5e1" />
+                                <stop offset="100%" stopColor="#94a3b8" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                        </div>
+
+                        {/* Team Logo */}
+                        <div style={{ display: "flex", justifyContent: "center" }}>
+                          <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: "6px" }}>
+                            <path d="M 20,10 L 80,10 C 80,10 85,50 50,90 C 15,50 20,10 20,10 Z" fill="#0f172a" stroke="#94a3b8" strokeWidth="2" />
+                            <text x="50" y="28" fontFamily="'Inter', sans-serif" fontWeight="900" fontSize="8" fill="#ffffff" textAnchor="middle" letterSpacing="1">FPT YOUTH</text>
+                            <g stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round">
+                              <line x1="35" y1="65" x2="55" y2="45" />
+                              <path d="M 50,40 C 45,35 55,25 60,30 C 65,35 55,45 50,40 Z" fill="#cbd5e1" />
+                              <line x1="65" y1="65" x2="45" y2="45" />
+                              <path d="M 50,40 C 55,35 45,25 40,30 C 35,35 45,45 50,40 Z" fill="#cbd5e1" />
+                            </g>
+                            <circle cx="50" cy="50" r="10" fill="#cbd5e1" />
+                            <circle cx="50" cy="50" r="8" fill="none" stroke="#0f172a" strokeWidth="1.5" strokeDasharray="2 2" />
+                            <text x="50" y="78" fontFamily="'Inter', sans-serif" fontWeight="800" fontSize="7" fill="#cbd5e1" textAnchor="middle">PICKLEBALL</text>
+                          </svg>
+                        </div>
+
+                        {/* Team Name */}
+                        <div style={{ fontWeight: "800", fontSize: "13.5px", color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "2px" }} title={runnerUpName}>
+                          {runnerUpName}
+                        </div>
+
+                        {/* Team Code */}
+                        <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "600", marginBottom: "10px", textTransform: "uppercase" }}>
+                          {getTeamCodeByName(runnerUpName) || "FPT YOUTH STAR 03"}
+                        </div>
+
+                        {/* Medal Badge Pill */}
+                        <div style={{ 
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          background: "linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%)",
+                          color: "#ffffff",
+                          padding: "4px 14px",
+                          borderRadius: "9999px",
+                          fontSize: "10px",
+                          fontWeight: "800",
+                          boxShadow: "0 3px 8px rgba(148,163,184,0.2)"
+                        }}>
+                          ⭐ HẠNG NHÌ
+                        </div>
+
+                        {/* Divider */}
+                        <div style={{ height: "1px", background: "#f1f5f9", margin: "12px 0 10px 0" }} />
+
+                        {/* Prize */}
+                        <div style={{ fontSize: "9px", color: "#94a3b8", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>Giải thưởng</div>
+                        <div style={{ fontSize: "13px", color: "#475569", fontWeight: "800", marginTop: "2px" }}>
+                          {getPrizeText(2)}
+                        </div>
+                      </div>
+
+                      {/* Pedestal */}
+                      <div style={{ position: "relative", width: "100%", height: "45px", zIndex: 1 }}>
+                        <div style={{ height: "12px", borderRadius: "50%", background: "linear-gradient(90deg, #f1f5f9, #cbd5e1, #f1f5f9)", border: "1px solid #94a3b8", position: "absolute", top: "-6px", left: 0, right: 0, zIndex: 2 }} />
+                        <div style={{ 
+                          height: "38px", 
+                          background: "linear-gradient(90deg, #475569, #94a3b8, #475569)", 
+                          borderRadius: "0 0 50% 50% / 0 0 6px 6px", 
+                          border: "1px solid #475569", 
+                          borderTop: "none", 
+                          boxShadow: "0 8px 16px rgba(148,163,184,0.2)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          position: "relative",
+                          zIndex: 1
+                        }}>
+                          {/* Wreath ornament */}
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f1f5f9" strokeWidth="1.5">
+                            <path d="M 6,18 C 3,14 3,10 6,6" />
+                            <path d="M 18,18 C 21,14 21,10 18,6" />
+                            <text x="12" y="16" fontFamily="sans-serif" fontWeight="900" fontSize="11" fill="#f1f5f9" textAnchor="middle">2</text>
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 1st Place (Center - Champion) */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "230px" }}>
+                      {/* Card */}
+                      <div style={{ 
+                        position: "relative",
+                        background: "#ffffff",
+                        border: "2px solid #fbbf24",
+                        borderRadius: "20px",
+                        padding: "32px 14px 16px 14px",
+                        width: "100%",
+                        boxShadow: "0 15px 35px rgba(245,158,11,0.15)",
+                        zIndex: 4,
+                        marginBottom: "-4px"
+                      }}>
+                        {/* Medal */}
+                        <div style={{ position: "absolute", top: "-32px", left: "50%", transform: "translateX(-50%)" }}>
+                          <svg width="64" height="64" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M 30,75 C 15,60 15,40 30,25 C 32,23 35,26 33,28 C 20,41 20,59 33,72 C 35,74 32,77 30,75 Z" fill="#eab308" />
+                            <path d="M 70,75 C 85,60 85,40 70,25 C 68,23 65,26 67,28 C 80,41 80,59 67,72 C 65,74 68,77 70,75 Z" fill="#eab308" />
+                            <circle cx="50" cy="50" r="32" fill="url(#gold-grad)" stroke="#ca8a04" strokeWidth="2" />
+                            <circle cx="50" cy="50" r="26" fill="none" stroke="#fef08a" strokeWidth="1" strokeDasharray="3 2" />
+                            <text x="50" y="58" fontFamily="'Inter', sans-serif" fontWeight="900" fontSize="28" fill="#78350f" textAnchor="middle">1</text>
+                            <defs>
+                              <linearGradient id="gold-grad" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stopColor="#fef08a" />
+                                <stop offset="50%" stopColor="#eab308" />
+                                <stop offset="100%" stopColor="#ca8a04" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                        </div>
+
+                        {/* Team Logo */}
+                        <div style={{ display: "flex", justifyContent: "center" }}>
+                          <svg width="46" height="46" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: "8px" }}>
+                            <path d="M 20,10 L 80,10 C 80,10 85,50 50,90 C 15,50 20,10 20,10 Z" fill="#0f172a" stroke="#f59e0b" strokeWidth="2.5" />
+                            <text x="50" y="28" fontFamily="'Inter', sans-serif" fontWeight="900" fontSize="8" fill="#ffffff" textAnchor="middle" letterSpacing="1">FPT YOUTH</text>
+                            <g stroke="#f59e0b" strokeWidth="3" strokeLinecap="round">
+                              <line x1="35" y1="65" x2="55" y2="45" />
+                              <path d="M 50,40 C 45,35 55,25 60,30 C 65,35 55,45 50,40 Z" fill="#f59e0b" />
+                              <line x1="65" y1="65" x2="45" y2="45" />
+                              <path d="M 50,40 C 55,35 45,25 40,30 C 35,35 45,45 50,40 Z" fill="#f59e0b" />
+                            </g>
+                            <circle cx="50" cy="50" r="10" fill="#f59e0b" />
+                            <circle cx="50" cy="50" r="8" fill="none" stroke="#0f172a" strokeWidth="1.5" strokeDasharray="2 2" />
+                            <text x="50" y="78" fontFamily="'Inter', sans-serif" fontWeight="800" fontSize="7" fill="#f59e0b" textAnchor="middle">PICKLEBALL</text>
+                          </svg>
+                        </div>
+
+                        {/* Team Name */}
+                        <div style={{ fontWeight: "900", fontSize: "15.5px", color: "#1e3a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "2px" }} title={champName}>
+                          {champName}
+                        </div>
+
+                        {/* Team Code */}
+                        <div style={{ fontSize: "11px", color: "#475569", fontWeight: "700", marginBottom: "12px", textTransform: "uppercase" }}>
+                          {getTeamCodeByName(champName) || "FPT YOUTH STAR 08"}
+                        </div>
+
+                        {/* Medal Badge Pill */}
+                        <div style={{ 
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                          color: "#ffffff",
+                          padding: "5px 18px",
+                          borderRadius: "9999px",
+                          fontSize: "11px",
+                          fontWeight: "900",
+                          boxShadow: "0 4px 12px rgba(245,158,11,0.3)",
+                          letterSpacing: "0.5px"
+                        }}>
+                          🏆 VÔ ĐỊCH
+                        </div>
+
+                        {/* Divider */}
+                        <div style={{ height: "1px", background: "#fef3c7", margin: "14px 0 12px 0" }} />
+
+                        {/* Prize */}
+                        <div style={{ fontSize: "9px", color: "#d97706", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>Giải thưởng</div>
+                        <div style={{ fontSize: "15px", color: "#b45309", fontWeight: "900", marginTop: "2px" }}>
+                          {getPrizeText(1)}
+                        </div>
+                      </div>
+
+                      {/* Pedestal */}
+                      <div style={{ position: "relative", width: "100%", height: "55px", zIndex: 2 }}>
+                        <div style={{ height: "16px", borderRadius: "50%", background: "linear-gradient(90deg, #fef3c7, #fde047, #fef3c7)", border: "1px solid #f59e0b", position: "absolute", top: "-8px", left: 0, right: 0, zIndex: 2 }} />
+                        <div style={{ 
+                          height: "47px", 
+                          background: "linear-gradient(90deg, #b45309, #d97706, #b45309)", 
+                          borderRadius: "0 0 50% 50% / 0 0 8px 8px", 
+                          border: "1px solid #b45309", 
+                          borderTop: "none", 
+                          boxShadow: "0 10px 25px rgba(217,119,6,0.35)",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          position: "relative",
+                          zIndex: 1
+                        }}>
+                          {/* Wreath ornament */}
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fef3c7" strokeWidth="1.5" style={{ marginBottom: "-2px" }}>
+                            <path d="M 6,18 C 3,14 3,10 6,6" />
+                            <path d="M 18,18 C 21,14 21,10 18,6" />
+                          </svg>
+                          <span style={{ fontSize: "8px", fontWeight: "900", color: "#fef3c7", letterSpacing: "1px", textTransform: "uppercase" }}>CHAMPION</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3rd Place (Right) */}
+                    {thirdName && (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "200px" }}>
+                        {/* Card */}
+                        <div style={{ 
+                          position: "relative",
+                          background: "#ffffff",
+                          border: "2px solid #ca8a04",
+                          borderRadius: "16px",
+                          padding: "28px 12px 14px 12px",
+                          width: "100%",
+                          boxShadow: "0 10px 25px rgba(217,119,6,0.08)",
+                          zIndex: 3,
+                          marginBottom: "-4px"
+                        }}>
+                          {/* Medal */}
+                          <div style={{ position: "absolute", top: "-28px", left: "50%", transform: "translateX(-50%)" }}>
+                            <svg width="56" height="56" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M 30,75 C 15,60 15,40 30,25 C 32,23 35,26 33,28 C 20,41 20,59 33,72 C 35,74 32,77 30,75 Z" fill="#d97706" />
+                              <path d="M 70,75 C 85,60 85,40 70,25 C 68,23 65,26 67,28 C 80,41 80,59 67,72 C 65,74 68,77 70,75 Z" fill="#d97706" />
+                              <circle cx="50" cy="50" r="32" fill="url(#bronze-grad)" stroke="#ca8a04" strokeWidth="2" />
+                              <circle cx="50" cy="50" r="26" fill="none" stroke="#ffedd5" strokeWidth="1" strokeDasharray="3 2" />
+                              <text x="50" y="58" fontFamily="'Inter', sans-serif" fontWeight="900" fontSize="28" fill="#7c2d12" textAnchor="middle">3</text>
+                              <defs>
+                                <linearGradient id="bronze-grad" x1="0" y1="0" x2="1" y2="1">
+                                  <stop offset="0%" stopColor="#ffedd5" />
+                                  <stop offset="50%" stopColor="#fed7aa" />
+                                  <stop offset="100%" stopColor="#d97706" />
+                                </linearGradient>
+                              </defs>
+                            </svg>
+                          </div>
+
+                          {/* Team Logo */}
+                          <div style={{ display: "flex", justifyContent: "center" }}>
+                            <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: "6px" }}>
+                              <path d="M 20,10 L 80,10 C 80,10 85,50 50,90 C 15,50 20,10 20,10 Z" fill="#0f172a" stroke="#d97706" strokeWidth="2" />
+                              <text x="50" y="28" fontFamily="'Inter', sans-serif" fontWeight="900" fontSize="8" fill="#ffffff" textAnchor="middle" letterSpacing="1">FPT YOUTH</text>
+                              <g stroke="#d97706" strokeWidth="3" strokeLinecap="round">
+                                <line x1="35" y1="65" x2="55" y2="45" />
+                                <path d="M 50,40 C 45,35 55,25 60,30 C 65,35 55,45 50,40 Z" fill="#d97706" />
+                                <line x1="65" y1="65" x2="45" y2="45" />
+                                <path d="M 50,40 C 55,35 45,25 40,30 C 35,35 45,45 50,40 Z" fill="#d97706" />
+                              </g>
+                              <circle cx="50" cy="50" r="10" fill="#d97706" />
+                              <circle cx="50" cy="50" r="8" fill="none" stroke="#0f172a" strokeWidth="1.5" strokeDasharray="2 2" />
+                              <text x="50" y="78" fontFamily="'Inter', sans-serif" fontWeight="800" fontSize="7" fill="#d97706" textAnchor="middle">PICKLEBALL</text>
+                            </svg>
+                          </div>
+
+                          {/* Team Name */}
+                          <div style={{ fontWeight: "800", fontSize: "13.5px", color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "2px" }} title={thirdName}>
+                            {thirdName}
+                          </div>
+
+                          {/* Team Code */}
+                          <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "600", marginBottom: "10px", textTransform: "uppercase" }}>
+                            {getTeamCodeByName(thirdName) || "FPT YOUTH STAR 17"}
+                          </div>
+
+                          {/* Medal Badge Pill */}
+                          <div style={{ 
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            background: "linear-gradient(135deg, #fed7aa 0%, #d97706 100%)",
+                            color: "#ffffff",
+                            padding: "4px 14px",
+                            borderRadius: "9999px",
+                            fontSize: "10px",
+                            fontWeight: "800",
+                            boxShadow: "0 3px 8px rgba(217,119,6,0.2)"
+                          }}>
+                            ⭐ HẠNG BA
+                          </div>
+
+                          {/* Divider */}
+                          <div style={{ height: "1px", background: "#f1f5f9", margin: "12px 0 10px 0" }} />
+
+                          {/* Prize */}
+                          <div style={{ fontSize: "9px", color: "#d97706", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>Giải thưởng</div>
+                          <div style={{ fontSize: "13px", color: "#9a3412", fontWeight: "800", marginTop: "2px" }}>
+                            {getPrizeText(3)}
+                          </div>
+                        </div>
+
+                        {/* Pedestal */}
+                        <div style={{ position: "relative", width: "100%", height: "35px", zIndex: 1 }}>
+                          <div style={{ height: "12px", borderRadius: "50%", background: "linear-gradient(90deg, #ffedd5, #fed7aa, #ffedd5)", border: "1px solid #d97706", position: "absolute", top: "-6px", left: 0, right: 0, zIndex: 2 }} />
+                          <div style={{ 
+                            height: "30px", 
+                            background: "linear-gradient(90deg, #9a3412, #d97706, #9a3412)", 
+                            borderRadius: "0 0 50% 50% / 0 0 6px 6px", 
+                            border: "1px solid #9a3412", 
+                            borderTop: "none", 
+                            boxShadow: "0 6px 12px rgba(217,119,6,0.15)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            position: "relative",
+                            zIndex: 1
+                          }}>
+                            {/* Wreath ornament */}
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffedd5" strokeWidth="1.5">
+                              <path d="M 6,18 C 3,14 3,10 6,6" />
+                              <path d="M 18,18 C 21,14 21,10 18,6" />
+                              <text x="12" y="16" fontFamily="sans-serif" fontWeight="900" fontSize="11" fill="#ffedd5" textAnchor="middle">3</text>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* Footer Brand Logo Line */}
+                  <div style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center", 
+                    gap: "8px", 
+                    marginTop: "36px", 
+                    paddingTop: "18px", 
+                    borderTop: "1px solid #e2e8f0" 
+                  }}>
+                    <svg width="18" height="18" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M 20,10 L 80,10 C 80,10 85,50 50,90 C 15,50 20,10 20,10 Z" fill="#0f172a" stroke="#f97316" strokeWidth="2.5" />
+                      <circle cx="50" cy="50" r="15" fill="#f97316" />
+                    </svg>
+                    <span style={{ 
+                      fontSize: "11px", 
+                      fontWeight: "900", 
+                      color: "#94a3b8", 
+                      letterSpacing: "1.5px", 
+                      textTransform: "uppercase" 
+                    }}>
+                      {tournament ? tournament.TournamentName : "FPT YOUTH PICKLEBALL CHAMPIONSHIP"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {standings.length === 0 ? (() => {
+              const selectedDiv = divisions.find(d => d.DivisionID === selectedDivisionId);
+              if (selectedDiv?.Status === "Completed") return null;
+
+              return (
+                <div style={{ padding: "48px", textAlign: "center", border: "1px solid var(--tm-border)", borderRadius: "16px", background: "#fff" }}>
+                  <p className="text-slate-400">
+                    {selectedDiv?.BracketType === "SingleElimination" || selectedDiv?.BracketType === "GroupKnockout"
+                      ? "Nội dung thi đấu loại trực tiếp đang diễn ra. Bạn có thể theo dõi sơ đồ và lịch thi đấu tại tab \"Nhánh đấu / Lịch đấu\" bên trên."
+                      : "Bảng xếp hạng rỗng hoặc nội dung này chưa có kết quả."}
+                  </p>
+                </div>
+              );
+            })() : (() => {
               const hasGroups = standings.some(st => st.GroupName);
               if (hasGroups) {
                 const grouped: Record<string, any[]> = {};
@@ -1788,7 +3303,45 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                               {grouped[g].map((st, idx) => (
                                 <tr key={st.StandingID}>
                                   <td style={{ fontWeight: "bold", color: getGroupColor(g) }}>#{idx + 1}</td>
-                                  <td style={{ fontWeight: "700" }}>{st.TeamName}</td>
+                                  <td style={{ fontWeight: "700", color: "#0f172a" }}>
+                                    {st.TeamName}
+                                    {st.TeamID && (
+                                      <span 
+                                        onClick={() => handleShowPlayerProfile(st.TeamID, st.TeamName)}
+                                        style={{
+                                          cursor: "pointer",
+                                          marginLeft: "8px",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: "3px",
+                                          fontSize: "9px",
+                                          fontWeight: "800",
+                                          color: "#2563eb",
+                                          background: "#eff6ff",
+                                          border: "1px solid #dbeafe",
+                                          padding: "2px 6px",
+                                          borderRadius: "9999px",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                          transition: "all 0.2s"
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.background = "#2563eb";
+                                          e.currentTarget.style.color = "#ffffff";
+                                          e.currentTarget.style.borderColor = "#2563eb";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.background = "#eff6ff";
+                                          e.currentTarget.style.color = "#2563eb";
+                                          e.currentTarget.style.borderColor = "#dbeafe";
+                                        }}
+                                        title="Xem hồ sơ đối thủ"
+                                      >
+                                        <LuEye size={10} />
+                                        <span>View</span>
+                                      </span>
+                                    )}
+                                  </td>
                                   <td style={{ textAlign: "center" }}>{st.Played}</td>
                                   <td style={{ textAlign: "center", color: "#16a34a", fontWeight: "600" }}>{st.Won}</td>
                                   <td style={{ textAlign: "center", color: "#ef4444" }}>{st.Lost}</td>
@@ -1821,7 +3374,45 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       {standings.map((st) => (
                         <tr key={st.StandingID}>
                           <td style={{ fontWeight: "bold", color: "var(--tm-primary)" }}>#{st.RankNo}</td>
-                          <td style={{ fontWeight: "700" }}>{st.TeamName}</td>
+                          <td style={{ fontWeight: "700", color: "#0f172a" }}>
+                            {st.TeamName}
+                            {st.TeamID && (
+                              <span 
+                                onClick={() => handleShowPlayerProfile(st.TeamID, st.TeamName)}
+                                style={{
+                                  cursor: "pointer",
+                                  marginLeft: "8px",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                  fontSize: "9px",
+                                  fontWeight: "800",
+                                  color: "#2563eb",
+                                  background: "#eff6ff",
+                                  border: "1px solid #dbeafe",
+                                  padding: "2px 6px",
+                                  borderRadius: "9999px",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.5px",
+                                  transition: "all 0.2s"
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = "#2563eb";
+                                  e.currentTarget.style.color = "#ffffff";
+                                  e.currentTarget.style.borderColor = "#2563eb";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = "#eff6ff";
+                                  e.currentTarget.style.color = "#2563eb";
+                                  e.currentTarget.style.borderColor = "#dbeafe";
+                                }}
+                                title="Xem hồ sơ đối thủ"
+                              >
+                                <LuEye size={10} />
+                                <span>View</span>
+                              </span>
+                            )}
+                          </td>
                           <td style={{ textAlign: "center" }}>{st.Played}</td>
                           <td style={{ textAlign: "center", color: "#16a34a" }}>{st.Won}</td>
                           <td style={{ textAlign: "center", color: "#ef4444" }}>{st.Lost}</td>
@@ -2268,6 +3859,19 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                             </div>
                             
                             <div className="tm-form-group">
+                              <label className="tm-form-label" style={{ fontWeight: "600", color: "#334155" }}>Email nhận Chứng chỉ *</label>
+                              <input 
+                                type="email" 
+                                placeholder="example@gmail.com" 
+                                style={getInputStyle(!!formErrors.email1)} 
+                                value={athlete1.email} 
+                                onChange={(e) => setAthlete1({ ...athlete1, email: e.target.value })} 
+                                required 
+                              />
+                              {formErrors.email1 && <span style={{ color: "#ef4444", fontSize: "0.75rem", marginTop: "4px", display: "block" }}>{formErrors.email1}</span>}
+                            </div>
+                            
+                            <div className="tm-form-group">
                               <label className="tm-form-label" style={{ fontWeight: "600", color: "#334155" }}>Điểm DUPR *</label>
                               <input 
                                 type="number" 
@@ -2461,6 +4065,19 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                   required 
                                 />
                                 {formErrors.fullName2 && <span style={{ color: "#ef4444", fontSize: "0.75rem", marginTop: "4px", display: "block" }}>{formErrors.fullName2}</span>}
+                              </div>
+                              
+                              <div className="tm-form-group">
+                                <label className="tm-form-label" style={{ fontWeight: "600", color: "#334155" }}>Email nhận Chứng chỉ *</label>
+                                <input 
+                                  type="email" 
+                                  placeholder="example@gmail.com" 
+                                  style={getInputStyle(!!formErrors.email2)} 
+                                  value={athlete2.email} 
+                                  onChange={(e) => setAthlete2({ ...athlete2, email: e.target.value })} 
+                                  required 
+                                />
+                                {formErrors.email2 && <span style={{ color: "#ef4444", fontSize: "0.75rem", marginTop: "4px", display: "block" }}>{formErrors.email2}</span>}
                               </div>
                               
                               <div className="tm-form-group">
@@ -2681,7 +4298,21 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         
                         <button 
                           type="button" 
-                          onClick={() => setRegisterModalOpen(false)} 
+                          onClick={() => {
+                            if (selectedDivision) {
+                              const draftData = {
+                                partnerOption,
+                                partnerContact,
+                                athlete1,
+                                athlete2,
+                              };
+                              if (typeof window !== "undefined") {
+                                localStorage.setItem(`tournament_reg_draft_${tournamentId}_${selectedDivision.DivisionID}`, JSON.stringify(draftData));
+                                alert("Đã lưu nháp thông tin đăng ký thành công!");
+                              }
+                            }
+                            setRegisterModalOpen(false);
+                          }}
                           style={{ 
                             background: "#ffffff", 
                             border: "1px solid #cbd5e1", 
@@ -2982,6 +4613,683 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
       )}
+
+      {/* Mini-Profile Modal */}
+      {showProfileModal && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 1100,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(15, 23, 42, 0.6)",
+          backdropFilter: "blur(6px)"
+        }}>
+          <div style={{
+            background: "#ffffff",
+            borderRadius: "24px",
+            width: "100%",
+            maxWidth: "400px",
+            boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
+            border: "1px solid #e2e8f0",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column"
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "20px 24px",
+              borderBottom: "1px solid #f1f5f9"
+            }}>
+              <span style={{ 
+                fontSize: "15px", 
+                fontWeight: "800", 
+                color: "#0f172a",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}>
+                <LuUser size={16} style={{ color: "#2563eb" }} />
+                <span>Thông tin vận động viên</span>
+              </span>
+              <button 
+                onClick={() => setShowProfileModal(false)}
+                style={{
+                  border: "none",
+                  background: "#f1f5f9",
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#64748b",
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#e2e8f0";
+                  e.currentTarget.style.color = "#0f172a";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#f1f5f9";
+                  e.currentTarget.style.color = "#64748b";
+                }}
+                title="Đóng"
+              >
+                <LuX size={14} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: "24px", overflowY: "auto", maxHeight: "400px", background: "#f8fafc" }}>
+              {profileLoading ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 0", gap: "12px" }}>
+                  <div style={{ width: "32px", height: "32px", border: "3px solid #eff6ff", borderTopColor: "#2563eb", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                  <span style={{ fontSize: "13px", color: "#64748b" }}>Đang tải thông tin...</span>
+                </div>
+              ) : profileMembers.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "30px 0", color: "#94a3b8", fontSize: "13px" }}>
+                  Không tìm thấy thông tin hồ sơ của vận động viên này.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  {profileMembers.map((member, index) => {
+                    const initials = member.FullName ? member.FullName.split(" ").pop()?.slice(0, 2).toUpperCase() : "AA";
+                    
+                    return (
+                      <div key={member.AthleteID || index} style={{ 
+                        display: "flex", 
+                        flexDirection: "column", 
+                        alignItems: "center", 
+                        background: "#ffffff", 
+                        borderRadius: "18px", 
+                        padding: "24px 20px", 
+                        border: "1px solid #e2e8f0",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)"
+                      }}>
+                        {/* Member Tag */}
+                        <span style={{ 
+                          alignSelf: "flex-start", 
+                          background: "#f1f5f9", 
+                          color: "#475569", 
+                          fontSize: "9px", 
+                          fontWeight: "800", 
+                          padding: "3px 8px", 
+                          borderRadius: "6px", 
+                          textTransform: "uppercase", 
+                          letterSpacing: "0.5px", 
+                          marginBottom: "16px" 
+                        }}>
+                          Vận động viên #{index + 1}
+                        </span>
+
+                        {/* Avatar */}
+                        <div style={{ marginBottom: "16px" }}>
+                          {member.PhotoURL ? (
+                            <img 
+                              src={member.PhotoURL} 
+                              alt={member.FullName} 
+                              style={{ 
+                                width: "90px", 
+                                height: "90px", 
+                                borderRadius: "50%", 
+                                objectFit: "cover", 
+                                border: "3px solid #ffffff",
+                                boxShadow: "0 8px 16px -4px rgba(0,0,0,0.15)"
+                              }} 
+                            />
+                          ) : (
+                            <div style={{ 
+                              width: "90px", 
+                              height: "90px", 
+                              borderRadius: "50%", 
+                              background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)", 
+                              color: "#ffffff", 
+                              display: "flex", 
+                              alignItems: "center", 
+                              justifyContent: "center", 
+                              fontSize: "28px", 
+                              fontWeight: "750", 
+                              border: "3px solid #ffffff",
+                              boxShadow: "0 8px 16px -4px rgba(0,0,0,0.15)"
+                            }}>
+                              {initials}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Player Name */}
+                        <h3 style={{ margin: "0 0 6px 0", fontSize: "16px", fontWeight: "800", color: "#0f172a", textAlign: "center" }}>
+                          {member.FullName}
+                        </h3>
+
+                        {/* DUPR Badge */}
+                        <div style={{ 
+                          background: "#fffbeb", 
+                          color: "#b45309", 
+                          fontSize: "11px", 
+                          fontWeight: "800", 
+                          padding: "4px 14px", 
+                          borderRadius: "9999px",
+                          marginBottom: "16px",
+                          border: "1px solid #fde68a",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px"
+                        }}>
+                          ⭐ DUPR: {member.Rating !== null && member.Rating !== undefined ? Number(member.Rating).toFixed(2) : "Chưa cập nhật"}
+                        </div>
+
+                        {/* Personal Stats Grid */}
+                        <div style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                          <div style={{ background: "#f8fafc", borderRadius: "12px", padding: "10px", border: "1px solid #f1f5f9", textAlign: "center" }}>
+                            <span style={{ display: "block", fontSize: "9px", color: "#64748b", textTransform: "uppercase", fontWeight: "800", marginBottom: "4px", letterSpacing: "0.3px" }}>Giới tính</span>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "13px", fontWeight: "700", color: "#334155" }}>
+                              {member.Gender === "Male" ? (
+                                <>
+                                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3b82f6" }} />
+                                  <span>Nam</span>
+                                </>
+                              ) : member.Gender === "Female" ? (
+                                <>
+                                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ec4899" }} />
+                                  <span>Nữ</span>
+                                </>
+                              ) : (
+                                <span>Chưa rõ</span>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ background: "#f8fafc", borderRadius: "12px", padding: "10px", border: "1px solid #f1f5f9", textAlign: "center" }}>
+                            <span style={{ display: "block", fontSize: "9px", color: "#64748b", textTransform: "uppercase", fontWeight: "800", marginBottom: "4px", letterSpacing: "0.3px" }}>Khu vực</span>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", fontSize: "13px", fontWeight: "700", color: "#334155" }}>
+                              <LuMapPin size={12} style={{ color: "#64748b" }} />
+                              <span>{member.Province || "N/A"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: "16px 24px",
+              background: "#f8fafc",
+              borderTop: "1px solid #e2e8f0",
+              textAlign: "right"
+            }}>
+              <button 
+                onClick={() => setShowProfileModal(false)}
+                className="tm-btn"
+                style={{ 
+                  background: "#2563eb", 
+                  color: "#ffffff", 
+                  border: "none",
+                  borderRadius: "12px", 
+                  padding: "10px 20px",
+                  fontSize: "0.85rem",
+                  fontWeight: "750",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 10px rgba(37, 99, 235, 0.2)"
+                }}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Certificate & Prize Modal */}
+      {showCertModal && selectedCertReg && (() => {
+        // Resolve rank based on database or override selector
+        let rankValue: number | null = null;
+        if (certRankOverride === "auto") {
+          rankValue = selectedCertReg.rank;
+        } else if (certRankOverride === "1") {
+          rankValue = 1;
+        } else if (certRankOverride === "2") {
+          rankValue = 2;
+        } else if (certRankOverride === "3") {
+          rankValue = 3;
+        } else {
+          rankValue = null;
+        }
+
+        const athleteNames = selectedCertReg.members && selectedCertReg.members.length > 0
+          ? selectedCertReg.members.map((m: any) => m.FullName).join(" - ")
+          : selectedCertReg.FullName || "Vận động viên";
+
+        const isChampion = rankValue === 1;
+        const isRunnerUp = rankValue === 2;
+        const isThird = rankValue === 3;
+        const isWinner = isChampion || isRunnerUp || isThird;
+
+        // Visual properties based on rank
+        let titleColor = "#065f46"; // default green for participation
+        let certTitle = "CHỨNG NHẬN THAM GIA";
+        let certSub = "Đã hoàn thành thi đấu giải";
+        let rewardText = "Hộp quà lưu niệm BTC & Huy hiệu lưu niệm";
+        let cardBg = "linear-gradient(135deg, #fdfbf7 0%, #f7f3eb 100%)";
+        let rankLabel = "Chứng nhận hoàn thành giải đấu";
+        let badgeIcon = "🎁";
+
+        if (isChampion) {
+          titleColor = "#92400e"; // gold
+          certTitle = "CHỨNG NHẬN VÔ ĐỊCH";
+          certSub = "Đạt thành tích xuất sắc HẠNG 1 (VÔ ĐỊCH)";
+          rewardText = "CÚP VÔ ĐỊCH, Huy chương Vàng & Tiền thưởng 5.000.000 VNĐ";
+          cardBg = "linear-gradient(135deg, #fdfbf7 0%, #fffbeb 100%)";
+          rankLabel = "Giải Vô Địch (Hạng 1)";
+          badgeIcon = "🏆";
+        } else if (isRunnerUp) {
+          titleColor = "#4b5563"; // silver
+          certTitle = "CHỨNG NHẬN Á QUÂN";
+          certSub = "Đạt thành tích xuất sắc HẠNG 2 (Á QUÂN)";
+          rewardText = "Huy chương Bạc & Tiền thưởng 3.000.000 VNĐ";
+          cardBg = "linear-gradient(135deg, #fdfbf7 0%, #f3f4f6 100%)";
+          rankLabel = "Giải Á Quân (Hạng 2)";
+          badgeIcon = "🥈";
+        } else if (isThird) {
+          titleColor = "#b45309"; // bronze
+          certTitle = "CHỨNG NHẬN HẠNG BA";
+          certSub = "Đạt thành tích HẠNG 3 (ĐỒNG GIẢI BA)";
+          rewardText = "Huy chương Đồng & Tiền thưởng 1.500.000 VNĐ";
+          cardBg = "linear-gradient(135deg, #fdfbf7 0%, #fdf5e2 100%)";
+          rankLabel = "Đồng Giải Ba (Hạng 3)";
+          badgeIcon = "🥉";
+        }
+
+        return (
+          <div className="cert-modal-overlay" style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(15, 23, 42, 0.7)",
+            backdropFilter: "blur(6px)",
+            padding: "20px"
+          }}>
+            <style>{`
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                .cert-modal-overlay {
+                  background: none !important;
+                  backdrop-filter: none !important;
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  width: 100% !important;
+                  height: auto !important;
+                  display: block !important;
+                }
+                .cert-modal-card {
+                  box-shadow: none !important;
+                  border: none !important;
+                  max-width: 100% !important;
+                  width: 100% !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+                .printable-certificate-container {
+                  visibility: visible !important;
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  height: auto !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+                .printable-certificate-container * {
+                  visibility: visible !important;
+                }
+                .cert-test-controls, .cert-modal-header, .cert-modal-footer-btns {
+                  display: none !important;
+                }
+              }
+            `}</style>
+            
+            <div className="cert-modal-card" style={{
+              background: "#ffffff",
+              borderRadius: "24px",
+              width: "100%",
+              maxWidth: "680px",
+              boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.3)",
+              border: "1px solid #e2e8f0",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              animation: "zoomIn 0.3s ease-out"
+            }}>
+              {/* Modal Header */}
+              <div className="cert-modal-header" style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "16px 24px",
+                borderBottom: "1px solid #f1f5f9"
+              }}>
+                <span style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", display: "flex", alignItems: "center", gap: "6px" }}>
+                  🏆 Chứng nhận điện tử & Giải thưởng
+                </span>
+                <button 
+                  onClick={() => setShowCertModal(false)}
+                  style={{
+                    border: "none",
+                    background: "#f1f5f9",
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#64748b",
+                    cursor: "pointer",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#e2e8f0";
+                    e.currentTarget.style.color = "#0f172a";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#f1f5f9";
+                    e.currentTarget.style.color = "#64748b";
+                  }}
+                >
+                  <LuX size={14} />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div style={{ padding: "24px", overflowY: "auto", maxHeight: "80vh" }}>
+                {/* Preview Test Controls */}
+                <div className="cert-test-controls" style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 16px",
+                  background: "#f1f5f9",
+                  borderRadius: "12px",
+                  marginBottom: "20px",
+                  fontSize: "12px",
+                  color: "#475569",
+                  border: "1px solid #e2e8f0"
+                }}>
+                  <span>💡 <strong>Preview Test:</strong> Chọn hạng để xem thử mẫu chứng nhận:</span>
+                  <select 
+                    value={certRankOverride} 
+                    onChange={(e) => setCertRankOverride(e.target.value)}
+                    style={{
+                      padding: "4px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid #cbd5e1",
+                      background: "#fff",
+                      fontWeight: "700",
+                      outline: "none",
+                      fontSize: "12px",
+                      color: "#1e293b",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <option value="auto">Hạng thực tế từ giải đấu</option>
+                    <option value="1">Hạng 1 (Vô địch)</option>
+                    <option value="2">Hạng 2 (Á quân)</option>
+                    <option value="3">Hạng 3 (Đồng hạng ba)</option>
+                    <option value="none">Hạng khác (Chỉ tham gia)</option>
+                  </select>
+                </div>
+
+                {selectedCertReg.loading ? (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: "12px" }}>
+                    <div style={{ width: "32px", height: "32px", border: "3px solid #f3e8ff", borderTopColor: "#7c3aed", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                    <span style={{ fontSize: "13px", color: "#64748b" }}>Đang khởi tạo chứng chỉ...</span>
+                  </div>
+                ) : (
+                  /* Certificate Canvas (Printable Area) */
+                  <div className="printable-certificate-container" style={{
+                    background: cardBg,
+                    border: "8px double #d97706",
+                    borderRadius: "16px",
+                    padding: "32px",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
+                    position: "relative",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    textAlign: "center",
+                    fontFamily: "var(--font-sans, system-ui)"
+                  }}>
+                    {/* Inner thin border */}
+                    <div style={{
+                      position: "absolute",
+                      inset: "8px",
+                      border: "1px solid #fde68a",
+                      pointerEvents: "none",
+                      borderRadius: "8px"
+                    }} />
+
+                    {/* Header Seal Banner */}
+                    <div style={{
+                      fontSize: "9px",
+                      fontWeight: "800",
+                      color: "#b45309",
+                      letterSpacing: "2px",
+                      textTransform: "uppercase",
+                      marginBottom: "12px"
+                    }}>
+                      Hệ Thống Giải Đấu Pickleball Chuyên Nghiệp • PickleClub
+                    </div>
+
+                    {/* Ribbon or Icon */}
+                    <span style={{ fontSize: "28px", marginBottom: "8px" }}>🏆</span>
+
+                    {/* Main Title */}
+                    <h1 style={{
+                      margin: "0 0 4px 0",
+                      fontSize: "24px",
+                      fontWeight: "900",
+                      color: titleColor,
+                      letterSpacing: "0.5px"
+                    }}>
+                      {certTitle}
+                    </h1>
+                    
+                    <div style={{
+                      width: "120px",
+                      height: "2px",
+                      background: isWinner ? "linear-gradient(90deg, transparent, #d97706, transparent)" : "linear-gradient(90deg, transparent, #059669, transparent)",
+                      margin: "8px 0 16px 0"
+                    }} />
+
+                    <p style={{ margin: "0", fontSize: "12px", color: "#64748b", fontStyle: "italic" }}>
+                      Ban Tổ Chức Giải Đấu trân trọng trao tặng cho
+                    </p>
+
+                    {/* Recipient Name */}
+                    <h2 style={{
+                      margin: "12px 0 6px 0",
+                      fontSize: "22px",
+                      fontWeight: "850",
+                      color: "#0f172a"
+                    }}>
+                      {athleteNames}
+                    </h2>
+
+                    <p style={{ margin: "0 0 16px 0", fontSize: "12px", color: "#475569", maxWidth: "480px", lineHeight: "1.6" }}>
+                      Đã hoàn thành thi đấu xuất sắc nội dung <strong>{selectedCertReg.DivisionName}</strong> (Mã đội: {selectedCertReg.TeamCode}) tại giải đấu <strong>{tournament?.TournamentName}</strong> tổ chức tại {tournament?.Location || "PickleClub Center"}.
+                    </p>
+
+                    {/* Prize description block */}
+                    <div style={{
+                      background: isWinner ? "#fffbeb" : "#f0fdf4",
+                      border: isWinner ? "1.5px solid #fef3c7" : "1.5px solid #d1fae5",
+                      borderRadius: "14px",
+                      padding: "16px 20px",
+                      width: "100%",
+                      maxWidth: "460px",
+                      marginBottom: "24px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "6px",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.02)"
+                    }}>
+                      <span style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: "800", color: isWinner ? "#b45309" : "#047857", letterSpacing: "0.5px" }}>
+                        {rankLabel}
+                      </span>
+                      <div style={{ fontSize: "14px", fontWeight: "800", color: "#1e293b", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>{badgeIcon}</span>
+                        <span>{rewardText}</span>
+                      </div>
+                    </div>
+
+                    {/* Footer stamps / Signatures */}
+                    <div style={{
+                      width: "100%",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-end",
+                      paddingTop: "12px",
+                      borderTop: "1px dashed #e2e8f0"
+                    }}>
+                      {/* Left: Signature */}
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", gap: "4px" }}>
+                        <span style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase" }}>Đại Diện Ban Tổ Chức</span>
+                        <div style={{ fontFamily: "serif", fontSize: "16px", fontWeight: "bold", fontStyle: "italic", color: "#334155", margin: "4px 0", letterSpacing: "1px" }}>
+                          PickleClub President
+                        </div>
+                        <span style={{ fontSize: "11px", fontWeight: "800", color: "#475569" }}>Lê Thanh Sơn (Đã ký)</span>
+                      </div>
+
+                      {/* Middle Gold Seal Badge */}
+                      <div style={{
+                        width: "66px",
+                        height: "66px",
+                        borderRadius: "50%",
+                        background: "linear-gradient(135deg, #fbbf24 0%, #d97706 100%)",
+                        border: "3px dashed #ffffff",
+                        boxShadow: "0 0 12px rgba(217, 119, 6, 0.35)",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#ffffff",
+                        fontWeight: "900",
+                        fontSize: "8px",
+                        letterSpacing: "0.5px",
+                        textTransform: "uppercase",
+                        lineHeight: 1.1
+                      }}>
+                        <span>VALID</span>
+                        <span style={{ fontSize: "6px", opacity: 0.9 }}>STAMP</span>
+                      </div>
+
+                      {/* Right: Date */}
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", textAlign: "right", gap: "4px" }}>
+                        <span style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase" }}>Ngày Cấp Chứng Nhận</span>
+                        <span style={{ fontSize: "12px", fontWeight: "700", color: "#334155" }}>
+                          {new Date().toLocaleDateString("vi-VN")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer (Controls) */}
+              <div className="cert-modal-footer-btns" style={{
+                padding: "16px 24px",
+                background: "#f8fafc",
+                borderTop: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px"
+              }}>
+                <button 
+                  onClick={() => setShowCertModal(false)}
+                  className="tm-btn"
+                  style={{
+                    background: "#ffffff",
+                    color: "#475569",
+                    border: "1.5px solid #e2e8f0",
+                    borderRadius: "12px",
+                    padding: "10px 20px",
+                    fontSize: "0.85rem",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "#f1f5f9"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "#ffffff"}
+                >
+                  Đóng
+                </button>
+                <button 
+                  onClick={() => window.print()}
+                  className="tm-btn"
+                  disabled={selectedCertReg.loading}
+                  style={{
+                    background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "12px",
+                    padding: "10px 24px",
+                    fontSize: "0.85rem",
+                    fontWeight: "800",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 10px rgba(124, 58, 237, 0.25)",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
+                >
+                  🖨️ In & Tải xuống PDF
+                </button>
+                {(selectedCertReg.certificatePdfUrl || selectedCertReg.CertificatePdfUrl) && (
+                  <button 
+                    onClick={() => window.open(selectedCertReg.certificatePdfUrl || selectedCertReg.CertificatePdfUrl, "_blank")}
+                    className="tm-btn"
+                    style={{
+                      background: "#ffffff",
+                      color: "#059669",
+                      border: "1.5px solid #059669",
+                      borderRadius: "12px",
+                      padding: "10px 20px",
+                      fontSize: "0.85rem",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      boxShadow: "0 4px 10px rgba(5, 150, 105, 0.1)"
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "#f0fdf4"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "#ffffff"}
+                  >
+                    📎 Tải File Đính Kèm (PDF/Ảnh)
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

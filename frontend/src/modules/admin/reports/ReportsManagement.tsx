@@ -75,30 +75,90 @@ export default function ReportsManagement() {
 
       {/* Stats Grid */}
       <section className={styles.statsGrid}>
-        <div className={styles.statCard}>
+        <div className={`${styles.statCard} ${styles.stat_blue}`}>
+          <div className={styles.statHeader}>
+            <div className={styles.statIconBox}><FileIcon /></div>
+          </div>
           <p className={styles.statCardLabel}>Tổng số lần xuất</p>
           <h2 className={styles.statCardValue}>{history.length}</h2>
           <p className={styles.statCardDescription}>Tổng báo cáo đã tạo</p>
+          <div className={styles.sparklineWrap}>
+            <svg className={styles.sparkline} viewBox="0 0 100 30" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="spark-grad-rep-1" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#2563eb" stopOpacity="0.05"/>
+                  <stop offset="100%" stopColor="#2563eb" stopOpacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,20 C15,10 30,25 45,15 C60,5 75,25 90,18 L100,22 L100,30 L0,30 Z" fill="url(#spark-grad-rep-1)" />
+              <path d="M0,20 C15,10 30,25 45,15 C60,5 75,25 90,18 L100,22" fill="none" stroke="#2563eb" strokeWidth="1.2" />
+            </svg>
+          </div>
         </div>
 
-        <div className={styles.statCard}>
+        <div className={`${styles.statCard} ${styles.stat_green}`}>
+          <div className={styles.statHeader}>
+            <div className={styles.statIconBox}><CheckIcon /></div>
+          </div>
           <p className={styles.statCardLabel}>Xuất thành công</p>
           <h2 className={styles.statCardValue}>{successCount}</h2>
           <p className={styles.statCardDescription}>
             Báo cáo hoàn thành • {successRate}% thành công
           </p>
+          <div className={styles.sparklineWrap}>
+            <svg className={styles.sparkline} viewBox="0 0 100 30" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="spark-grad-rep-2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#16a34a" stopOpacity="0.05"/>
+                  <stop offset="100%" stopColor="#16a34a" stopOpacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,15 C20,10 40,25 60,15 C80,5 90,20 100,10 L100,30 L0,30 Z" fill="url(#spark-grad-rep-2)" />
+              <path d="M0,15 C20,10 40,25 60,15 C80,5 90,20 100,10" fill="none" stroke="#16a34a" strokeWidth="1.2" />
+            </svg>
+          </div>
         </div>
 
-        <div className={styles.statCard}>
+        <div className={`${styles.statCard} ${styles.stat_red}`}>
+          <div className={styles.statHeader}>
+            <div className={styles.statIconBox}><XIcon /></div>
+          </div>
           <p className={styles.statCardLabel}>Xuất thất bại</p>
           <h2 className={styles.statCardValue}>{failedCount}</h2>
           <p className={styles.statCardDescription}>Báo cáo gặp lỗi</p>
+          <div className={styles.sparklineWrap}>
+            <svg className={styles.sparkline} viewBox="0 0 100 30" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="spark-grad-rep-3" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity="0.05"/>
+                  <stop offset="100%" stopColor="#ef4444" stopOpacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,22 C15,12 30,28 45,18 C60,8 75,28 90,20 L100,25 L100,30 L0,30 Z" fill="url(#spark-grad-rep-3)" />
+              <path d="M0,22 C15,12 30,28 45,18 C60,8 75,28 90,20 L100,25" fill="none" stroke="#ef4444" strokeWidth="1.2" />
+            </svg>
+          </div>
         </div>
 
-        <div className={styles.statCard}>
+        <div className={`${styles.statCard} ${styles.stat_purple}`}>
+          <div className={styles.statHeader}>
+            <div className={styles.statIconBox}><DatabaseIcon /></div>
+          </div>
           <p className={styles.statCardLabel}>Tổng số dòng</p>
           <h2 className={styles.statCardValue}>{totalRows.toLocaleString()}</h2>
           <p className={styles.statCardDescription}>Dữ liệu đã xuất</p>
+          <div className={styles.sparklineWrap}>
+            <svg className={styles.sparkline} viewBox="0 0 100 30" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="spark-grad-rep-4" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.05"/>
+                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,25 C20,15 40,28 60,18 C80,8 90,22 100,12 L100,30 L0,30 Z" fill="url(#spark-grad-rep-4)" />
+              <path d="M0,25 C20,15 40,28 60,18 C80,8 90,22 100,12" fill="none" stroke="#8b5cf6" strokeWidth="1.2" />
+            </svg>
+          </div>
         </div>
       </section>
 
@@ -124,13 +184,42 @@ export default function ReportsManagement() {
         </div>
 
         <div className={styles.revenueKpiGrid}>
-          <div className={styles.revenueKpiCard}>
-            <p>Tổng doanh thu</p>
+          <div className={`${styles.revenueKpiCard} ${styles.rev_green}`}>
+            <div className={styles.revKpiHeader}>
+              <p>Tổng doanh thu</p>
+              <div className={styles.revKpiIcon}>
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+                </svg>
+              </div>
+            </div>
             <strong>{formatCurrency(revenueStats?.revenue ?? 0)}</strong>
             <span>Doanh thu từ các booking đã thanh toán/xác nhận</span>
           </div>
-          <div className={styles.revenueKpiCard}>
-            <p>Tổng lượt đặt</p>
+
+          <div className={`${styles.revenueKpiCard} ${styles.rev_orange}`}>
+            <div className={styles.revKpiHeader}>
+              <p>Doanh thu giải đấu</p>
+              <div className={styles.revKpiIcon}>
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                  <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                </svg>
+              </div>
+            </div>
+            <strong>{formatCurrency(revenueStats?.tournamentRevenue ?? 0)}</strong>
+            <span>Doanh thu từ đăng ký giải đấu đã thanh toán</span>
+          </div>
+
+          <div className={`${styles.revenueKpiCard} ${styles.rev_blue}`}>
+            <div className={styles.revKpiHeader}>
+              <p>Tổng lượt đặt</p>
+              <div className={styles.revKpiIcon}>
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 00-2 2z" />
+                </svg>
+              </div>
+            </div>
             <strong>{(revenueStats?.bookingsCount ?? 0).toLocaleString("vi-VN")}</strong>
             <span>Số booking trong khoảng thời gian thống kê</span>
           </div>

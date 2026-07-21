@@ -22,7 +22,12 @@ export async function getDashboardStatsFromDB() {
       SELECT ISNULL(SUM(Amount), 0) 
       FROM TournamentPayments 
       WHERE PaymentStatus = 'Paid' AND CAST(COALESCE(PaidAt, CreatedAt) AS DATE) = @TargetDate
-    ) AS TodayRevenue;
+    ) AS TodayRevenue,
+    (
+      SELECT ISNULL(SUM(Amount), 0) 
+      FROM TournamentPayments 
+      WHERE PaymentStatus = 'Paid' AND CAST(COALESCE(PaidAt, CreatedAt) AS DATE) = @TargetDate
+    ) AS TodayTournamentRevenue;
 
     -- Today Bookings Count
     SELECT COUNT(*) AS TodayBookingsCount
@@ -84,6 +89,7 @@ export async function getDashboardStatsFromDB() {
 
   return {
     todayRevenue: rs[0][0].TodayRevenue,
+    todayTournamentRevenue: rs[0][0].TodayTournamentRevenue,
     todayBookingsCount: rs[1][0].TodayBookingsCount,
     activeCourts: rs[2][0].ActiveCourts,
     totalCourts: rs[3][0].TotalCourts,
@@ -892,7 +898,26 @@ export async function getSaaSDashboardStatsFromDB(
       FROM TournamentPayments
       WHERE PaymentStatus = 'Paid'
         AND CAST(COALESCE(PaidAt, CreatedAt) AS DATE) BETWEEN @StartDate AND @EndDate
-    ) AS Revenue;
+    ) AS Revenue,
+    (
+      SELECT ISNULL(SUM(Amount), 0)
+      FROM TournamentPayments
+      WHERE PaymentStatus = 'Paid'
+        AND CAST(COALESCE(PaidAt, CreatedAt) AS DATE) BETWEEN @StartDate AND @EndDate
+    ) AS TournamentRevenue,
+    (
+      SELECT (
+        SELECT ISNULL(SUM(TotalAmount), 0)
+        FROM Bookings
+        WHERE YEAR(BookingDate) = YEAR(GETDATE()) AND MONTH(BookingDate) = MONTH(GETDATE())
+          AND Status IN ('Confirmed', 'Completed', 'CheckedIn', 'Paid')
+      ) + (
+        SELECT ISNULL(SUM(Amount), 0)
+        FROM TournamentPayments
+        WHERE PaymentStatus = 'Paid'
+          AND YEAR(COALESCE(PaidAt, CreatedAt)) = YEAR(GETDATE()) AND MONTH(COALESCE(PaidAt, CreatedAt)) = MONTH(GETDATE())
+      )
+    ) AS MonthRevenue;
 
     -- 2. Previous Revenue
     SELECT (
@@ -905,7 +930,13 @@ export async function getSaaSDashboardStatsFromDB(
       FROM TournamentPayments
       WHERE PaymentStatus = 'Paid'
         AND CAST(COALESCE(PaidAt, CreatedAt) AS DATE) BETWEEN @PrevStartDate AND @PrevEndDate
-    ) AS PrevRevenue;
+    ) AS PrevRevenue,
+    (
+      SELECT ISNULL(SUM(Amount), 0)
+      FROM TournamentPayments
+      WHERE PaymentStatus = 'Paid'
+        AND CAST(COALESCE(PaidAt, CreatedAt) AS DATE) BETWEEN @PrevStartDate AND @PrevEndDate
+    ) AS PrevTournamentRevenue;
 
     -- 3. Current Bookings
     SELECT COUNT(*) AS BookingsCount
@@ -1177,7 +1208,10 @@ export async function getSaaSDashboardStatsFromDB(
 
   return {
     revenue: Number(rs[0][0]?.Revenue || 0),
+    tournamentRevenue: Number(rs[0][0]?.TournamentRevenue || 0),
+    monthRevenue: Number(rs[0][0]?.MonthRevenue || 0),
     prevRevenue: Number(rs[1][0]?.PrevRevenue || 0),
+    prevTournamentRevenue: Number(rs[1][0]?.PrevTournamentRevenue || 0),
     bookingsCount: Number(rs[2][0]?.BookingsCount || 0),
     prevBookingsCount: Number(rs[3][0]?.PrevBookingsCount || 0),
     totalCourts: Number(rs[4][0]?.TotalCourts || 0),

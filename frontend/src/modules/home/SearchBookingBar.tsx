@@ -4,6 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./HomePage.module.css";
 
+function todayVN() {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
+}
+
 export default function SearchBookingBar() {
   const router = useRouter();
   const [keyword, setKeyword] = useState("");
@@ -52,6 +56,7 @@ export default function SearchBookingBar() {
                 id="searchDate"
                 type="date"
                 value={date}
+                min={todayVN()}
                 onChange={(e) => setDate(e.target.value)}
                 className={styles.searchInput}
               />

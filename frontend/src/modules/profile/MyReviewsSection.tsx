@@ -20,7 +20,7 @@ export default function MyReviewsSection() {
         setLoading(true);
         // Note: reviewApi needs to support token if it's an authenticated request.
         // Assuming the apiClient automatically attaches the token from local storage.
-        const data = await reviewApi.getMyReviews(page, 5);
+        const data = await reviewApi.getMyReviews(page, 5, token);
         setReviews(data.data);
         setTotalPages(data.totalPages);
       } catch (err) {

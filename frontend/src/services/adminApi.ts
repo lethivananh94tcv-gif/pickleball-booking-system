@@ -15,6 +15,7 @@ export type DashboardStats = {
   activeCombos: number;
   activePromotions: number;
   todayRevenue: number;
+  todayTournamentRevenue?: number;
   latestBookings: {
     BookingCode: string;
     PlayerName: string;
@@ -33,6 +34,9 @@ export type DashboardStats = {
 export type SaaSDashboardStats = {
   revenue: number;
   prevRevenue: number;
+  tournamentRevenue?: number;
+  prevTournamentRevenue?: number;
+  monthRevenue?: number;
   bookingsCount: number;
   prevBookingsCount: number;
   totalCourts: number;
@@ -135,6 +139,7 @@ function isEmptyStats(stats: DashboardStats) {
 function getEmptyStats(): DashboardStats {
   return {
     todayRevenue: 0,
+    todayTournamentRevenue: 0,
     todayBookingsCount: 0,
     activeCourts: 0,
     totalCourts: 0,
@@ -149,6 +154,7 @@ function getEmptyStats(): DashboardStats {
 function mergeStats(base: DashboardStats, fallback: Partial<DashboardStats>): DashboardStats {
   return {
     todayRevenue: base.todayRevenue || fallback.todayRevenue || 0,
+    todayTournamentRevenue: base.todayTournamentRevenue || fallback.todayTournamentRevenue || 0,
     todayBookingsCount: base.todayBookingsCount || fallback.todayBookingsCount || 0,
     activeCourts: base.activeCourts || fallback.activeCourts || 0,
     totalCourts: base.totalCourts || fallback.totalCourts || 0,
@@ -246,6 +252,9 @@ export function getDemoSaaSDashboardStats(): SaaSDashboardStats {
   return {
     revenue: 87560000,
     prevRevenue: 73800000,
+    tournamentRevenue: 15400000,
+    prevTournamentRevenue: 12000000,
+    monthRevenue: 74426000,
     bookingsCount: 156,
     prevBookingsCount: 142,
     totalCourts: 10,
@@ -358,6 +367,7 @@ function getDemoSnapshot(): DashboardSnapshot {
       activeCombos: 3,
       activePromotions: 3,
       todayRevenue,
+      todayTournamentRevenue: 1800000, // mock today tournament revenue
       latestBookings: demoDailyBookings.map(toLatestBooking),
     },
     saaSDats: getDemoSaaSDashboardStats(),
@@ -375,10 +385,13 @@ export async function getDashboardSnapshot(
 ): Promise<DashboardSnapshot> {
   if (startDate && endDate) {
     try {
-      const stats = await getDashboardStats(token, startDate, endDate) as SaaSDashboardStats;
+      const [stats, dailyBookings] = await Promise.all([
+        getDashboardStats(token, startDate, endDate) as Promise<SaaSDashboardStats>,
+        getDailyBookings(token, todayStr()).catch(() => []),
+      ]);
       return {
         source: "api",
-        dailyBookings: [],
+        dailyBookings,
         stats: {
           totalCourts: stats.totalCourts,
           activeCourts: stats.activeCourts,
@@ -388,9 +401,13 @@ export async function getDashboardSnapshot(
           activeCombos: stats.activeCombos,
           activePromotions: 0,
           todayRevenue: stats.revenue,
+          todayTournamentRevenue: stats.tournamentRevenue,
           latestBookings: [],
         },
-        saaSDats: stats,
+        saaSDats: {
+          ...stats,
+          monthRevenue: stats.monthRevenue,
+        },
       };
     } catch (err) {
       console.error("Lỗi tải SaaS stats từ API, chuyển sang demo:", err);
@@ -438,6 +455,7 @@ export async function getDashboardSnapshot(
     todayRevenue: dailyBookings
       .filter((booking) => ["Paid", "Confirmed", "CheckedIn", "Completed"].includes(booking.Status))
       .reduce((sum, booking) => sum + booking.TotalAmount, 0),
+    todayTournamentRevenue: baseStats.todayTournamentRevenue || 0,
     latestBookings: dailyBookings.map(toLatestBooking),
   });
 
