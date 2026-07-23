@@ -550,6 +550,7 @@ export async function registerManualAthletesTransaction(params: {
     dateOfBirth: string;
     photoUrl?: string;
     cccdUrl?: string | null;
+    email?: string;
     note?: string;
   }>;
 }): Promise<any> {

@@ -14,19 +14,7 @@ from app.models.player_models import (
     LLMOpponentResponse
 )
 
-API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
-
-print(f"GEMINI_API_KEY exists: {bool(API_KEY)}")
-print(f"MODEL_NAME: {MODEL_NAME}")
-
-model = None
-if API_KEY:
-    try:
-        genai.configure(api_key=API_KEY)
-        model = genai.GenerativeModel(MODEL_NAME)
-    except Exception as e:
-        print(f"Error configuring Gemini for Player Scoring: {e}")
+from app.services.llm_client_manager import API_KEYS, generate_content_async_with_retry
 
 
 def get_keyword_overlap_score_py(styleA: str, goalA: str, styleB: str, goalB: str) -> float:
@@ -56,8 +44,8 @@ async def analyze_and_score_teammates(request: TeammateMatchRequest) -> Teammate
     has_desc_user = bool(request.user.playStyle.strip()) or bool(request.user.goal.strip())
     has_desc_candidates = any(bool(c.playStyle.strip()) or bool(c.goal.strip()) for c in request.candidates)
     
-    if not model or not API_KEY or not (has_desc_user and has_desc_candidates):
-        reason = "GEMINI_API_KEY missing" if not API_KEY else ("No playStyle or goal description in profiles" if not (has_desc_user and has_desc_candidates) else "Model not configured")
+    if not API_KEYS or not (has_desc_user and has_desc_candidates):
+        reason = "GEMINI_API_KEY missing" if not API_KEYS else "No playStyle or goal description in profiles"
         print(f"fallbackReason: {reason}")
         return handle_teammate_fallback(request, reason)
 
@@ -85,7 +73,7 @@ Lưu ý quan trọng: Chỉ đánh giá các ID có trong danh sách candidates 
 
     print("Gemini call started")
     try:
-        response = await model.generate_content_async(
+        response = await generate_content_async_with_retry(
             prompt,
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
@@ -189,8 +177,8 @@ async def analyze_and_score_opponents(request: OpponentMatchRequest) -> Opponent
         for ot in request.opponentTeams
     )
 
-    if not model or not API_KEY or not (has_desc_my and has_desc_opp):
-        reason = "GEMINI_API_KEY missing" if not API_KEY else ("No playStyle or goal description in profiles" if not (has_desc_my and has_desc_opp) else "Model not configured")
+    if not API_KEYS or not (has_desc_my and has_desc_opp):
+        reason = "GEMINI_API_KEY missing" if not API_KEYS else "No playStyle or goal description in profiles"
         print(f"fallbackReason: {reason}")
         return handle_opponent_fallback(request, reason)
 
@@ -219,7 +207,7 @@ Lưu ý: Chỉ chọn các opponentTeamId trong danh sách trên. Không tự ý
 
     print("Gemini call started")
     try:
-        response = await model.generate_content_async(
+        response = await generate_content_async_with_retry(
             prompt,
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",

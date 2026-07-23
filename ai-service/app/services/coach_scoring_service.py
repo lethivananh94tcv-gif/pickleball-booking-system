@@ -9,16 +9,7 @@ from app.models.coach_models import CoachRecommendRequest, CoachRecommendRespons
 dotenv_path = Path(__file__).resolve().parent.parent.parent / '.env'
 load_dotenv(dotenv_path=dotenv_path)
 
-# Khởi tạo model Gemini nếu có key
-API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
-model = None
-if API_KEY:
-    try:
-        genai.configure(api_key=API_KEY)
-        model = genai.GenerativeModel(MODEL_NAME)
-    except Exception as e:
-        print(f"Error configuring Gemini for Coach Scoring: {e}")
+from app.services.llm_client_manager import API_KEYS, generate_content_async_with_retry
 
 SYSTEM_PROMPT = """Bạn là chuyên gia phân tích NLP của hệ thống Pickle Club.
 Nhiệm vụ của bạn là nhận thông tin mong muốn của học viên (styleText) và danh sách các Huấn luyện viên ứng viên.
@@ -39,7 +30,7 @@ async def analyze_and_score_coaches(request: CoachRecommendRequest) -> CoachReco
         return handle_fallback(request, reason="No styleText provided for analysis")
 
     # Nếu chưa cấu hình model hoặc API key, trả về fallback thay vì crash
-    if not API_KEY or not model:
+    if not API_KEYS:
         return handle_fallback(request, reason="GEMINI_API_KEY missing or model not initialized")
 
     # 2. Xây dựng prompt chứa danh sách ứng viên
@@ -57,7 +48,7 @@ async def analyze_and_score_coaches(request: CoachRecommendRequest) -> CoachReco
 
     try:
         # Gọi LLM sử dụng Structured Output
-        response = await model.generate_content_async(
+        response = await generate_content_async_with_retry(
             f"{SYSTEM_PROMPT}\n\n{user_prompt}",
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",

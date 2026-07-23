@@ -91,6 +91,7 @@ const athleteSchema = z.object({
   dateOfBirth: z.string().min(1, "Ngày sinh là bắt buộc"),
   photoUrl: z.string().optional().nullable(),
   cccdUrl: z.string().optional().nullable(),
+  email: z.string().optional().nullable(),
   note: z.string().max(500).optional().nullable(),
 });
 

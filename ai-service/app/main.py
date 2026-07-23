@@ -14,14 +14,12 @@ dotenv_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=dotenv_path)
 
 # Log config status
-API_KEY = os.getenv("GEMINI_API_KEY")
+from app.services.llm_client_manager import API_KEYS
 LLM_PROVIDER = os.getenv("LLM_PROVIDER")
 MODEL_NAME = os.getenv("MODEL_NAME")
 
-key_exists = "True" if API_KEY else "False"
-masked_key = f"{API_KEY[:4]}...{API_KEY[-4:]}" if API_KEY and len(API_KEY) > 8 else ("Exists" if API_KEY else "None")
-
-logger.info(f"GEMINI_API_KEY exists: {key_exists} (Masked: {masked_key})")
+key_exists = "True" if API_KEYS else "False"
+logger.info(f"Gemini API keys configured: {key_exists} (Count: {len(API_KEYS)})")
 logger.info(f"LLM_PROVIDER: {LLM_PROVIDER}")
 logger.info(f"MODEL_NAME: {MODEL_NAME}")
 

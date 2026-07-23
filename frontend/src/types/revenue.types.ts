@@ -6,6 +6,7 @@ export type RevenueSummary = {
   monthRevenue: number;
   paidBookings: number;
   refundAmount: number;
+  tournamentRevenue: number;
 };
 
 export type RevenueChartItem = {

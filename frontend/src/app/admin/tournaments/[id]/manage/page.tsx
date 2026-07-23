@@ -2514,7 +2514,7 @@ export default function AdminTournamentManagePage({ params }: { params: Promise<
                               <option value={0}>Chờ xếp sân</option>
                               {allCourts.map((c) => (
                                 <option key={c.CourtID} value={c.CourtID}>
-                                  {c.Name}
+                                  {c.CourtName}
                                 </option>
                               ))}
                             </select>
@@ -2694,7 +2694,7 @@ export default function AdminTournamentManagePage({ params }: { params: Promise<
                         <option value={0}>Giữ nguyên / Tự động xếp sân</option>
                         {allCourts.map((c) => (
                           <option key={c.CourtID} value={c.CourtID}>
-                            {c.Name} (ID: {c.CourtID})
+                            {c.CourtName} (ID: {c.CourtID})
                           </option>
                         ))}
                       </select>

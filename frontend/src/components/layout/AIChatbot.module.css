@@ -415,3 +415,127 @@
 .bookBtn:hover {
   opacity: 0.95;
 }
+
+/* Welcome Dashboard Card inside chat history */
+.welcomeCard {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 4px;
+}
+
+.welcomeLogo {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin: 0 auto 10px auto;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
+}
+
+.welcomeTitle {
+  font-size: 15px;
+  font-weight: 750;
+  color: #0f172a;
+  text-align: center;
+  margin: 0 0 6px 0;
+}
+
+.welcomeText {
+  font-size: 12.5px;
+  color: #475569;
+  text-align: center;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+.welcomeShortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.welcomeShortcut {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
+}
+
+.welcomeShortcut span {
+  font-size: 14px;
+}
+
+.welcomeShortcut:hover {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #16a34a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.08);
+}
+
+.welcomeShortcut:active {
+  transform: translateY(0);
+}
+
+.guideSection {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
+}
+
+.guideHeader {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.guideLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.guideLinkBtn {
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  text-align: left;
+  color: #2563eb;
+  font-size: 12.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.guideLinkBtn:hover {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  padding-left: 10px;
+}

@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 
 from app.services.forecast_service import ForecastModelManager
 from app.services.decision_engine import AIDecisionEngine
-from app.services.llm_service import model
+from app.services.llm_client_manager import API_KEYS, generate_content_with_retry
 
 router = APIRouter()
 
@@ -90,7 +90,7 @@ async def recommend_promotions(request: RecommendRequest):
             marketing_msg = f"🔥 Khuyến mãi đặt sân đặc biệt lúc {hour}h ngày {request.targetDate}: Giảm ngay {discount}%! Số lượng có hạn, đặt sân ngay!"
             
             # Call Gemini to refine marketing content if api key is configured
-            if model:
+            if API_KEYS:
                 try:
                     prompt = f"""
 Bạn là chuyên gia marketing và tối ưu doanh thu cho câu lạc bộ Pickleball "Pickle Club".
@@ -113,7 +113,7 @@ Hãy viết 2 nội dung bằng tiếng Việt:
 }}
 Lưu ý: Không bao gồm markdown code block (không có ```json ... ```), chỉ có chuỗi JSON nguyên bản.
 """
-                    response = model.generate_content(prompt, request_options={"timeout": 5.0})
+                    response = generate_content_with_retry(prompt, request_options={"timeout": 5.0})
                     clean_text = response.text.strip()
                     # Strip markdown markers if model included them anyway
                     if clean_text.startswith("```"):

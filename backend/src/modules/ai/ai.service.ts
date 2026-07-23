@@ -921,6 +921,16 @@ export async function handleChatbotMessage(
         actionType = "TEXT";
         break;
 
+      case "FIND_PLAYER":
+        replyMessage = "Pickle Club cung cấp hệ thống Ghép cặp (Player Matching) để bạn dễ dàng tìm kiếm đồng đội phù hợp với trình độ, phong cách chơi và thời gian biểu của mình. Bạn có muốn truy cập trang Tìm người chơi ngay bây giờ không?";
+        actionType = "GO_TO_MATCHING";
+        break;
+
+      case "FIND_OPPONENT_PAIR":
+        replyMessage = "Nếu bạn đã có đồng đội và muốn tìm một cặp đối thủ xứng tầm để thi đấu giao lưu, hãy sử dụng tính năng Tìm đối thủ của Pickle Club nhé! Bạn có muốn mở trang Tìm người chơi ngay bây giờ không?";
+        actionType = "GO_TO_MATCHING";
+        break;
+
       case "UNKNOWN":
       default:
         replyMessage = "Xin lỗi, mình chưa hiểu ý của bạn. Bạn muốn đặt sân, tìm HLV Pickleball hay cần xem giá cả/lịch sử đặt chỗ?";

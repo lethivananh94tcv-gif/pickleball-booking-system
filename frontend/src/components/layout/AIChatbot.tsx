@@ -25,6 +25,62 @@ export default function AIChatbot() {
   
   const messageEndRef = useRef<HTMLDivElement>(null);
 
+  // Helper to parse markdown links and bold formatting
+  const renderMessageText = (text: string) => {
+    if (!text) return null;
+    const lines = text.split("\n");
+    return lines.map((line, idx) => {
+      // Split by bold elements **text**
+      const parts = line.split(/(\*\*[^*]+\*\*)/g);
+      const formattedLine = parts.map((part, pIdx) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={pIdx}>{part.slice(2, -2)}</strong>;
+        }
+        
+        // Split by markdown link elements [text](url)
+        const linkParts = part.split(/(\[[^\]]+\]\([^)]+\))/g);
+        return linkParts.map((lPart, lIdx) => {
+          if (lPart.startsWith("[") && lPart.includes("](")) {
+            const match = lPart.match(/\[([^\]]+)\]\(([^)]+)\)/);
+            if (match) {
+              const [, linkText, url] = match;
+              if (url.startsWith("/")) {
+                return (
+                  <Link 
+                    key={lIdx} 
+                    href={url} 
+                    onClick={() => setIsOpen(false)}
+                    style={{ color: "#2563eb", textDecoration: "underline", fontWeight: "600" }}
+                  >
+                    {linkText}
+                  </Link>
+                );
+              }
+              return (
+                <a 
+                  key={lIdx} 
+                  href={url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ color: "#2563eb", textDecoration: "underline", fontWeight: "600" }}
+                >
+                  {linkText}
+                </a>
+              );
+            }
+          }
+          return lPart;
+        });
+      });
+
+      return (
+        <div key={idx} style={{ minHeight: line.trim() === "" ? "8px" : "auto", margin: "2px 0" }}>
+          {formattedLine}
+        </div>
+      );
+    });
+  };
+
   // Generate conversationId on mount
   useEffect(() => {
     let id = "";
@@ -71,14 +127,53 @@ export default function AIChatbot() {
     setInputText("");
     setIsTyping(true);
 
+    // 2. Local Intercepts for system guides
+    const query = text.trim();
+    let isGuide = false;
+    let botResponseText = "";
+    let botActionType = "";
+
+    if (query === "Hướng dẫn đặt sân trực tuyến" || query.toLowerCase().includes("làm thế nào để đặt sân")) {
+      isGuide = true;
+      botResponseText = `**Quy trình đặt sân trực tuyến cực kỳ đơn giản:**\n\n1. 🎾 **Bước 1**: Truy cập trang [Danh sách Sân](/courts) để tìm sân trống theo thời gian thực.\n2. 📅 **Bước 2**: Chọn sân và khung giờ chơi mong muốn (ví dụ: 17:00 - 19:00).\n3. 🛒 **Bước 3**: Nhấn **Đặt lịch**, hệ thống sẽ chuyển đến trang thanh toán.\n4. 💸 **Bước 4**: Nhập mã ưu đãi (nếu có), chọn phương thức thanh toán và nhấn **Xác nhận đặt** để hoàn tất.\n\n*Bạn có muốn chuyển sang trang đặt sân ngay bây giờ không?*`;
+      botActionType = "GO_TO_COURTS";
+    } else if (query === "Hướng dẫn đặt combo sân kèm Coach" || query.toLowerCase().includes("cách đặt combo")) {
+      isGuide = true;
+      botResponseText = `**Cách đặt Combo Sân + HLV giúp bạn tiết kiệm chi phí và tập luyện chuyên nghiệp:**\n\n1. 🤝 **Bước 1**: Truy cập trang [Đặt Combo](/combo).\n2. 👨‍🏫 **Bước 2**: Lựa chọn Huấn luyện viên (Coach) phù hợp với trình độ của bạn.\n3. 🎾 **Bước 3**: Lựa chọn sân tập mong muốn.\n4. ⏰ **Bước 4**: Chọn ngày học, giờ học và thời lượng buổi tập.\n5. 💳 **Bước 5**: Kiểm tra mức giá ưu đãi và tiến hành thanh toán.\n\n*Bạn có muốn xem trang đặt Combo ngay bây giờ không?*`;
+      botActionType = "GO_TO_COMBO";
+    } else if (query === "Hướng dẫn tìm bạn ghép cặp chơi" || query.toLowerCase().includes("ghép cặp")) {
+      isGuide = true;
+      botResponseText = `**Tính năng Ghép Cặp (Matching) giúp bạn tìm đối thủ và bạn chơi cùng trình độ dễ dàng:**\n\n1. 👥 **Bước 1**: Truy cập trang [Ghép cặp & Tìm người chơi](/matching).\n2. 🔍 **Bước 2**: Xem danh sách các bài đăng ghép cặp hiện có hoặc bấm **Tạo bài viết ghép cặp mới**.\n3. 📝 **Bước 3**: Nhập thông tin: Sân chơi, thời gian chơi, trình độ yêu cầu (Cơ bản/Trung bình/Khá) và số lượng người cần tuyển.\n4. 📢 **Bước 4**: Đăng bài và chờ những người chơi phù hợp nhấn tham gia!\n\n*Bạn có muốn xem danh sách ghép cặp ngay bây giờ không?*`;
+      botActionType = "GO_TO_MATCHING";
+    } else if (query === "Hướng dẫn hủy lịch và hoàn tiền" || query.toLowerCase().includes("hủy lịch") || query.toLowerCase().includes("hoàn tiền")) {
+      isGuide = true;
+      botResponseText = `**Chính sách hoàn tiền khi hủy lịch cực kỳ minh bạch và linh hoạt tại PickleClub:**\n\n- ⏱️ **Hủy trước 24 giờ**: Hoàn trả **100%** giá trị booking vào ví tài khoản của bạn.\n- ⏱️ **Hủy từ 12 - 24 giờ**: Hoàn trả **50%** giá trị booking vào ví tài khoản.\n- ⏱️ **Hủy dưới 12 giờ**: Rất tiếc, hệ thống không thể hỗ trợ hoàn phí.\n- 🔄 **Cách hủy**: Truy cập trang [Trang cá nhân](/profile) -> **Lịch sử đặt lịch** -> Chọn lịch muốn hủy -> Nhấn **Hủy đặt lịch** và chọn lý do.\n\n*Bạn có muốn đi tới Trang cá nhân để xem lịch đặt không?*`;
+      botActionType = "GO_TO_PROFILE";
+    }
+
+    if (isGuide) {
+      setTimeout(() => {
+        const botMsg: Message = {
+          id: `bot-${Date.now()}`,
+          sender: "bot",
+          text: botResponseText,
+          timestamp: new Date(),
+          actionType: botActionType
+        };
+        setMessages(prev => [...prev, botMsg]);
+        setIsTyping(false);
+      }, 550);
+      return;
+    }
+
     try {
-      // 2. Fetch local JWT token
+      // 3. Fetch local JWT token
       const token = typeof window !== "undefined" ? localStorage.getItem("pickleclub_token") : null;
 
-      // 3. Call backend
+      // 4. Call backend
       const response = await sendChatbotMessage(text.trim(), conversationId, token);
       
-      // 4. Add Bot Message
+      // 5. Add Bot Message
       const botMsg: Message = {
         id: `bot-${Date.now()}`,
         sender: "bot",
@@ -148,8 +243,83 @@ export default function AIChatbot() {
           {/* Messages */}
           <div className={styles.messageArea}>
             {messages.map((msg) => (
-              <div key={msg.id} className={`${styles.msg} ${msg.sender === "user" ? styles.userMsg : styles.botMsg}`}>
-                <div>{msg.text}</div>
+              <div 
+                key={msg.id} 
+                className={`${styles.msg} ${msg.sender === "user" ? styles.userMsg : styles.botMsg}`}
+                style={msg.id === "welcome" ? { maxWidth: "90%", padding: "0", background: "transparent", border: "none", boxShadow: "none" } : {}}
+              >
+                {msg.id === "welcome" ? (
+                  <div className={styles.welcomeCard}>
+                    <div className={styles.welcomeLogo}>🤖</div>
+                    <h4 className={styles.welcomeTitle}>Trợ lý ảo PickleClub</h4>
+                    <p className={styles.welcomeText}>
+                      Chào mừng bạn đến với PickleClub! Mình có thể hỗ trợ giải đáp thắc mắc và hướng dẫn các thao tác hệ thống 24/7.
+                    </p>
+                    
+                    <div className={styles.welcomeShortcuts}>
+                      <Link href="/courts" onClick={() => setIsOpen(false)} className={styles.welcomeShortcut}>
+                        <span>🎾</span> Đặt Sân
+                      </Link>
+                      <Link href="/coaches" onClick={() => setIsOpen(false)} className={styles.welcomeShortcut}>
+                        <span>👨‍🏫</span> Đặt HLV
+                      </Link>
+                      <Link href="/combo" onClick={() => setIsOpen(false)} className={styles.welcomeShortcut}>
+                        <span>🤝</span> Đặt Combo
+                      </Link>
+                      <Link href="/matching" onClick={() => setIsOpen(false)} className={styles.welcomeShortcut}>
+                        <span>👥</span> Ghép Cặp
+                      </Link>
+                      <Link href="/promotions" onClick={() => setIsOpen(false)} className={styles.welcomeShortcut}>
+                        <span>🏷️</span> Xem Ưu Đãi
+                      </Link>
+                      <Link href="/tournaments" onClick={() => setIsOpen(false)} className={styles.welcomeShortcut}>
+                        <span>🏆</span> Giải Đấu
+                      </Link>
+                    </div>
+                    
+                    <div className={styles.guideSection}>
+                      <div className={styles.guideHeader}>
+                        <span>📖</span> Hướng dẫn thao tác nhanh:
+                      </div>
+                      <div className={styles.guideLinks}>
+                        <button 
+                          type="button" 
+                          className={styles.guideLinkBtn} 
+                          onClick={() => handleSendMessage("Hướng dẫn đặt sân trực tuyến")}
+                          disabled={isTyping}
+                        >
+                          🔍 Làm thế nào để đặt sân?
+                        </button>
+                        <button 
+                          type="button" 
+                          className={styles.guideLinkBtn} 
+                          onClick={() => handleSendMessage("Hướng dẫn đặt combo sân kèm Coach")}
+                          disabled={isTyping}
+                        >
+                          🔍 Cách đặt Combo sân + Coach?
+                        </button>
+                        <button 
+                          type="button" 
+                          className={styles.guideLinkBtn} 
+                          onClick={() => handleSendMessage("Hướng dẫn tìm bạn ghép cặp chơi")}
+                          disabled={isTyping}
+                        >
+                          🔍 Làm thế nào để ghép cặp?
+                        </button>
+                        <button 
+                          type="button" 
+                          className={styles.guideLinkBtn} 
+                          onClick={() => handleSendMessage("Hướng dẫn hủy lịch và hoàn tiền")}
+                          disabled={isTyping}
+                        >
+                          🔍 Chính sách hoàn hủy lịch?
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>{renderMessageText(msg.text)}</div>
+                )}
 
                 {/* Login Required Action */}
                 {msg.actionType === "LOGIN_REQUIRED" && (
@@ -169,6 +339,146 @@ export default function AIChatbot() {
                       }}
                     >
                       Đăng nhập ngay
+                    </Link>
+                  </div>
+                )}
+
+                {/* Go To Matching Action */}
+                {msg.actionType === "GO_TO_MATCHING" && (
+                  <div style={{ marginTop: "10px", width: "100%" }}>
+                    <Link 
+                      href="/matching" 
+                      onClick={() => setIsOpen(false)}
+                      style={{ 
+                        display: "block", 
+                        background: "#22c55e", 
+                        color: "#ffffff", 
+                        padding: "8px 12px", 
+                        borderRadius: "8px", 
+                        fontWeight: "bold", 
+                        textDecoration: "none", 
+                        textAlign: "center",
+                        fontSize: "12px"
+                      }}
+                    >
+                      Tìm người chơi ngay
+                    </Link>
+                  </div>
+                )}
+
+                {/* Go To Courts Action */}
+                {msg.actionType === "GO_TO_COURTS" && (
+                  <div style={{ marginTop: "10px", width: "100%" }}>
+                    <Link 
+                      href="/courts" 
+                      onClick={() => setIsOpen(false)}
+                      style={{ 
+                        display: "block", 
+                        background: "#3b82f6", 
+                        color: "#ffffff", 
+                        padding: "8px 12px", 
+                        borderRadius: "8px", 
+                        fontWeight: "bold", 
+                        textDecoration: "none", 
+                        textAlign: "center",
+                        fontSize: "12px"
+                      }}
+                    >
+                      Xem danh sách Sân
+                    </Link>
+                  </div>
+                )}
+
+                {/* Go To Coaches Action */}
+                {msg.actionType === "GO_TO_COACHES" && (
+                  <div style={{ marginTop: "10px", width: "100%" }}>
+                    <Link 
+                      href="/coaches" 
+                      onClick={() => setIsOpen(false)}
+                      style={{ 
+                        display: "block", 
+                        background: "#3b82f6", 
+                        color: "#ffffff", 
+                        padding: "8px 12px", 
+                        borderRadius: "8px", 
+                        fontWeight: "bold", 
+                        textDecoration: "none", 
+                        textAlign: "center",
+                        fontSize: "12px"
+                      }}
+                    >
+                      Xem danh sách Coach
+                    </Link>
+                  </div>
+                )}
+
+                {/* Go To Tournaments Action */}
+                {msg.actionType === "GO_TO_TOURNAMENTS" && (
+                  <div style={{ marginTop: "10px", width: "100%" }}>
+                    <Link 
+                      href="/tournaments" 
+                      onClick={() => setIsOpen(false)}
+                      style={{ 
+                        display: "block", 
+                        background: "#ff9f1c", 
+                        color: "#ffffff", 
+                        padding: "8px 12px", 
+                        borderRadius: "8px", 
+                        fontWeight: "bold", 
+                        textDecoration: "none", 
+                        textAlign: "center",
+                        fontSize: "12px"
+                      }}
+                    >
+                      Xem các Giải đấu
+                    </Link>
+                  </div>
+                )}
+
+                {/* Go To Combo Action */}
+                {msg.actionType === "GO_TO_COMBO" && (
+                  <div style={{ marginTop: "10px", width: "100%" }}>
+                    <Link 
+                      href="/combo" 
+                      onClick={() => setIsOpen(false)}
+                      style={{ 
+                        display: "block", 
+                        background: "#6366f1", 
+                        color: "#ffffff", 
+                        padding: "8px 12px", 
+                        borderRadius: "8px", 
+                        fontWeight: "bold", 
+                        textDecoration: "none", 
+                        textAlign: "center",
+                        fontSize: "12px",
+                        boxShadow: "0 2px 6px rgba(99, 102, 241, 0.25)"
+                      }}
+                    >
+                      Đặt Combo Sân + Coach ngay
+                    </Link>
+                  </div>
+                )}
+
+                {/* Go To Profile Action */}
+                {msg.actionType === "GO_TO_PROFILE" && (
+                  <div style={{ marginTop: "10px", width: "100%" }}>
+                    <Link 
+                      href="/profile" 
+                      onClick={() => setIsOpen(false)}
+                      style={{ 
+                        display: "block", 
+                        background: "#0f172a", 
+                        color: "#ffffff", 
+                        padding: "8px 12px", 
+                        borderRadius: "8px", 
+                        fontWeight: "bold", 
+                        textDecoration: "none", 
+                        textAlign: "center",
+                        fontSize: "12px",
+                        boxShadow: "0 2px 6px rgba(15, 23, 42, 0.25)"
+                      }}
+                    >
+                      Xem lịch sử đặt sân của tôi
                     </Link>
                   </div>
                 )}

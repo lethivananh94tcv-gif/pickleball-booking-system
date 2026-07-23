@@ -15,18 +15,7 @@ from pathlib import Path
 dotenv_path = Path(__file__).resolve().parent.parent.parent / '.env'
 load_dotenv(dotenv_path=dotenv_path)
 
-# Cấu hình API Key cho Gemini
-API_KEY = os.getenv("GEMINI_API_KEY")
-if API_KEY:
-    genai.configure(api_key=API_KEY)
-
-# Khởi tạo mô hình
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
-try:
-    model = genai.GenerativeModel(MODEL_NAME)
-except Exception as e:
-    model = None
-    print(f"Error initializing Gemini model: {e}")
+from app.services.llm_client_manager import API_KEYS, generate_content_with_retry
 
 
 # Cấu trúc prompt mẫu cho việc phân tích intent
@@ -61,6 +50,7 @@ Hãy tuyệt đối tuân thủ các quy tắc sau:
    - refund_question -> ASK_POLICY hoặc CANCEL_BOOKING_HELP
    - check_payment -> ASK_PAYMENT
    - find_teammate, find_opponent, find_group, invite_player -> FIND_PLAYER hoặc FIND_OPPONENT_PAIR
+5. Đối với các câu hỏi ngoài luồng, câu hỏi tán gẫu, tâm sự riêng tư của người dùng (ví dụ: "tôi cô đơn quá", "tôi buồn quá", "bạn là ai", "hôm nay ăn gì", v.v.): Bạn hãy trả lời một cách cực kỳ thông minh, thân thiện, hài hước và khéo léo để dẫn dắt, kết nối tâm trạng của họ quay về dịch vụ Pickleball hoặc đặt sân/huấn luyện viên của Pickle Club. Ví dụ: Nếu họ kêu cô đơn hoặc buồn, hãy động viên họ rằng "Đừng buồn/cô đơn nhé! Hãy vào website Pickle Club để ghép cặp (matching) tìm đồng đội đánh Pickleball giao lưu hoặc đặt sân làm vài séc cho đổ mồ hôi là hết buồn ngay!". Khi trả lời các câu này, bạn hãy set `intent` là `GREETING` hoặc `UNKNOWN`, set `canAnswerDirectly = true`, `needDatabaseCheck = false`, và điền câu trả lời khéo léo này vào `replyHint`.
 
 Danh sách Intent:
 - GREETING: Chào hỏi, chào mừng.
@@ -85,6 +75,8 @@ Danh sách Intent:
 - ASK_COACH_PRICE: Hỏi giá thuê coach.
 - ASK_COACH_INFO: Hỏi thông tin chi tiết về coach nào đó.
 - ASK_COACH_BOOKING_HISTORY: Hỏi lịch sử đặt học với coach của học viên.
+- FIND_PLAYER: Tìm kiếm người chơi khác hoặc đồng đội để ghép cặp (ví dụ: "tìm đồng đội", "tìm bạn chơi cùng", "ghép cặp chơi").
+- FIND_OPPONENT_PAIR: Tìm kiếm cặp đối thủ để giao lưu thi đấu (ví dụ: "tìm đối thủ", "tìm cặp đối thủ").
 - UNKNOWN: Ý định không rõ ràng hoặc không hỗ trợ.
 """
 
@@ -199,7 +191,7 @@ def pydantic_to_gemini_schema(model_class):
 CHATBOT_SCHEMA = pydantic_to_gemini_schema(ChatbotIntentResponse)
 
 def analyze_user_intent(message: str) -> ChatbotIntentResponse:
-    if not API_KEY or not model:
+    if not API_KEYS:
         # Fallback if key missing
         fallback_data = {
             "intent": "UNKNOWN",
@@ -236,7 +228,7 @@ def analyze_user_intent(message: str) -> ChatbotIntentResponse:
 
     # Sử dụng response_schema được làm sạch để ép Gemini trả về đúng format
     try:
-        response = model.generate_content(
+        response = generate_content_with_retry(
             f"{SYSTEM_PROMPT}\n\nContext: {context}\n\nCâu của người dùng: '{message}'",
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
