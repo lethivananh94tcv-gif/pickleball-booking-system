@@ -1,4 +1,5 @@
 import type { AuthUser } from "@/types/auth";
+import { apiClient } from "@/services/apiClient";
 
 const TOKEN_KEY = "pickleclub_token";
 const USER_KEY = "pickleclub_user";
@@ -28,6 +29,12 @@ export function getUser(): AuthUser | null {
 export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+
+  if (typeof window !== "undefined") {
+    apiClient("/api/auth/logout", { method: "POST" }).catch((err) => {
+      console.error("Failed to clear cookie on backend:", err);
+    });
+  }
 }
 
 export function getDashboardPath(role?: string): string {

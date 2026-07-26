@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as path from "path";
+import { v2 as cloudinary } from "cloudinary";
+
+// Khởi tạo Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "jwbyk0m0",
+  api_key: process.env.CLOUDINARY_API_KEY || "155385268322998",
+  api_secret: process.env.CLOUDINARY_API_SECRET || "QsZaTO70NScEb-SbkBseVFRfuG8"
+});
 
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".pdf"];
@@ -22,38 +30,43 @@ export async function POST(req: NextRequest) {
 
     const ext = path.extname(file.name).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext) || !ALLOWED_MIME_TYPES.includes(file.type)) {
-      return NextResponse.json({ message: "Chỉ được chọn ảnh JPG, PNG hoặc WEBP" }, { status: 400 });
+      return NextResponse.json({ message: "Chỉ được chọn ảnh JPG, PNG, WEBP hoặc file PDF" }, { status: 400 });
     }
 
-    // Convert file to buffer and create a blob to send to Cloud (Catbox.moe)
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
-    const catboxForm = new FormData();
-    catboxForm.append("reqtype", "fileupload");
-    const blob = new Blob([buffer], { type: file.type });
-    catboxForm.append("fileToUpload", blob, file.name);
+    // Xác định resource type và folder trên Cloudinary
+    const isPdf = file.type === "application/pdf" || ext === ".pdf";
+    const resourceType = isPdf ? "raw" : "image";
+    const folderPath = `pcs_project/tournaments/${isPdf ? "certificates" : "banners"}`;
 
-    const catboxRes = await fetch("https://catbox.moe/user/api.php", {
-      method: "POST",
-      body: catboxForm,
+    const timestamp = Date.now();
+    const safeFilename = `tournament-${timestamp}${ext}`;
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: folderPath,
+          public_id: safeFilename.split(".")[0],
+          resource_type: resourceType
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(buffer);
     });
 
-    if (!catboxRes.ok) {
-      throw new Error("Lỗi khi kết nối tới máy chủ cloud");
-    }
-
-    const cloudUrl = await catboxRes.text();
-    if (!cloudUrl || !cloudUrl.trim().startsWith("http")) {
-      throw new Error("Máy chủ cloud trả về kết quả không hợp lệ: " + cloudUrl);
-    }
+    const cloudUrl = (uploadResult as any).secure_url;
 
     return NextResponse.json({ 
-      data: { url: cloudUrl.trim() }, 
-      message: "Upload file lên cloud thành công" 
+      data: { url: cloudUrl }, 
+      message: "Upload file lên Cloudinary thành công" 
     }, { status: 200 });
   } catch (error: any) {
-    console.error("Lỗi upload cloud:", error);
+    console.error("Lỗi upload Cloudinary cho giải đấu:", error);
     return NextResponse.json({ message: error.message || "Lỗi máy chủ nội bộ" }, { status: 500 });
   }
 }

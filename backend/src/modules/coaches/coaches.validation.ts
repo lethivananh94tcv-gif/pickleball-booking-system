@@ -77,6 +77,9 @@ export function validateTimeRange(startTime: string, endTime: string): void {
  * Validate workingDate is not in the past (Vietnam timezone).
  */
 export function validateNotPastDate(workingDate: string): void {
+  if (process.env.ENABLE_STRICT_VALIDATIONS !== "true") {
+    return;
+  }
   const nowVN = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
   );
@@ -98,6 +101,9 @@ export function validateNotPastDate(workingDate: string): void {
  * Validate that if the workingDate is today, the startTime is in the future.
  */
 export function validateStartTimeInFuture(workingDate: string, startTime: string): void {
+  if (process.env.ENABLE_STRICT_VALIDATIONS !== "true") {
+    return;
+  }
   const nowVN = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
   );

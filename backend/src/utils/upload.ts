@@ -1,5 +1,13 @@
 import * as fs from "fs";
 import * as path from "path";
+import { v2 as cloudinary } from "cloudinary";
+
+// Khởi tạo Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "jwbyk0m0",
+  api_key: process.env.CLOUDINARY_API_KEY || "155385268322998",
+  api_secret: process.env.CLOUDINARY_API_SECRET || "QsZaTO70NScEb-SbkBseVFRfuG8"
+});
 
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
@@ -13,17 +21,60 @@ class CustomUploadError extends Error {
   }
 }
 
+function getPublicIdFromUrl(url: string): string | null {
+  try {
+    if (!url.includes("res.cloudinary.com")) return null;
+    const parts = url.split("/upload/");
+    if (parts.length < 2) return null;
+    const remaining = parts[1];
+    const pathParts = remaining.split("/");
+    if (pathParts[0].startsWith("v")) {
+      pathParts.shift();
+    }
+    const pathWithoutVersion = pathParts.join("/");
+    const publicId = pathWithoutVersion.substring(0, pathWithoutVersion.lastIndexOf("."));
+    return publicId;
+  } catch (err) {
+    console.error("Lỗi khi parse publicId từ Cloudinary URL:", err);
+    return null;
+  }
+}
+
+export function deleteFile(relativePath: string): void {
+  if (!relativePath) return;
+
+  if (relativePath.includes("res.cloudinary.com")) {
+    const publicId = getPublicIdFromUrl(relativePath);
+    if (publicId) {
+      cloudinary.uploader.destroy(publicId)
+        .then((res) => {
+          console.log(`[Cloudinary] Deleted asset: ${publicId}`, res);
+        })
+        .catch((err) => {
+          console.error(`[Cloudinary] Error deleting asset: ${publicId}`, err);
+        });
+    }
+  } else {
+    try {
+      const fullPath = path.join(process.cwd(), "public", relativePath);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+    } catch (err) {
+      console.error("Lỗi khi xóa file local:", err);
+    }
+  }
+}
+
 export async function validateAndSaveFile(
   file: File,
   type: "avatar" | "certificate",
   coachId: number
 ): Promise<string> {
-  // Validate file presence
   if (!file || !file.name) {
     throw new CustomUploadError("Không tìm thấy file upload", 400);
   }
 
-  // Validate size limits
   const maxSize = type === "avatar" ? 3 * 1024 * 1024 : 5 * 1024 * 1024;
   if (file.size > maxSize) {
     const limitLabel = type === "avatar" ? "3MB" : "5MB";
@@ -34,46 +85,44 @@ export async function validateAndSaveFile(
     );
   }
 
-  // Validate extension
   const ext = path.extname(file.name).toLowerCase();
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
     throw new CustomUploadError("Chỉ được chọn ảnh JPG, PNG hoặc WEBP", 400);
   }
 
-  // Validate MIME type
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
     throw new CustomUploadError("Chỉ được chọn ảnh JPG, PNG hoặc WEBP", 400);
   }
 
-  // Generate safe filename
   const timestamp = Date.now();
   const safeFilename = `coach-${coachId}-${type}-${timestamp}${ext}`;
 
-  // Ensure upload directory exists
-  const subDir = type === "avatar" ? "avatar" : "certificates";
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "coaches", subDir);
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
-  // Read file data and write to disk
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const targetPath = path.join(uploadDir, safeFilename);
-  fs.writeFileSync(targetPath, buffer);
 
-  // Return relative path
-  return `/uploads/coaches/${subDir}/${safeFilename}`;
-}
+  const subDir = type === "avatar" ? "avatars" : "certificates";
+  const folderPath = `pcs_project/coaches/${subDir}`;
 
-export function deleteFile(relativePath: string) {
   try {
-    const fullPath = path.join(process.cwd(), "public", relativePath);
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
-    }
-  } catch (err) {
-    console.error("Lỗi khi xóa file:", err);
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: folderPath,
+          public_id: safeFilename.split(".")[0],
+          resource_type: "image"
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(buffer);
+    });
+
+    return (uploadResult as any).secure_url;
+  } catch (err: any) {
+    console.error("Cloudinary upload error:", err);
+    throw new CustomUploadError(`Tải ảnh lên đám mây thất bại: ${err.message || err}`, 500);
   }
 }
 
@@ -85,13 +134,9 @@ export async function validateAndSaveCourtFile(
     throw new CustomUploadError("Không tìm thấy file upload", 400);
   }
 
-  // 5MB limit
   const maxSize = 5 * 1024 * 1024;
   if (file.size > maxSize) {
-    throw new CustomUploadError(
-      "Hình ảnh sân không được vượt quá 5MB",
-      400
-    );
+    throw new CustomUploadError("Hình ảnh sân không được vượt quá 5MB", 400);
   }
 
   const ext = path.extname(file.name).toLowerCase();
@@ -106,17 +151,32 @@ export async function validateAndSaveCourtFile(
   const timestamp = Date.now();
   const safeFilename = `court-${courtId}-${timestamp}${ext}`;
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "courts");
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const targetPath = path.join(uploadDir, safeFilename);
-  fs.writeFileSync(targetPath, buffer);
 
-  return `/uploads/courts/${safeFilename}`;
+  const folderPath = "pcs_project/courts";
+
+  try {
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: folderPath,
+          public_id: safeFilename.split(".")[0],
+          resource_type: "image"
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(buffer);
+    });
+
+    return (uploadResult as any).secure_url;
+  } catch (err: any) {
+    console.error("Cloudinary upload error:", err);
+    throw new CustomUploadError(`Tải ảnh lên đám mây thất bại: ${err.message || err}`, 500);
+  }
 }
 
 export async function validateAndSaveRefundFile(
@@ -127,7 +187,6 @@ export async function validateAndSaveRefundFile(
     throw new CustomUploadError("Không tìm thấy file upload", 400);
   }
 
-  // 5MB limit
   const maxSize = 5 * 1024 * 1024;
   if (file.size > maxSize) {
     throw new CustomUploadError("Hình ảnh bill không được vượt quá 5MB", 400);
@@ -145,15 +204,30 @@ export async function validateAndSaveRefundFile(
   const timestamp = Date.now();
   const safeFilename = `refund-${refundId}-${timestamp}${ext}`;
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "refunds");
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const targetPath = path.join(uploadDir, safeFilename);
-  fs.writeFileSync(targetPath, buffer);
 
-  return `/uploads/refunds/${safeFilename}`;
+  const folderPath = "pcs_project/refunds";
+
+  try {
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: folderPath,
+          public_id: safeFilename.split(".")[0],
+          resource_type: "image"
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(buffer);
+    });
+
+    return (uploadResult as any).secure_url;
+  } catch (err: any) {
+    console.error("Cloudinary upload error:", err);
+    throw new CustomUploadError(`Tải ảnh lên đám mây thất bại: ${err.message || err}`, 500);
+  }
 }

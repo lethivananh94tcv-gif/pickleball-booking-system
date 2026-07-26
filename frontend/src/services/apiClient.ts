@@ -30,6 +30,7 @@ export async function apiClient<T>(
         : JSON.stringify(options.body)
       : undefined,
     cache: "no-store",
+    credentials: "include",
   });
 
   const contentType = response.headers.get("content-type") || "";

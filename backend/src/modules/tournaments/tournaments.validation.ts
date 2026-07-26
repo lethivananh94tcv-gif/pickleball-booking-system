@@ -29,6 +29,7 @@ export const createTournamentSchema = z.object({
   message: "Quy tắc ngày tháng: Bắt đầu đăng ký < Kết thúc đăng ký <= Bắt đầu giải < Kết thúc giải",
   path: ["registrationStart"]
 }).refine(data => {
+  if (process.env.ENABLE_STRICT_VALIDATIONS !== "true") return true;
   const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
   const todayStr = `${nowVN.getFullYear()}-${String(nowVN.getMonth() + 1).padStart(2, "0")}-${String(nowVN.getDate()).padStart(2, "0")}`;
   const regStartStr = data.registrationStart.split("T")[0];

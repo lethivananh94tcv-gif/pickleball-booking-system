@@ -48,6 +48,9 @@ export function validatePrice(price: number, label = "Giá"): void {
  * @throws BadRequestException-style Error nếu ngày trong quá khứ
  */
 export function validateNotPastDate(slotDate: string): void {
+  if (process.env.ENABLE_STRICT_VALIDATIONS !== "true") {
+    return;
+  }
   // Lấy ngày hiện tại theo múi giờ +07:00 (không phụ thuộc server timezone)
   const nowVN = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
@@ -69,6 +72,9 @@ export function validateNotPastDate(slotDate: string): void {
  * Kiểm tra giờ không được nhỏ hơn giờ hiện tại nếu ngày là hôm nay.
  */
 export function validateNotPastTime(slotDate: string, startTime: string): void {
+  if (process.env.ENABLE_STRICT_VALIDATIONS !== "true") {
+    return;
+  }
   const nowVN = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
   );

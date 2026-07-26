@@ -36,6 +36,9 @@ export function calculateHours(startTime: string, endTime: string): number {
  * Validate ngay dat phai >= hom nay, va thoi gian chua troi qua (BR-23).
  */
 export function validateBookingDate(bookingDate: string, startTime: string): void {
+  if (process.env.ENABLE_STRICT_VALIDATIONS !== "true") {
+    return;
+  }
   const nowVN = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
   );

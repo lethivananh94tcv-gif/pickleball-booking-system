@@ -231,7 +231,7 @@ export async function handleChatbotMessage(
   console.log(`[Chatbot Parsed] Intent: ${intent}, ParsedData: ${JSON.stringify(parsedData)}`);
 
   let replyMessage = "Xin lỗi, mình chưa hiểu rõ ý của bạn. Bạn muốn đặt sân, thuê HLV hay cần hỗ trợ gì ạ?";
-  let actionType: 'TEXT' | 'COURT_SUGGESTIONS' | 'COACH_SUGGESTIONS' | 'CONFIRM_COURT_BOOKING' | 'CONFIRM_COACH_BOOKING' | 'CONFIRM_CANCEL_COURT_BOOKING' | 'CONFIRM_CANCEL_COACH_BOOKING' | 'CONFIRM_RESCHEDULE_COURT_BOOKING' | 'CONFIRM_RESCHEDULE_COACH_BOOKING' | 'LOGIN_REQUIRED' | 'ERROR' = 'TEXT';
+  let actionType: 'TEXT' | 'COURT_SUGGESTIONS' | 'COACH_SUGGESTIONS' | 'CONFIRM_COURT_BOOKING' | 'CONFIRM_COACH_BOOKING' | 'CONFIRM_CANCEL_COURT_BOOKING' | 'CONFIRM_CANCEL_COACH_BOOKING' | 'CONFIRM_RESCHEDULE_COURT_BOOKING' | 'CONFIRM_RESCHEDULE_COACH_BOOKING' | 'LOGIN_REQUIRED' | 'ERROR' | 'GO_TO_MATCHING' = 'TEXT';
   let suggestedSlots: CourtSlotSuggestion[] = [];
   let suggestedCoaches: CoachSuggestion[] = [];
 

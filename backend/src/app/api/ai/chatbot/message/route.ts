@@ -1,17 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { processChatbotMessage } from "@/modules/ai/ai.controller";
 import { verifyAccessToken } from "@/utils/jwt";
+import { getTokenFromRequest } from "@/middlewares/auth.middleware";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     
     let userId: number | undefined = undefined;
     let userRoles: string[] = [];
 
-    const authHeader = req.headers.get("authorization");
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.substring(7);
+    const token = getTokenFromRequest(req);
+    if (token) {
       try {
         const decoded = verifyAccessToken(token);
         userId = decoded.userId;

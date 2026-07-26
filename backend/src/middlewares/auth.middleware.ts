@@ -8,6 +8,13 @@ export type AuthRequest = NextRequest & {
 };
 
 export function getTokenFromRequest(req: NextRequest) {
+  // 1. Check HttpOnly cookie first
+  const cookieToken = req.cookies.get("token")?.value;
+  if (cookieToken) {
+    return cookieToken;
+  }
+
+  // 2. Fallback to Authorization header
   const authHeader = req.headers.get("authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {

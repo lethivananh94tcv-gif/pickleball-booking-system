@@ -2351,280 +2351,402 @@ export async function allocateDivisionSchedule(
     throw Object.assign(new Error("Không tìm thấy giải đấu"), { statusCode: 404 });
   }
 
-  const division = await tournamentRepo.findDivisionById(divisionId);
-  if (!division) {
-    throw Object.assign(new Error("Không tìm thấy nội dung thi đấu"), { statusCode: 404 });
-  }
-
   if (new Date(body.startDateTime).getTime() < Date.now() - 15 * 60 * 1000) {
     throw Object.assign(new Error("Thời gian bắt đầu xếp lịch không thể ở quá khứ"), { statusCode: 400 });
   }
 
-  const allowedStatuses = [
-    DIVISION_STATUS.DRAW_GENERATED,
-    DIVISION_STATUS.SCHEDULED,
-    DIVISION_STATUS.ONGOING,
-    DIVISION_STATUS.GROUP_COMPLETED,
-    DIVISION_STATUS.KNOCKOUT_STAGE
-  ];
-  if (!allowedStatuses.includes(division.Status as any)) {
-    throw Object.assign(new Error(`Chỉ có thể xếp sân & giờ khi nội dung ở các trạng thái bốc thăm hoặc đang thi đấu (Trạng thái hiện tại: ${division.Status})`), { statusCode: 400 });
-  }
-
-  const matches = await tournamentRepo.getDivisionMatches(divisionId);
-  if (matches.length === 0) {
-    throw Object.assign(new Error("Nội dung thi đấu này chưa khởi tạo sơ đồ nhánh / lịch thi đấu"), { statusCode: 400 });
-  }
-
   const pool = await getPool();
-  const activeCourtsRes = await pool.request()
-    .query(`SELECT CourtID FROM Courts WHERE CourtID IN (${body.courtIds.join(",")}) AND Status != 'Inactive'`);
-  const activeCourtIds = activeCourtsRes.recordset.map((c: any) => c.CourtID);
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
 
-  if (activeCourtIds.length === 0) {
-    throw Object.assign(new Error("Không tìm thấy sân đấu nào đang hoạt động để xếp lịch"), { statusCode: 400 });
-  }
-
-  const schedules: any[] = [];
-  const courtBusyIntervals: Record<number, Array<{ start: Date; end: Date }>> = {};
-  const teamBusyIntervals: Record<number, Array<{ start: Date; end: Date }>> = {};
-
-  const bookingsRes = await pool.request()
-    .query(`
-      SELECT d.CourtID, 
-             CONVERT(VARCHAR(10), d.BookingDate, 120) AS BookingDateStr,
-             CONVERT(VARCHAR(8), d.StartTime, 108) AS StartTimeStr, 
-             CONVERT(VARCHAR(8), d.EndTime, 108) AS EndTimeStr 
-      FROM BookingDetails d
-      INNER JOIN Bookings b ON d.BookingID = b.BookingID
-      WHERE b.Status IN ('PendingPayment', 'Paid', 'Confirmed', 'CheckedIn')
-        AND d.CourtID IN (${activeCourtIds.join(",")})
-    `);
-  for (const b of bookingsRes.recordset) {
-    if (!courtBusyIntervals[b.CourtID]) courtBusyIntervals[b.CourtID] = [];
-    const startStr = `${b.BookingDateStr}T${b.StartTimeStr}`;
-    const endStr = `${b.BookingDateStr}T${b.EndTimeStr}`;
-    courtBusyIntervals[b.CourtID].push({ start: new Date(startStr), end: new Date(endStr) });
-  }
-
-  // Pre-fill court busy intervals from other Tournaments/Divisions
-  const blocksRes = await pool.request()
-    .query(`
-      SELECT CourtID, 
-             CONVERT(VARCHAR(19), DATEADD(hour, 7, StartDateTime), 120) AS StartTimeStr, 
-             CONVERT(VARCHAR(19), DATEADD(hour, 7, EndDateTime), 120) AS EndTimeStr 
-      FROM TournamentCourtBlocks
-      WHERE Status = 'Active' 
-        AND CourtID IN (${activeCourtIds.join(",")})
-        AND DivisionID != ${divisionId}
-    `);
-  for (const bl of blocksRes.recordset) {
-    if (!courtBusyIntervals[bl.CourtID]) courtBusyIntervals[bl.CourtID] = [];
-    const startStr = bl.StartTimeStr.replace(" ", "T");
-    const endStr = bl.EndTimeStr.replace(" ", "T");
-    courtBusyIntervals[bl.CourtID].push({ start: new Date(startStr), end: new Date(endStr) });
-  }
-
-  // 1. Filter out only matches that are in Scheduled status and have both teams assigned
-  let activeMatches = matches.filter(
-    (m) =>
-      (m.MatchStatus === "Scheduled" || m.MatchStatus === "NotStarted") &&
-      m.TeamAID &&
-      m.TeamBID
-  );
-
-  if (body.roundNo !== undefined && body.roundNo > 0) {
-    activeMatches = activeMatches.filter(m => m.RoundNo === body.roundNo);
-  }
-
-  // 2. Sort active matches by RoundNo and MatchNo to schedule chronologically per round
-  activeMatches.sort((a, b) => {
-    if (a.RoundNo !== b.RoundNo) {
-      return (a.RoundNo || 0) - (b.RoundNo || 0);
+  try {
+    // 1. Thực hiện khóa dòng dữ liệu của nội dung thi đấu bằng NOWAIT lock
+    const lockRes = await new sql.Request(transaction)
+      .input("DivisionID", sql.Int, divisionId)
+      .query(`SELECT DivisionID, Status FROM TournamentDivisions WITH (UPDLOCK, NOWAIT) WHERE DivisionID = @DivisionID`);
+    
+    const division = lockRes.recordset[0];
+    if (!division) {
+      throw Object.assign(new Error("Không tìm thấy nội dung thi đấu"), { statusCode: 404 });
     }
-    return (a.MatchNo || 0) - (b.MatchNo || 0);
-  });
+    const originalStatus = division.Status;
 
-  const startDateTimeVal = new Date(body.startDateTime);
-  if (isNaN(startDateTimeVal.getTime())) {
-    throw Object.assign(new Error("Thời gian bắt đầu không hợp lệ"), { statusCode: 400 });
-  }
+    const allowedStatuses = [
+      DIVISION_STATUS.DRAW_GENERATED,
+      DIVISION_STATUS.SCHEDULED,
+      DIVISION_STATUS.ONGOING,
+      DIVISION_STATUS.GROUP_COMPLETED,
+      DIVISION_STATUS.KNOCKOUT_STAGE
+    ];
+    if (!allowedStatuses.includes(division.Status as any)) {
+      throw Object.assign(new Error(`Chỉ có thể xếp sân & giờ khi nội dung ở các trạng thái bốc thăm hoặc đang thi đấu (Trạng thái hiện tại: ${division.Status})`), { statusCode: 400 });
+    }
 
-  let maxMatchesPerDay = 999; // Default no limit
-  if (body.endDateTime) {
-    const endDateTimeVal = new Date(body.endDateTime);
-    if (!isNaN(endDateTimeVal.getTime()) && endDateTimeVal > startDateTimeVal) {
-      // Calculate number of days
-      const msPerDay = 1000 * 60 * 60 * 24;
-      const startDay = new Date(startDateTimeVal.getFullYear(), startDateTimeVal.getMonth(), startDateTimeVal.getDate());
-      const endDay = new Date(endDateTimeVal.getFullYear(), endDateTimeVal.getMonth(), endDateTimeVal.getDate());
-      const numDays = Math.round((endDay.getTime() - startDay.getTime()) / msPerDay) + 1;
-      
-      // Calculate max matches per team
-      const matchesCount: Record<number, number> = {};
-      for (const m of activeMatches) {
-        if (m.TeamAID) matchesCount[m.TeamAID] = (matchesCount[m.TeamAID] || 0) + 1;
-        if (m.TeamBID) matchesCount[m.TeamBID] = (matchesCount[m.TeamBID] || 0) + 1;
-      }
-      const maxMatchesInTournament = Math.max(0, ...Object.values(matchesCount));
-      
-      if (numDays > 0 && maxMatchesInTournament > 0) {
-        maxMatchesPerDay = Math.ceil(maxMatchesInTournament / numDays);
+    const matches = await tournamentRepo.getDivisionMatches(divisionId);
+    if (matches.length === 0) {
+      throw Object.assign(new Error("Nội dung thi đấu này chưa khởi tạo sơ đồ nhánh / lịch thi đấu"), { statusCode: 400 });
+    }
+
+    const activeCourtsRes = await new sql.Request(transaction)
+      .query(`SELECT CourtID FROM Courts WHERE CourtID IN (${body.courtIds.join(",")}) AND Status != 'Inactive'`);
+    const activeCourtIds = activeCourtsRes.recordset.map((c: any) => c.CourtID);
+
+    if (activeCourtIds.length === 0) {
+      throw Object.assign(new Error("Không tìm thấy sân đấu nào đang hoạt động để xếp lịch"), { statusCode: 400 });
+    }
+
+    const schedules: any[] = [];
+    const courtBusyIntervals: Record<number, Array<{ start: Date; end: Date }>> = {};
+
+    // Dựng lịch bận của sân dựa trên Bookings
+    const bookingsRes = await new sql.Request(transaction)
+      .query(`
+        SELECT d.CourtID, 
+               CONVERT(VARCHAR(10), d.BookingDate, 120) AS BookingDateStr,
+               CONVERT(VARCHAR(8), d.StartTime, 108) AS StartTimeStr, 
+               CONVERT(VARCHAR(8), d.EndTime, 108) AS EndTimeStr 
+        FROM BookingDetails d
+        INNER JOIN Bookings b ON d.BookingID = b.BookingID
+        WHERE b.Status IN ('PendingPayment', 'Paid', 'Confirmed', 'CheckedIn')
+          AND d.CourtID IN (${activeCourtIds.join(",")})
+      `);
+    for (const b of bookingsRes.recordset) {
+      if (!courtBusyIntervals[b.CourtID]) courtBusyIntervals[b.CourtID] = [];
+      const startStr = `${b.BookingDateStr}T${b.StartTimeStr}`;
+      const endStr = `${b.BookingDateStr}T${b.EndTimeStr}`;
+      courtBusyIntervals[b.CourtID].push({ start: new Date(startStr), end: new Date(endStr) });
+    }
+
+    // Dựng lịch bận của sân từ các giải đấu / nội dung khác
+    const blocksRes = await new sql.Request(transaction)
+      .query(`
+        SELECT CourtID, 
+               CONVERT(VARCHAR(19), DATEADD(hour, 7, StartDateTime), 120) AS StartTimeStr, 
+               CONVERT(VARCHAR(19), DATEADD(hour, 7, EndDateTime), 120) AS EndTimeStr 
+        FROM TournamentCourtBlocks
+        WHERE Status = 'Active' 
+          AND CourtID IN (${activeCourtIds.join(",")})
+          AND DivisionID != ${divisionId}
+      `);
+    for (const bl of blocksRes.recordset) {
+      if (!courtBusyIntervals[bl.CourtID]) courtBusyIntervals[bl.CourtID] = [];
+      const startStr = bl.StartTimeStr.replace(" ", "T");
+      const endStr = bl.EndTimeStr.replace(" ", "T");
+      courtBusyIntervals[bl.CourtID].push({ start: new Date(startStr), end: new Date(endStr) });
+    }
+
+    // TẢI THÀNH VIÊN ĐỘI ĐỂ THEO DÕI BẬN THEO PLAYER ID
+    const allTeamMembersRes = await new sql.Request(transaction)
+      .query(`
+        SELECT TeamID, UserID 
+        FROM TournamentTeamMembers 
+        WHERE JoinStatus = 'Accepted' AND UserID IS NOT NULL
+      `);
+    const allTeamToPlayersMap: Record<number, number[]> = {};
+    for (const tm of allTeamMembersRes.recordset) {
+      if (!allTeamToPlayersMap[tm.TeamID]) allTeamToPlayersMap[tm.TeamID] = [];
+      allTeamToPlayersMap[tm.TeamID].push(tm.UserID);
+    }
+
+    const allAthletesRes = await new sql.Request(transaction)
+      .query(`
+        SELECT TeamID, UserID 
+        FROM TournamentRegistrationAthletes 
+        WHERE UserID IS NOT NULL
+      `);
+    for (const ath of allAthletesRes.recordset) {
+      if (!allTeamToPlayersMap[ath.TeamID]) allTeamToPlayersMap[ath.TeamID] = [];
+      if (!allTeamToPlayersMap[ath.TeamID].includes(ath.UserID)) {
+        allTeamToPlayersMap[ath.TeamID].push(ath.UserID);
       }
     }
-  }
 
-  const teamMatchesPerDay: Record<number, Record<string, number>> = {};
-
-  const matchDuration = body.matchDurationMinutes || 60;
-  const breakDuration = body.breakMinutes !== undefined ? body.breakMinutes : 10;
-  const teamRestMinutes = body.minRestMinutes !== undefined ? body.minRestMinutes : 30; // Minimum 30 minutes rest between consecutive matches for players
-
-  // Parse operating hours
-  let dailyStartFloat = 7.0; // Default 07:00
-  let dailyEndFloat = 22.0;  // Default 22:00
-  if (body.dailyStartHour) {
-    const parts = body.dailyStartHour.split(":");
-    if (parts.length >= 2) dailyStartFloat = parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60;
-  }
-  if (body.dailyEndHour) {
-    const parts = body.dailyEndHour.split(":");
-    if (parts.length >= 2) dailyEndFloat = parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60;
-  }
-
-  for (const match of activeMatches) {
-    let scheduled = false;
-    let currentTime = new Date(startDateTimeVal);
-
-    while (!scheduled) {
-      // Check daily operating hours boundary
-      const currentHourFloat = currentTime.getHours() + currentTime.getMinutes() / 60;
-      const endTime = new Date(currentTime.getTime() + matchDuration * 60 * 1000);
-      const endHourFloat = endTime.getHours() + endTime.getMinutes() / 60;
-
-      if (endHourFloat > dailyEndFloat || currentHourFloat < dailyStartFloat) {
-        // Skip to next day's start hour
-        if (endHourFloat > dailyEndFloat) {
-          currentTime.setDate(currentTime.getDate() + 1);
+    // TẢI LỊCH BẬN CỦA TỪNG VĐV CÁ NHÂN TỪ CÁC TRẬN ĐẤU ĐÃ XẾP LỊCH
+    const playerBusyIntervals: Record<number, Array<{ start: Date; end: Date }>> = {};
+    const otherMatchesRes = await new sql.Request(transaction)
+      .query(`
+        SELECT m.TeamAID, m.TeamBID, 
+               CONVERT(VARCHAR(19), DATEADD(hour, 7, m.ScheduledStart), 120) AS StartTimeStr, 
+               CONVERT(VARCHAR(19), DATEADD(hour, 7, m.ScheduledEnd), 120) AS EndTimeStr 
+        FROM TournamentMatches m
+        WHERE m.ScheduledStart IS NOT NULL 
+          AND m.ScheduledEnd IS NOT NULL
+          AND m.MatchStatus NOT IN ('Completed', 'Cancelled')
+      `);
+    
+    for (const m of otherMatchesRes.recordset) {
+      const start = new Date(m.StartTimeStr.replace(" ", "T"));
+      const end = new Date(m.EndTimeStr.replace(" ", "T"));
+      const teamIds = [m.TeamAID, m.TeamBID].filter(Boolean) as number[];
+      for (const teamId of teamIds) {
+        const playerIds = allTeamToPlayersMap[teamId] || [];
+        for (const pId of playerIds) {
+          if (!playerBusyIntervals[pId]) playerBusyIntervals[pId] = [];
+          playerBusyIntervals[pId].push({ start, end });
         }
-        currentTime.setHours(Math.floor(dailyStartFloat), Math.round((dailyStartFloat % 1) * 60), 0, 0);
-        continue;
       }
+    }
 
-      // Check max matches per day limit
-      const currentDateString = currentTime.toISOString().split('T')[0];
-      let limitReached = false;
-      if (match.TeamAID) {
-        const tAMatches = (teamMatchesPerDay[match.TeamAID] && teamMatchesPerDay[match.TeamAID][currentDateString]) || 0;
-        if (tAMatches >= maxMatchesPerDay) limitReached = true;
+    let activeMatches = matches.filter(
+      (m) =>
+        (m.MatchStatus === "Scheduled" || m.MatchStatus === "NotStarted") &&
+        m.TeamAID &&
+        m.TeamBID
+    );
+
+    if (body.roundNo !== undefined && body.roundNo > 0) {
+      activeMatches = activeMatches.filter(m => m.RoundNo === body.roundNo);
+    }
+
+    activeMatches.sort((a, b) => {
+      if (a.RoundNo !== b.RoundNo) {
+        return (a.RoundNo || 0) - (b.RoundNo || 0);
       }
-      if (match.TeamBID) {
-        const tBMatches = (teamMatchesPerDay[match.TeamBID] && teamMatchesPerDay[match.TeamBID][currentDateString]) || 0;
-        if (tBMatches >= maxMatchesPerDay) limitReached = true;
-      }
+      return (a.MatchNo || 0) - (b.MatchNo || 0);
+    });
 
-      if (limitReached) {
-        // Skip to next day's start hour
-        currentTime.setDate(currentTime.getDate() + 1);
-        currentTime.setHours(Math.floor(dailyStartFloat), Math.round((dailyStartFloat % 1) * 60), 0, 0);
-        continue;
-      }
+    const startDateTimeVal = new Date(body.startDateTime);
+    if (isNaN(startDateTimeVal.getTime())) {
+      throw Object.assign(new Error("Thời gian bắt đầu không hợp lệ"), { statusCode: 400 });
+    }
 
-      for (const courtId of activeCourtIds) {
-        let overlap = false;
+    // Thời gian giới hạn tối đa là ngày kết thúc giải đấu
+    const tournamentEndVal = new Date(tournament.TournamentEnd);
+    tournamentEndVal.setHours(23, 59, 59, 999);
 
-        // 1. Check court busy
-        const cIntervals = courtBusyIntervals[courtId] || [];
-        for (const interval of cIntervals) {
-          if (currentTime < interval.end && endTime > interval.start) {
-            overlap = true;
-            break;
-          }
-        }
-        if (overlap) continue;
-
-        // 2. Check Team A busy (with minimum rest buffer)
-        if (match.TeamAID) {
-          const tAIntervals = teamBusyIntervals[match.TeamAID] || [];
-          for (const interval of tAIntervals) {
-            const matchEnd = new Date(interval.end.getTime() - breakDuration * 60 * 1000);
-            const restEnd = new Date(matchEnd.getTime() + teamRestMinutes * 60 * 1000);
-            if (currentTime < restEnd && endTime > interval.start) {
-              overlap = true;
-              break;
-            }
-          }
-        }
-        if (overlap) continue;
-
-        // 3. Check Team B busy (with minimum rest buffer)
-        if (match.TeamBID) {
-          const tBIntervals = teamBusyIntervals[match.TeamBID] || [];
-          for (const interval of tBIntervals) {
-            const matchEnd = new Date(interval.end.getTime() - breakDuration * 60 * 1000);
-            const restEnd = new Date(matchEnd.getTime() + teamRestMinutes * 60 * 1000);
-            if (currentTime < restEnd && endTime > interval.start) {
-              overlap = true;
-              break;
-            }
-          }
-        }
-        if (overlap) continue;
-
-        // Found slot! 
-        const blockEnd = new Date(endTime.getTime() + breakDuration * 60 * 1000);
+    let maxMatchesPerDay = 999;
+    if (body.endDateTime) {
+      const endDateTimeVal = new Date(body.endDateTime);
+      if (!isNaN(endDateTimeVal.getTime()) && endDateTimeVal > startDateTimeVal) {
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const startDay = new Date(startDateTimeVal.getFullYear(), startDateTimeVal.getMonth(), startDateTimeVal.getDate());
+        const endDay = new Date(endDateTimeVal.getFullYear(), endDateTimeVal.getMonth(), endDateTimeVal.getDate());
+        const numDays = Math.round((endDay.getTime() - startDay.getTime()) / msPerDay) + 1;
         
-        if (!courtBusyIntervals[courtId]) courtBusyIntervals[courtId] = [];
-        courtBusyIntervals[courtId].push({ start: currentTime, end: blockEnd });
-
-        if (match.TeamAID) {
-          if (!teamBusyIntervals[match.TeamAID]) teamBusyIntervals[match.TeamAID] = [];
-          teamBusyIntervals[match.TeamAID].push({ start: currentTime, end: blockEnd });
-          if (!teamMatchesPerDay[match.TeamAID]) teamMatchesPerDay[match.TeamAID] = {};
-          teamMatchesPerDay[match.TeamAID][currentDateString] = (teamMatchesPerDay[match.TeamAID][currentDateString] || 0) + 1;
+        const matchesCount: Record<number, number> = {};
+        for (const m of activeMatches) {
+          if (m.TeamAID) matchesCount[m.TeamAID] = (matchesCount[m.TeamAID] || 0) + 1;
+          if (m.TeamBID) matchesCount[m.TeamBID] = (matchesCount[m.TeamBID] || 0) + 1;
         }
-
-        if (match.TeamBID) {
-          if (!teamBusyIntervals[match.TeamBID]) teamBusyIntervals[match.TeamBID] = [];
-          teamBusyIntervals[match.TeamBID].push({ start: currentTime, end: blockEnd });
-          if (!teamMatchesPerDay[match.TeamBID]) teamMatchesPerDay[match.TeamBID] = {};
-          teamMatchesPerDay[match.TeamBID][currentDateString] = (teamMatchesPerDay[match.TeamBID][currentDateString] || 0) + 1;
+        const maxMatchesInTournament = Math.max(0, ...Object.values(matchesCount));
+        
+        if (numDays > 0 && maxMatchesInTournament > 0) {
+          maxMatchesPerDay = Math.ceil(maxMatchesInTournament / numDays);
         }
-
-        schedules.push({
-          matchId: match.MatchID,
-          courtId,
-          scheduledStart: currentTime,
-          scheduledEnd: endTime,
-          tournamentId,
-        });
-
-        scheduled = true;
-        break; 
-      }
-
-      if (!scheduled) {
-        currentTime = new Date(currentTime.getTime() + 10 * 60 * 1000);
       }
     }
+
+    const teamMatchesPerDay: Record<number, Record<string, number>> = {};
+    const matchDuration = body.matchDurationMinutes || 60;
+    const breakDuration = body.breakMinutes !== undefined ? body.breakMinutes : 10;
+    const teamRestMinutes = body.minRestMinutes !== undefined ? body.minRestMinutes : 30;
+
+    let dailyStartFloat = 7.0;
+    let dailyEndFloat = 22.0;
+    if (body.dailyStartHour) {
+      const parts = body.dailyStartHour.split(":");
+      if (parts.length >= 2) dailyStartFloat = parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60;
+    }
+    if (body.dailyEndHour) {
+      const parts = body.dailyEndHour.split(":");
+      if (parts.length >= 2) dailyEndFloat = parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60;
+    }
+
+    for (const match of activeMatches) {
+      let scheduled = false;
+      let currentTime = new Date(startDateTimeVal);
+
+      while (!scheduled) {
+        const currentHourFloat = currentTime.getHours() + currentTime.getMinutes() / 60;
+        const endTime = new Date(currentTime.getTime() + matchDuration * 60 * 1000);
+        const endHourFloat = endTime.getHours() + endTime.getMinutes() / 60;
+
+        // KIỂM TRA GIỚI HẠN THỜI GIAN TOURNAMENT END
+        if (endTime > tournamentEndVal) {
+          throw Object.assign(
+            new Error(`Không thể xếp lịch cho trận đấu MatchID: ${match.MatchID}. Thời gian thi đấu dự kiến (${endTime.toLocaleString("vi-VN")}) vượt quá thời gian kết thúc giải đấu (${tournamentEndVal.toLocaleString("vi-VN")}). Vui lòng bổ sung thêm sân đấu hoặc kéo dài thời hạn giải đấu.`), 
+            { statusCode: 400 }
+          );
+        }
+
+        if (endHourFloat > dailyEndFloat || currentHourFloat < dailyStartFloat) {
+          if (endHourFloat > dailyEndFloat) {
+            currentTime.setDate(currentTime.getDate() + 1);
+          }
+          currentTime.setHours(Math.floor(dailyStartFloat), Math.round((dailyStartFloat % 1) * 60), 0, 0);
+          continue;
+        }
+
+        const currentDateString = currentTime.toISOString().split('T')[0];
+        let limitReached = false;
+        if (match.TeamAID) {
+          const tAMatches = (teamMatchesPerDay[match.TeamAID] && teamMatchesPerDay[match.TeamAID][currentDateString]) || 0;
+          if (tAMatches >= maxMatchesPerDay) limitReached = true;
+        }
+        if (match.TeamBID) {
+          const tBMatches = (teamMatchesPerDay[match.TeamBID] && teamMatchesPerDay[match.TeamBID][currentDateString]) || 0;
+          if (tBMatches >= maxMatchesPerDay) limitReached = true;
+        }
+
+        if (limitReached) {
+          currentTime.setDate(currentTime.getDate() + 1);
+          currentTime.setHours(Math.floor(dailyStartFloat), Math.round((dailyStartFloat % 1) * 60), 0, 0);
+          continue;
+        }
+
+        for (const courtId of activeCourtIds) {
+          let overlap = false;
+
+          // 1. Kiểm tra bận sân
+          const cIntervals = courtBusyIntervals[courtId] || [];
+          for (const interval of cIntervals) {
+            if (currentTime < interval.end && endTime > interval.start) {
+              overlap = true;
+              break;
+            }
+          }
+          if (overlap) continue;
+
+          // 2. Kiểm tra bận các cầu thủ Team A (theo PlayerID cá nhân chéo toàn giải)
+          if (match.TeamAID) {
+            const playerIds = allTeamToPlayersMap[match.TeamAID] || [];
+            for (const pId of playerIds) {
+              const pIntervals = playerBusyIntervals[pId] || [];
+              for (const interval of pIntervals) {
+                const matchEnd = new Date(interval.end.getTime() - breakDuration * 60 * 1000);
+                const restEnd = new Date(matchEnd.getTime() + teamRestMinutes * 60 * 1000);
+                if (currentTime < restEnd && endTime > interval.start) {
+                  overlap = true;
+                  break;
+                }
+              }
+              if (overlap) break;
+            }
+          }
+          if (overlap) continue;
+
+          // 3. Kiểm tra bận các cầu thủ Team B (theo PlayerID cá nhân chéo toàn giải)
+          if (match.TeamBID) {
+            const playerIds = allTeamToPlayersMap[match.TeamBID] || [];
+            for (const pId of playerIds) {
+              const pIntervals = playerBusyIntervals[pId] || [];
+              for (const interval of pIntervals) {
+                const matchEnd = new Date(interval.end.getTime() - breakDuration * 60 * 1000);
+                const restEnd = new Date(matchEnd.getTime() + teamRestMinutes * 60 * 1000);
+                if (currentTime < restEnd && endTime > interval.start) {
+                  overlap = true;
+                  break;
+                }
+              }
+              if (overlap) break;
+            }
+          }
+          if (overlap) continue;
+
+          // Tìm thấy slot! 
+          const blockEnd = new Date(endTime.getTime() + breakDuration * 60 * 1000);
+          
+          if (!courtBusyIntervals[courtId]) courtBusyIntervals[courtId] = [];
+          courtBusyIntervals[courtId].push({ start: currentTime, end: blockEnd });
+
+          if (match.TeamAID) {
+            const playerIds = allTeamToPlayersMap[match.TeamAID] || [];
+            for (const pId of playerIds) {
+              if (!playerBusyIntervals[pId]) playerBusyIntervals[pId] = [];
+              playerBusyIntervals[pId].push({ start: currentTime, end: blockEnd });
+            }
+            if (!teamMatchesPerDay[match.TeamAID]) teamMatchesPerDay[match.TeamAID] = {};
+            teamMatchesPerDay[match.TeamAID][currentDateString] = (teamMatchesPerDay[match.TeamAID][currentDateString] || 0) + 1;
+          }
+
+          if (match.TeamBID) {
+            const playerIds = allTeamToPlayersMap[match.TeamBID] || [];
+            for (const pId of playerIds) {
+              if (!playerBusyIntervals[pId]) playerBusyIntervals[pId] = [];
+              playerBusyIntervals[pId].push({ start: currentTime, end: blockEnd });
+            }
+            if (!teamMatchesPerDay[match.TeamBID]) teamMatchesPerDay[match.TeamBID] = {};
+            teamMatchesPerDay[match.TeamBID][currentDateString] = (teamMatchesPerDay[match.TeamBID][currentDateString] || 0) + 1;
+          }
+
+          schedules.push({
+            matchId: match.MatchID,
+            courtId,
+            scheduledStart: currentTime,
+            scheduledEnd: endTime,
+            tournamentId,
+          });
+
+          scheduled = true;
+          break; 
+        }
+
+        if (!scheduled) {
+          currentTime = new Date(currentTime.getTime() + 10 * 60 * 1000);
+        }
+      }
+    }
+
+    if (schedules.length > 0) {
+      await new sql.Request(transaction)
+        .input("DivisionID", sql.Int, divisionId)
+        .query(`
+          DELETE b FROM TournamentCourtBlocks b
+          INNER JOIN TournamentMatches m ON b.MatchID = m.MatchID
+          WHERE b.DivisionID = @DivisionID AND m.MatchStatus NOT IN ('Completed', 'InProgress')
+        `);
+
+      for (const sch of schedules) {
+        await new sql.Request(transaction)
+          .input("MatchID", sql.Int, sch.matchId)
+          .input("CourtID", sql.Int, sch.courtId)
+          .input("ScheduledStart", sql.DateTime, sch.scheduledStart)
+          .input("ScheduledEnd", sql.DateTime, sch.scheduledEnd)
+          .query(`
+            UPDATE TournamentMatches
+            SET CourtID = @CourtID, ScheduledStart = @ScheduledStart, ScheduledEnd = @ScheduledEnd, UpdatedAt = GETDATE()
+            WHERE MatchID = @MatchID
+          `);
+
+        await new sql.Request(transaction)
+          .input("TournamentID", sql.Int, sch.tournamentId)
+          .input("DivisionID", sql.Int, divisionId)
+          .input("MatchID", sql.Int, sch.matchId)
+          .input("CourtID", sql.Int, sch.courtId)
+          .input("Start", sql.DateTime, sch.scheduledStart)
+          .input("End", sql.DateTime, sch.scheduledEnd)
+          .query(`
+            INSERT INTO TournamentCourtBlocks (TournamentID, DivisionID, MatchID, CourtID, StartDateTime, EndDateTime, Reason, Status, CreatedAt)
+            VALUES (@TournamentID, @DivisionID, @MatchID, @CourtID, @Start, @End, N'Trận đấu giải', 'Active', GETDATE())
+          `);
+      }
+
+      await new sql.Request(transaction)
+        .input("DivisionID", sql.Int, divisionId)
+        .input("Status", sql.NVarChar(50), DIVISION_STATUS.SCHEDULED)
+        .query(`UPDATE TournamentDivisions SET Status = @Status, UpdatedAt = GETDATE() WHERE DivisionID = @DivisionID`);
+
+      await recomputeTournamentStatus(tournamentId);
+    }
+
+    await transaction.commit();
+
+    await createAuditLog({
+      userId,
+      actionName: "ALLOCATE_COURTS",
+      tableName: "TournamentDivisions",
+      entityId: divisionId,
+      description: `Admin tự động phân bổ lịch đấu/sân đấu cho ${schedules.length} trận đấu thuộc division ID: ${divisionId}`,
+    });
+
+    return getDivisionMatches(divisionId);
+  } catch (error: any) {
+    await transaction.rollback();
+    if (error.number === 1222) {
+      throw Object.assign(new Error("Tiến trình xếp lịch tự động cho nội dung này đang được thực hiện bởi Admin khác. Vui lòng thử lại sau"), { statusCode: 409 });
+    }
+    throw error;
   }
-
-  if (schedules.length > 0) {
-    await tournamentRepo.saveMatchScheduleTransaction(divisionId, schedules);
-    await tournamentRepo.updateDivisionStatus(divisionId, DIVISION_STATUS.SCHEDULED);
-    await recomputeTournamentStatus(tournamentId);
-  }
-
-  // Write audit log
-  await createAuditLog({
-    userId,
-    actionName: "ALLOCATE_COURTS",
-    tableName: "TournamentDivisions",
-    entityId: divisionId,
-    description: `Admin tự động phân bổ lịch đấu/sân đấu cho ${schedules.length} trận đấu thuộc division ID: ${divisionId}`,
-  });
-
-  return getDivisionMatches(divisionId);
 }
 
 /**

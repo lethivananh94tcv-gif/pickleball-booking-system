@@ -56,7 +56,7 @@ async def health():
         "status": "ok",
         "provider": "gemini",
         "model": MODEL_NAME or "gemini-1.5-flash",
-        "hasApiKey": bool(API_KEY)
+        "hasApiKey": bool(API_KEYS)
     }
 
 

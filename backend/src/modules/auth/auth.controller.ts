@@ -5,6 +5,7 @@ import { loginSchema, registerSchema } from "./auth.validation";
 import { successResponse } from "@/utils/response";
 import { handleError } from "@/middlewares/error";
 import { verifyAccessToken } from "@/utils/jwt";
+import { getTokenFromRequest } from "@/middlewares/auth.middleware";
 
 export async function registerController(req: NextRequest) {
   try {
@@ -41,7 +42,18 @@ export async function loginController(req: NextRequest) {
 
     const result = await authService.login(data);
 
-    return successResponse(result, "Login successfully");
+    const response = successResponse(result, "Login successfully");
+    
+    // Set token cookie
+    response.cookies.set("token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     return handleError(error);
   }
@@ -49,13 +61,11 @@ export async function loginController(req: NextRequest) {
 
 export async function meController(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("authorization");
+    const token = getTokenFromRequest(req);
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!token) {
       throw new Error("Unauthorized");
     }
-
-    const token = authHeader.split(" ")[1];
 
     const decoded = verifyAccessToken(token);
 
@@ -106,10 +116,21 @@ export async function googleLoginController(req: NextRequest) {
       credential: body.credential,
     });
 
-    return successResponse(
+    const response = successResponse(
       result,
       "Đăng nhập Google thành công"
     );
+
+    // Set token cookie
+    response.cookies.set("token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     return handleError(error);
   }
