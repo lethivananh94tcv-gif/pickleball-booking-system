@@ -1,5 +1,5 @@
 import { requestRefund, requestCoachCancelRefund } from "@/modules/refunds/refunds.service";
-import { createNotification } from "@/modules/notifications/notifications.service";
+import { createNotification, notifyTeamBookingCreatedEmail } from "@/modules/notifications/notifications.service";
 import { createSystemLog } from "@/modules/systemlogs/systemlogs.service";
 import { CreateCourtBookingInput, CreateWalkInCourtBookingInput, CreateCoachBookingInput, CreateComboBookingInput, CancelBookingInput, CancelBookingResult, CheckInInput, CheckInResult } from "./bookings.type";
 import { findUserById, getOrCreateWalkInGuestUser, findCourtByIdForBooking, findCoachByIdForBooking, findAvailableCourtSlot, findAvailableCoachSchedule, findBookingWithPaymentById, repoCreateCourtBooking, repoCreateCoachBooking, repoCreateComboBooking, repoCancelBookingById, repoCheckInBookingById, repoMockPayBooking, repoReleaseExpiredHoldings, repoAutoCheckInExpired, repoMarkCompletedExpiredCheckins, findBookingsByUserId, findBookingsByCoachUserId, findBookingById, findDailyBookingsForStaff, repoCreateTeamBooking } from "./bookings.repository";
@@ -7,6 +7,7 @@ import { calculateHours, validateBookingDate, validateHoldingLimit, validateCoac
 import { isScheduleExpired } from "../coaches/coaches.validation";
 import { sendBookingCreatedEmail, sendPaymentSuccessEmail, sendCoachAssignedEmail, sendNoShowEmail, sendPaymentExpiredEmail } from "@/utils/mail";
 import { countActiveGroupMembers } from "../playgroups/playgroups.repository";
+import { getAcceptedOpponentLeaders } from "../player-matching/player-matching.repository";
 import { AppError } from "@/utils/AppError";
 import { getPool, sql } from "@/database/connection";
 
@@ -956,7 +957,7 @@ export async function createTeamBooking(input: {
   }
 
   // Tao booking voi type = 'Team' va ghi nhan groupId
-  return repoCreateTeamBooking({
+  const result = await repoCreateTeamBooking({
     userId: input.userId,
     groupId: input.groupId,
     courtId: input.courtId,
@@ -964,4 +965,43 @@ export async function createTeamBooking(input: {
     startTime: input.startTime,
     endTime: input.endTime,
   });
+
+  if (result && result.BookingID) {
+    try {
+      const opponentLeaders = await getAcceptedOpponentLeaders(input.userId);
+
+      // 1. Gửi in-app notification cho các đội trưởng đối thủ
+      for (const oppId of opponentLeaders) {
+        void createNotification({
+          userId: oppId,
+          title: "Đối thủ đã đặt sân",
+          message: `Đội của ${user.FullName || "đối thủ"} đã đặt sân thành công cho trận giao hữu ngày ${input.bookingDate} từ ${input.startTime} đến ${input.endTime}.`,
+          notificationType: "Matching",
+        });
+      }
+
+      // 2. Gửi in-app notification cho đội trưởng đặt sân
+      void createNotification({
+        userId: input.userId,
+        title: "Chốt sân giao hữu thành công",
+        message: `Bạn đã đặt sân ${court.CourtName || ""} thành công cho trận giao hữu ngày ${input.bookingDate} từ ${input.startTime} đến ${input.endTime}.`,
+        notificationType: "Booking",
+      });
+
+      // 3. Gửi email xác nhận kèm thông tin Sân cụ thể cho 2 đội trưởng (đội đặt & đội đối thủ)
+      void notifyTeamBookingCreatedEmail({
+        creatorUserId: input.userId,
+        opponentLeaderIds: opponentLeaders,
+        bookingCode: result.BookingCode || `TM-${result.BookingID}`,
+        courtName: court.CourtName || "Sân Pickleball",
+        bookingDate: input.bookingDate,
+        startTime: input.startTime,
+        endTime: input.endTime,
+      });
+    } catch (err) {
+      console.warn("Error sending team booking notification/email to opponent:", err);
+    }
+  }
+
+  return result;
 }
