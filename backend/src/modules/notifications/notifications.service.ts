@@ -222,3 +222,93 @@ export async function notifyInvitationStatusChanged(invitation: any, status: 'Ac
     console.error("[Notification] notifyInvitationStatusChanged error:", error);
   }
 }
+
+/**
+ * Gửi email khi đặt sân nhóm (thách đấu) thành công cho 2 đội trưởng (đội đặt sân & đội đối thủ)
+ */
+export async function notifyTeamBookingCreatedEmail(params: {
+  creatorUserId: number;
+  opponentLeaderIds: number[];
+  bookingCode: string;
+  courtName: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+}) {
+  try {
+    const creatorInfo = await notifRepo.getUserEmailInfo(params.creatorUserId);
+    const creatorName = creatorInfo ? creatorInfo.FullName : "Đội đối thủ";
+
+    // 1. Gửi email cho đội trưởng đặt sân
+    if (creatorInfo) {
+      try {
+        await sendNotificationEmail({
+          to: creatorInfo.Email,
+          fullName: creatorInfo.FullName,
+          type: "TEAM_BOOKING_CREATED",
+          subject: `[PickleClub] Chốt sân trận giao hữu thành công - ${params.bookingCode}`,
+          title: "Chốt Sân Trận Giao Hữu",
+          message: `Bạn đã đặt sân thành công cho trận đấu giao hữu với đội đối thủ.\n\nThông tin chi tiết:\n• Mã đặt sân: #${params.bookingCode}\n• Sân bóng: ${params.courtName}\n• Ngày thi đấu: ${params.bookingDate}\n• Khung giờ: ${params.startTime} - ${params.endTime}\n\nHãy thông báo với đồng đội chuẩn bị và có mặt đúng giờ nhé!`,
+          actionUrl: `${FRONTEND_URL}/matching`,
+          actionText: "Xem trận đấu",
+        });
+
+        await notifRepo.createEmailLog({
+          userId: creatorInfo.UserID,
+          email: creatorInfo.Email,
+          notificationType: "TEAM_BOOKING_CREATED",
+          refType: "TeamBooking",
+          status: "Sent"
+        });
+      } catch (err: any) {
+        await notifRepo.createEmailLog({
+          userId: creatorInfo.UserID,
+          email: creatorInfo.Email,
+          notificationType: "TEAM_BOOKING_CREATED",
+          refType: "TeamBooking",
+          status: "Failed",
+          errorMessage: err.message || "Unknown error"
+        });
+      }
+    }
+
+    // 2. Gửi email cho (các) đội trưởng đối thủ
+    for (const oppId of params.opponentLeaderIds) {
+      const oppInfo = await notifRepo.getUserEmailInfo(oppId);
+      if (!oppInfo) continue;
+
+      try {
+        await sendNotificationEmail({
+          to: oppInfo.Email,
+          fullName: oppInfo.FullName,
+          type: "TEAM_BOOKING_OPPONENT_CREATED",
+          subject: `[PickleClub] Đối thủ đã chốt sân trận giao hữu - ${params.bookingCode}`,
+          title: "Đối Thủ Đã Chốt Sân",
+          message: `Đội của ${creatorName} đã đặt sân thành công cho trận giao hữu thách đấu với đội của bạn.\n\nThông tin chi tiết:\n• Mã đặt sân: #${params.bookingCode}\n• Sân bóng: ${params.courtName}\n• Ngày thi đấu: ${params.bookingDate}\n• Khung giờ: ${params.startTime} - ${params.endTime}\n\nHãy thông báo với đồng đội chuẩn bị và có mặt tại sân đúng giờ nhé!`,
+          actionUrl: `${FRONTEND_URL}/matching`,
+          actionText: "Xem chi tiết",
+        });
+
+        await notifRepo.createEmailLog({
+          userId: oppInfo.UserID,
+          email: oppInfo.Email,
+          notificationType: "TEAM_BOOKING_OPPONENT_CREATED",
+          refType: "TeamBooking",
+          status: "Sent"
+        });
+      } catch (err: any) {
+        await notifRepo.createEmailLog({
+          userId: oppInfo.UserID,
+          email: oppInfo.Email,
+          notificationType: "TEAM_BOOKING_OPPONENT_CREATED",
+          refType: "TeamBooking",
+          status: "Failed",
+          errorMessage: err.message || "Unknown error"
+        });
+      }
+    }
+  } catch (error) {
+    console.error("[Notification] notifyTeamBookingCreatedEmail error:", error);
+  }
+}
+
