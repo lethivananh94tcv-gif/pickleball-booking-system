@@ -20,7 +20,16 @@ export async function createPlayGroup(data: repo.GroupData, creatorId: number) {
 }
 
 export async function getPlayGroups(filters: { skillLevel?: string; keyword?: string }) {
-  return repo.listGroups(filters);
+  const groups = await repo.listGroups(filters);
+  return Promise.all(
+    (groups || []).map(async (g: any) => {
+      const details = await repo.getGroupDetails(g.GroupID);
+      return {
+        ...g,
+        members: details?.members || []
+      };
+    })
+  );
 }
 
 export async function getPlayGroupDetails(groupId: number) {
@@ -73,16 +82,19 @@ export async function leavePlayGroup(groupId: number, userId: number) {
     throw new Error("Bạn không phải thành viên của nhóm này.");
   }
 
-  // Handle Leader leaving rules
-  if (group.CreatorID === userId) {
-    const activeMembersCount = group.members.filter((m: any) => m.RoleInGroup !== 'Leader' && m.MemberStatus === 'Active').length;
-    if (activeMembersCount > 0) {
-      throw new Error("Trưởng nhóm không thể tự ý rời nhóm khi vẫn còn thành viên khác. Vui lòng đóng nhóm trước.");
+  // Handle Leader leaving rules (Skip for challenge chat box or members without Leader role)
+  const isChallengeChat = group.Description?.includes("Box chat chung") || group.GroupName?.includes("Thách đấu");
+  const memberRecord = group.members.find((m: any) => m.UserID === userId);
+  
+  if (!isChallengeChat && (group.CreatorID === userId || memberRecord?.RoleInGroup === 'Leader')) {
+    const otherActiveMembers = group.members.filter((m: any) => m.UserID !== userId && m.MemberStatus === 'Active');
+    if (otherActiveMembers.length > 0) {
+      // Transfer leadership to the oldest remaining active member
+      const newLeader = otherActiveMembers.sort((a: any, b: any) => new Date(a.JoinedAt || 0).getTime() - new Date(b.JoinedAt || 0).getTime())[0];
+      await repo.transferLeadership(groupId, userId, newLeader.UserID);
     } else {
       // Creator is the only one in the group: close the group
       await repo.updateGroupStatus(groupId, 'Closed');
-      await repo.removeGroupMember(groupId, userId);
-      return { status: "Closed", message: "Nhóm đã được đóng và trưởng nhóm đã rời nhóm." };
     }
   }
 
@@ -97,11 +109,12 @@ export async function closePlayGroup(groupId: number, userId: number) {
   }
 
   if (group.CreatorID !== userId) {
-    throw new Error("Chỉ trưởng nhóm mới có quyền đóng nhóm.");
+    throw new Error("Chỉ trưởng nhóm mới có quyền giải tán nhóm.");
   }
 
   await repo.updateGroupStatus(groupId, 'Closed');
-  return repo.getGroupDetails(groupId);
+  await repo.removeAllGroupMembers(groupId);
+  return { status: "Closed", message: "Nhóm đã được giải tán thành công." };
 }
 
 export async function updatePlayGroup(

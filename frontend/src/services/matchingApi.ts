@@ -35,6 +35,8 @@ export interface PlayGroup {
   CreatorEmail?: string;
   members?: any[];
   AverageExperience?: number;
+  IsChallengeChat?: number | boolean;
+  MyRole?: string;
 }
 
 export interface PlayInvitation {

@@ -21,6 +21,8 @@ export default function MatchingLayout() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [guideTab, setGuideTab] = useState<number>(1);
 
   // Lifted teammates matching states to cache results on tab switch
   const [teammates, setTeammates] = useState<any[]>([]);
@@ -370,6 +372,13 @@ export default function MatchingLayout() {
           {/* Star 3 */}
           <path d="M 395 56 L 396 58 L 398 59 L 396 60 L 395 62 L 394 60 L 392 59 L 394 58 Z" fill="#fef08a" filter="url(#illustrationGlow)" />
         </svg>
+        <button
+          type="button"
+          onClick={() => { setShowGuideModal(true); setGuideTab(1); }}
+          className={styles.guideButton}
+        >
+          💡 Hướng dẫn sử dụng
+        </button>
       </div>
 
       <div className={styles.dashboard}>
@@ -506,6 +515,181 @@ export default function MatchingLayout() {
           )}
         </main>
       </div>
+
+      {/* Sophisticated 5-Tab Guide Modal */}
+      {showGuideModal && (
+        <div className={styles.guideModalOverlay} onClick={() => setShowGuideModal(false)}>
+          <div className={styles.guideModalContainer} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.guideModalHeader}>
+              <div>
+                <h2>💡 Cẩm Nang Chi Tiết & Trợ Lý Hướng Dẫn Matching</h2>
+                <p>Khám phá đầy đủ 5 tính năng cốt lõi để tìm đồng đội, lập nhóm và thách đấu thi đấu.</p>
+              </div>
+              <button className={styles.guideCloseBtn} onClick={() => setShowGuideModal(false)}>×</button>
+            </div>
+
+            <div className={styles.guideModalBody}>
+              <div className={styles.guideSidebar}>
+                <button
+                  className={`${styles.guideTabBtn} ${guideTab === 1 ? styles.guideTabBtnActive : ""}`}
+                  onClick={() => setGuideTab(1)}
+                >
+                  <span className={styles.guideTabIcon}>👤</span>
+                  <span>1. Hồ Sơ Thi Đấu</span>
+                </button>
+                <button
+                  className={`${styles.guideTabBtn} ${guideTab === 2 ? styles.guideTabBtnActive : ""}`}
+                  onClick={() => setGuideTab(2)}
+                >
+                  <span className={styles.guideTabIcon}>🤝</span>
+                  <span>2. Tìm Đồng Đội (AI)</span>
+                </button>
+                <button
+                  className={`${styles.guideTabBtn} ${guideTab === 3 ? styles.guideTabBtnActive : ""}`}
+                  onClick={() => setGuideTab(3)}
+                >
+                  <span className={styles.guideTabIcon}>👥</span>
+                  <span>3. Quản Lý Nhóm</span>
+                </button>
+                <button
+                  className={`${styles.guideTabBtn} ${guideTab === 4 ? styles.guideTabBtnActive : ""}`}
+                  onClick={() => setGuideTab(4)}
+                >
+                  <span className={styles.guideTabIcon}>🔥</span>
+                  <span>4. Thách Đấu Đối Thủ</span>
+                </button>
+                <button
+                  className={`${styles.guideTabBtn} ${guideTab === 5 ? styles.guideTabBtnActive : ""}`}
+                  onClick={() => setGuideTab(5)}
+                >
+                  <span className={styles.guideTabIcon}>✉️</span>
+                  <span>5. Hộp Thư & Đặt Sân</span>
+                </button>
+              </div>
+
+              <div className={styles.guideContentArea}>
+                {guideTab === 1 && (
+                  <div>
+                    <h3 className={styles.guideStepTitle}>👤 Bước 1: Thiết Lập Hồ Sơ Thi Đấu</h3>
+                    <p className={styles.guideStepSubtitle}>Tấm danh thiếp thể thao giúp AI và tay vợt khác đánh giá độ hợp cạ với bạn.</p>
+                    
+                    <div className={styles.guideSection}>
+                      <h4>🎯 Thao tác cần làm:</h4>
+                      <ul className={styles.guideList}>
+                        <li><strong>Vai trò thi đấu:</strong> Chọn Đánh Đôi (Doubles), Đánh Đơn (Singles) hoặc Toàn diện (All-rounder).</li>
+                        <li><strong>Trình độ (Skill Level):</strong> Tự đánh giá chuẩn từ 1.0 (Mới tập chơi) đến 5.0 (Vận động viên bán chuyên/chuyên nghiệp).</li>
+                        <li><strong>Thời gian rảnh rỗi:</strong> Điền chính xác khung giờ bạn hay ra sân nhất (Ví dụ: 17:00 - 19:30 các ngày cuối tuần).</li>
+                        <li><strong>Phong cách & Mục tiêu:</strong> Mô tả sở trường (Đánh lưới, ép trái, phản tạt bền...) để tìm bạn tập ăn ý.</li>
+                      </ul>
+                    </div>
+
+                    <div className={styles.guideTipBox}>
+                      <span className={styles.guideTipIcon}>⚠️</span>
+                      <p className={styles.guideTipText}>
+                        <strong>Lưu ý quan trọng:</strong> Bắt buộc phải chọn Trạng thái Matching là <strong>"Sẵn sàng ghép cặp (Available)"</strong>. Nếu để "Tạm dừng", hệ thống sẽ ẩn hoàn toàn hồ sơ của bạn khỏi mọi kết quả tìm kiếm!
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {guideTab === 2 && (
+                  <div>
+                    <h3 className={styles.guideStepTitle}>🤝 Bước 2: Tìm Đồng Đội & Trợ Lý Trí Tuệ Nhân Tạo AI</h3>
+                    <p className={styles.guideStepSubtitle}>Tìm đối tác đánh cặp ăn ý nhất với thuật toán chấm điểm AI Scoring.</p>
+                    
+                    <div className={styles.guideSection}>
+                      <h4>✨ Các phương thức tìm kiếm:</h4>
+                      <ul className={styles.guideList}>
+                        <li><strong>Tính năng AI Matching (Khuyên dùng):</strong> Bấm nút <strong>"✨ Tìm ngay"</strong> ở góc dưới cột bên trái. Trí tuệ nhân tạo sẽ tự động phân tích kỹ thuật, giờ rảnh và tính ra <strong>Điểm tương thích (%)</strong> cao nhất cho bạn.</li>
+                        <li><strong>Bộ lọc thủ công:</strong> Tìm theo giới tính, khoảng trình độ hoặc thời gian rảnh rỗi của người chơi khác.</li>
+                        <li><strong>Gửi lời mời ghép đôi:</strong> Bấm nút <strong>"Mời ghép đôi"</strong> trên thẻ người chơi, gửi kèm lời chào thân thiện để đối phương ấn tượng.</li>
+                      </ul>
+                    </div>
+
+                    <div className={styles.guideTipBox}>
+                      <span className={styles.guideTipIcon}>💡</span>
+                      <p className={styles.guideTipText}>
+                        <strong>Mẹo hay:</strong> Những người chơi có điểm tương thích AI trên 85% thường có cùng giờ rảnh và lối đánh bổ trợ cực tốt cho sở trường của bạn!
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {guideTab === 3 && (
+                  <div>
+                    <h3 className={styles.guideStepTitle}>👥 Bước 3: Quản Lý Nhóm</h3>
+                    <p className={styles.guideStepSubtitle}>Khi lời mời ghép đôi được chấp nhận, các bạn sẽ tạo thành 1 Đội thi đấu chính thức.</p>
+                    
+                    <div className={styles.guideSection}>
+                      <h4>🛡️ Quyền hạn & Hoạt động trong nhóm:</h4>
+                      <ul className={styles.guideList}>
+                        <li><strong>Danh sách nhóm:</strong> Xem toàn bộ các nhóm bạn đang tham gia hoặc chủ động tạo nhóm mới với bạn bè.</li>
+                        <li><strong>Trưởng nhóm (Captain):</strong> Có quyền mời thêm thành viên, đổi tên nhóm và đặc biệt là <strong>đại diện mang đội đi thách đấu các nhóm khác</strong>.</li>
+                        <li><strong>Box Chat Thách Đấu Tự Động:</strong> Khi 2 đội đồng ý thi đấu với nhau, hệ thống tự động tạo ra một <strong>phòng chat chung</strong> (mang tên <code>⚔️ Thách đấu: [Đội A] vs [Đội B]</code>) kết nối tất cả thành viên của cả 2 bên. Phòng chat này bình đẳng tuyệt đối, <strong>không có trưởng nhóm</strong> và bất kỳ thành viên nào cũng có quyền tự do bấm <strong>Rời nhóm</strong> khi trận đấu đã kết thúc!</li>
+                      </ul>
+                    </div>
+
+                    <div className={styles.guideTipBox}>
+                      <span className={styles.guideTipIcon}>🏆</span>
+                      <p className={styles.guideTipText}>
+                        <strong>Văn hóa thể thao:</strong> Hãy duy trì số lượng thành viên tích cực từ 2-4 người/nhóm để luôn sẵn sàng lực lượng tham chiến các kèo đấu giao hữu đôi!
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {guideTab === 4 && (
+                  <div>
+                    <h3 className={styles.guideStepTitle}>🔥 Bước 4: Đấu Trường Thách Đấu Đối Thủ</h3>
+                    <p className={styles.guideStepSubtitle}>Nơi các Đội/Nhóm tìm kiếm đối thủ để giao lưu thi đấu, cọ xát nâng trình.</p>
+                    
+                    <div className={styles.guideSection}>
+                      <h4>⚔️ Quy trình cáp kèo thi đấu:</h4>
+                      <ul className={styles.guideList}>
+                        <li><strong>Tìm nhóm đối thủ:</strong> Duyệt danh sách các Đội đang sẵn sàng trên sàn thi đấu, xem trước trình độ trung bình và số lượng thành viên của họ.</li>
+                        <li><strong>Gửi lời mời thách đấu:</strong> Bấm nút <strong>"Thách đấu"</strong> trên thẻ đội bạn muốn giao hữu.</li>
+                        <li><strong>Đề xuất lịch thi đấu:</strong> Chọn chính xác <strong>Ngày thi đấu</strong> và <strong>Khung giờ chơi</strong> (Ví dụ: 18:00 - 20:00 Thứ 7 tuần này) và gửi lời mời đi.</li>
+                        <li><strong>Kết nối ngay lập tức:</strong> Ngay sau khi đối phương bấm đồng ý, toàn bộ thành viên hai bên sẽ được gom vào Box chat chung để cùng giao lưu, bàn chiến thuật trước giờ bóng lăn.</li>
+                      </ul>
+                    </div>
+
+                    <div className={styles.guideTipBox}>
+                      <span className={styles.guideTipIcon}>🔥</span>
+                      <p className={styles.guideTipText}>
+                        <strong>Quy tắc Fair-play:</strong> Nên thách đấu các nhóm có trình độ chênh lệch không quá ±0.5 điểm Skill Level để có những trận cầu ngang tài ngang sức và kịch tính nhất!
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {guideTab === 5 && (
+                  <div>
+                    <h3 className={styles.guideStepTitle}>✉️ Bước 5: Hộp Thư Lời Mời & Quy Trình Chốt Sân</h3>
+                    <p className={styles.guideStepSubtitle}>Trung tâm điều phối kèo đấu và tự động hóa đặt sân gửi thông báo Email.</p>
+                    
+                    <div className={styles.guideSection}>
+                      <h4>🏟️ Luồng đặt sân & thông báo tự động:</h4>
+                      <ul className={styles.guideList}>
+                        <li><strong>Chấp nhận kèo:</strong> Khi Đội được mời bấm <strong>"Đồng ý"</strong>, lời mời chuyển sang trạng thái chấp nhận và một <strong>Box Chat Thách Đấu chung</strong> sẽ lập tức xuất hiện bên tab Nhóm chơi bóng.</li>
+                        <li><strong>Đội Thách Đấu chốt sân:</strong> Tại tab <em>Lời mời đã gửi</em>, chỉ duy nhất <strong>Trưởng nhóm Đội chủ nhà (thách đấu)</strong> mới có nút màu xanh <strong>"🎾 Đặt sân cho trận đấu"</strong>.</li>
+                        <li><strong>Hoàn tất đặt sân:</strong> Hệ thống dẫn tới trang chọn sân đã điền sẵn ngày giờ thi đấu. Chỉ cần chọn sân bóng trống và xác nhận.</li>
+                        <li><strong>Email thông báo tự động:</strong> Ngay khi chốt sân xong, hệ thống phát chuông & <strong>gửi Email chính thức</strong> (Mã đặt sân, Tên sân cụ thể, Giờ chơi) cho Trưởng nhóm cả 2 đội!</li>
+                      </ul>
+                    </div>
+
+                    <div className={styles.guideTipBox}>
+                      <span className={styles.guideTipIcon}>✅</span>
+                      <p className={styles.guideTipText}>
+                        <strong>Tính năng bảo vệ đôi:</strong> Nút đặt sân chỉ hiển thị cho Đội Trưởng bên gửi thách đấu để tránh tuyệt đối rủi ro 2 đội cùng đặt trùng sân. Đồng thời, Box chat chung không có trưởng nhóm giúp mọi người dễ dàng giao tiếp mà không bị gò bó quyền lực!
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

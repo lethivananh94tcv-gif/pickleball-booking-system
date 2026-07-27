@@ -158,7 +158,16 @@ export async function findSuitableTeammates(userId: number) {
 }
 
 export async function getUserActiveGroups(userId: number) {
-  return repo.findUserGroups(userId);
+  const groups = await repo.findUserGroups(userId);
+  return Promise.all(
+    (groups || []).map(async (g: any) => {
+      const details = await getGroupDetails(g.GroupID);
+      return {
+        ...g,
+        members: details?.members || []
+      };
+    })
+  );
 }
 
 import { getGroupDetails, countActiveGroupMembers } from "../playgroups/playgroups.repository";
