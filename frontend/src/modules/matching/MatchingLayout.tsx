@@ -671,16 +671,16 @@ export default function MatchingLayout() {
                       <h4>🏟️ Luồng đặt sân & thông báo tự động:</h4>
                       <ul className={styles.guideList}>
                         <li><strong>Chấp nhận kèo:</strong> Khi Đội được mời bấm <strong>"Đồng ý"</strong>, lời mời chuyển sang trạng thái chấp nhận và một <strong>Box Chat Thách Đấu chung</strong> sẽ lập tức xuất hiện bên tab Nhóm chơi bóng.</li>
-                        <li><strong>Đội Thách Đấu chốt sân:</strong> Tại tab <em>Lời mời đã gửi</em>, chỉ duy nhất <strong>Trưởng nhóm Đội chủ nhà (thách đấu)</strong> mới có nút màu xanh <strong>"🎾 Đặt sân cho trận đấu"</strong>.</li>
-                        <li><strong>Hoàn tất đặt sân:</strong> Hệ thống dẫn tới trang chọn sân đã điền sẵn ngày giờ thi đấu. Chỉ cần chọn sân bóng trống và xác nhận.</li>
-                        <li><strong>Email thông báo tự động:</strong> Ngay khi chốt sân xong, hệ thống phát chuông & <strong>gửi Email chính thức</strong> (Mã đặt sân, Tên sân cụ thể, Giờ chơi) cho Trưởng nhóm cả 2 đội!</li>
+                        <li><strong>Thống nhất đặt sân:</strong> Cả 2 bên sẽ nhận được thông báo hướng dẫn. Thành viên hai đội có thể liên lạc, trao đổi qua Box chat thách đấu để cùng thống nhất thời gian và địa điểm đặt sân thi đấu.</li>
+                        <li><strong>Hoàn tất đặt sân:</strong> Sau khi đã thống nhất qua Box chat, các đội có thể chủ động tiến hành đặt sân theo lịch thi đấu đã chốt.</li>
+                        <li><strong>Email thông báo tự động:</strong> Khi hoàn tất quá trình đặt sân và thi đấu, hệ thống hỗ trợ phát thông báo và Email cập nhật tiến độ giải đấu cho cả 2 đội!</li>
                       </ul>
                     </div>
 
                     <div className={styles.guideTipBox}>
                       <span className={styles.guideTipIcon}>✅</span>
                       <p className={styles.guideTipText}>
-                        <strong>Tính năng bảo vệ đôi:</strong> Nút đặt sân chỉ hiển thị cho Đội Trưởng bên gửi thách đấu để tránh tuyệt đối rủi ro 2 đội cùng đặt trùng sân. Đồng thời, Box chat chung không có trưởng nhóm giúp mọi người dễ dàng giao tiếp mà không bị gò bó quyền lực!
+                        <strong>Kết nối tự do:</strong> Box chat chung giữa 2 đội giúp mọi thành viên dễ dàng giao tiếp, thảo luận mở mà không bị gò bó, thuận tiện cho việc thống nhất lịch giao lưu, thách đấu!
                       </p>
                     </div>
                   </div>

@@ -216,7 +216,7 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
                         }}>
                           ⏳ <strong>Đã chấp nhận thách đấu!</strong><br />
                           <span style={{ fontSize: "12px", color: "var(--pcs-neutral-600)" }}>
-                            Đang chờ đội thách đấu (<strong>{inv.GroupName || inv.SenderName || "đối thủ"}</strong>) chốt sân thi đấu. Bạn sẽ nhận được thông báo ngay khi sân được đặt!
+                            Box chat thách đấu đã được tạo bên tab <strong>Nhóm chơi bóng</strong>. Hai bên có thể liên lạc, trao đổi qua box chat để thống nhất đặt sân!
                           </span>
                         </div>
                       )}
@@ -296,30 +296,21 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
                     </span>
                   </div>
                   {inv.InvitationType === "InviteOpponent" && inv.Status === "Accepted" && (
-                    <div style={{ width: "100%" }}>
-                      {inv.ChallengeDate && inv.ChallengeStartTime && inv.ChallengeEndTime && inv.GroupID ? (
-                        <button
-                          onClick={() => {
-                            router.push(`/bookings/team?groupId=${inv.GroupID}&date=${encodeURIComponent(inv.ChallengeDate || "")}&startTime=${encodeURIComponent(inv.ChallengeStartTime || "")}&endTime=${encodeURIComponent(inv.ChallengeEndTime || "")}`);
-                          }}
-                          className={styles.primaryBtn}
-                          style={{ width: "100%", padding: "0.625rem 1.25rem", fontSize: "14px" }}
-                        >
-                          Đặt sân cho trận đấu
-                        </button>
-                      ) : (
-                        <div style={{
-                          fontSize: "12px",
-                          color: "var(--pcs-status-warning)",
-                          backgroundColor: "var(--pcs-status-warning-bg, #fffbeb)",
-                          padding: "0.5rem",
-                          borderRadius: "6px",
-                          textAlign: "center",
-                          border: "1px solid var(--pcs-status-warning-border, #fef3c7)"
-                        }}>
-                          ⚠️ Lời mời này chưa có lịch thi đấu hợp lệ.
-                        </div>
-                      )}
+                    <div style={{
+                      width: "100%",
+                      fontSize: "13px",
+                      color: "var(--pcs-brand-primary-hover, #047857)",
+                      backgroundColor: "var(--pcs-brand-primary-light, #ecfdf5)",
+                      padding: "0.625rem 0.75rem",
+                      borderRadius: "8px",
+                      textAlign: "center",
+                      border: "1px solid var(--pcs-brand-primary-border, #a7f3d0)",
+                      lineHeight: "1.4"
+                    }}>
+                      ⏳ <strong>Đã chấp nhận thách đấu!</strong><br />
+                      <span style={{ fontSize: "12px", color: "var(--pcs-neutral-600)" }}>
+                        Box chat thách đấu đã được tạo bên tab <strong>Nhóm chơi bóng</strong>. Hai bên có thể liên lạc, trao đổi qua box chat để thống nhất đặt sân!
+                      </span>
                     </div>
                   )}
                 </div>
