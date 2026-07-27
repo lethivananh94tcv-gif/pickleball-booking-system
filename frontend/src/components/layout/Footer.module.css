@@ -56,7 +56,7 @@
   margin: 0 auto;
 
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr 1.25fr;
+  grid-template-columns: 1.8fr 1fr 1.2fr;
 
   gap: 52px;
 }

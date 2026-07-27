@@ -45,14 +45,6 @@ export default function Footer() {
         </div>
 
         <div>
-          <h4>Hỗ trợ</h4>
-          <Link href="/guide">Hướng dẫn đặt sân</Link>
-          <Link href="/payments">Thanh toán</Link>
-          <Link href="/faq">Câu hỏi thường gặp</Link>
-          <Link href="/policy">Chính sách bảo mật</Link>
-        </div>
-
-        <div>
           <h4>Liên hệ</h4>
           <p>☎ 1900 1234</p>
           <p>✉ support@pickleclub.vn</p>
