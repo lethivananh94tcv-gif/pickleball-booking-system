@@ -1328,20 +1328,18 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
                 )}
 
                 {/* Option 4: Leave group (For both members and leader) */}
-                {!isChallengeChat && (
-                  <button
-                    onClick={() => {
-                      setShowChatOptionsModal(false);
-                      handleLeaveGroup(chatGroup.GroupID, isLeader || false, chatGroup.GroupName);
-                    }}
-                    className={styles.secondaryBtn}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "12px 16px", borderRadius: "12px", backgroundColor: "#fff7ed", borderColor: "#fed7aa", color: "#c2410c", fontSize: "14.5px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
-                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#ffedd5"; e.currentTarget.style.borderColor = "#fb923c"; }}
-                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "#fff7ed"; e.currentTarget.style.borderColor = "#fed7aa"; }}
-                  >
-                    Rời khỏi nhóm
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    setShowChatOptionsModal(false);
+                    handleLeaveGroup(chatGroup.GroupID, isLeader || false, chatGroup.GroupName);
+                  }}
+                  className={styles.secondaryBtn}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "12px 16px", borderRadius: "12px", backgroundColor: "#fff7ed", borderColor: "#fed7aa", color: "#c2410c", fontSize: "14.5px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#ffedd5"; e.currentTarget.style.borderColor = "#fb923c"; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "#fff7ed"; e.currentTarget.style.borderColor = "#fed7aa"; }}
+                >
+                  Rời khỏi nhóm
+                </button>
 
                 {/* Option 5: Disband group (Leader ONLY) */}
                 {isLeader && (
