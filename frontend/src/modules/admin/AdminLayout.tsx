@@ -121,6 +121,7 @@ export default function AdminLayout({
       title: "QUẢN LÝ",
       items: [
         { href: "/admin/bookings", label: "Danh sách booking", icon: <CalendarIcon /> },
+        { href: "/admin/refunds", label: "Yêu cầu hoàn tiền", icon: <RevenueIcon /> },
         { href: "/admin/tournaments", label: "Giải đấu", icon: <CalendarIcon /> },
       ]
     }

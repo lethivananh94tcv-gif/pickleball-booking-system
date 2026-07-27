@@ -20,13 +20,13 @@
 /* ── Modal box ── */
 .modal {
   background: #ffffff;
-  border-radius: var(--pcs-radius-lg);
+  border-radius: 32px;
   width: 100%;
-  max-width: 460px;
-  max-height: min(92vh, 820px);
+  max-width: 480px;
+  max-height: min(92vh, 850px);
   overflow-y: auto;
-  padding: 36px;
-  box-shadow: var(--pcs-shadow-lg);
+  padding: 40px 32px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.01);
   animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
 }
@@ -499,13 +499,24 @@
 }
 
 .statusBadge {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  color: #2563eb;
-  background: #eff6ff;
-  padding: 2px 8px;
+  color: #16a34a;
+  background: #f0fdf4;
+  padding: 4px 12px;
   border-radius: 20px;
-  text-transform: uppercase;
+  text-transform: capitalize;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  background-color: #16a34a;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .headerTitleArea p {
@@ -518,7 +529,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 @media (max-width: 520px) {
@@ -528,23 +539,28 @@
 }
 
 .gridBox {
-  border: 1px solid #f1f5f9;
-  background: #fafaf9;
-  border-radius: 16px;
-  padding: 16px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
 }
 
 .boxLabel {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  font-weight: 800;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
   color: #64748b;
   letter-spacing: 0.05em;
+}
+
+.boxLabel svg {
+  color: #10b981;
 }
 
 .boxContent {
@@ -553,60 +569,61 @@
   gap: 4px;
 }
 
-.courtBadge {
-  background: #e0e7ff;
-  color: #3730a3;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 12px;
+.courtNameText {
+  font-size: 16px;
   font-weight: 700;
-  align-self: flex-start;
+  color: #0f172a;
 }
 
 .courtTypeSub {
-  font-size: 12px;
+  font-size: 13px;
   color: #64748b;
 }
 
 .boxContentUser {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.userAvatar {
-  width: 32px;
-  height: 32px;
+.avatarPlaceholder {
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  object-fit: cover;
+  background: #e2e8f0;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .userInfo {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .userName {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: #0f172a;
 }
 
 .userRole {
-  font-size: 11px;
+  font-size: 12px;
   color: #64748b;
 }
 
 .appointmentDate {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: #0f172a;
 }
 
 .appointmentTime {
   font-size: 13px;
-  font-weight: 600;
-  color: #0f172a;
+  color: #64748b;
 }
 
 .boxContentPrice {
@@ -615,23 +632,33 @@
 }
 
 .totalPriceVal {
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 800;
-  color: #2563eb;
+  color: #047857;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.currencyUnderline {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .holdingAlert {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   background: #fff7ed;
-  border: 1px solid #ffedd5;
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
-  font-size: 12px;
-  color: #9a3412;
-  line-height: 1.5;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: #7c2d12;
+  line-height: 1.4;
 }
 
 .alertIconWrapper {
@@ -639,7 +666,11 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  margin-top: 2px;
+}
+
+.alertTimer {
+  color: #c2410c;
+  font-weight: 700;
 }
 
 .policyRow {
@@ -647,19 +678,51 @@
 }
 
 .checkboxContainer {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 12px;
-  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #475569;
   cursor: pointer;
+  position: relative;
   user-select: none;
 }
 
 .checkboxContainer input {
-  margin-top: 3px;
-  cursor: pointer;
-  accent-color: #059669;
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.customCheckbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #cbd5e1;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: #ffffff;
+  flex-shrink: 0;
+}
+
+.checkboxContainer input:checked + .customCheckbox {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.customCheckbox svg {
+  color: #ffffff;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.2s ease;
+}
+
+.checkboxContainer input:checked + .customCheckbox svg {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .policyText {
@@ -678,11 +741,18 @@
 }
 
 .validationErrorMsg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  border-radius: 8px;
+  padding: 10px 14px;
   font-size: 12px;
-  margin-bottom: 12px;
   font-weight: 600;
   text-align: left;
+  margin-bottom: 16px;
 }
 
 .actionsRow {
@@ -693,11 +763,11 @@
 
 .btnCancelNew {
   flex: 1;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #cbd5e1;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1.5px solid #10b981;
   background: #ffffff;
-  color: #475569;
+  color: #0f172a;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -705,27 +775,26 @@
 }
 
 .btnCancelNew:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
+  background: #f0fdf4;
 }
 
 .btnConfirmGreen {
   flex: 2;
-  padding: 12px;
-  border-radius: 12px;
-  background: #10b981; /* Green color theme */
+  padding: 14px;
+  border-radius: 14px;
+  background: #10b981;
   color: #ffffff;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   border: none;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
 }
 
 .btnConfirmGreen:hover:not(:disabled) {
   background: #059669;
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.25);
   transform: translateY(-1px);
 }
 

@@ -7,6 +7,7 @@ import {
   processRefund,
   completeManualRefund,
   rejectRefund,
+  updateRefundBankDetails,
 } from "@/services/refundApi";
 import type { RefundManagerRecord } from "@/services/refundApi";
 import { getToken, getUser } from "@/utils/authStorage";
@@ -58,6 +59,416 @@ function ActionBtn({
     >
       {label}
     </button>
+  );
+}
+
+// Helper for copy to clipboard
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      style={{
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: "2px",
+        display: "inline-flex",
+        alignItems: "center",
+        color: "#94a3b8",
+        marginLeft: "6px",
+      }}
+      title="Sao chép"
+    >
+      {copied ? (
+        <span style={{ fontSize: "11px", color: "#10b981", fontWeight: "bold" }}>✓</span>
+      ) : (
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1M8 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M8 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m0 0h2a2 2 0 0 1 2 2v3m-6 4h10m-5-5v10" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+// ── Redesigned Refund Detail View ───────────────────────
+
+interface RefundDetailViewProps {
+  refund: RefundManagerRecord;
+  onBack: () => void;
+  onConfirm: (file: File) => Promise<void>;
+  loading: boolean;
+  setModal: React.Dispatch<React.SetStateAction<ModalState>>;
+}
+
+function RefundDetailView({
+  refund,
+  onBack,
+  onConfirm,
+  loading,
+  setModal,
+}: RefundDetailViewProps) {
+  const [billImage, setBillImage] = useState<File | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const bankMatch = refund.Reason?.match(/\[Bank:\s*(.*?)\]/i);
+  const stkMatch = refund.Reason?.match(/\[STK:\s*(.*?)\]/i);
+  const nameMatch = refund.Reason?.match(/\[Name:\s*(.*?)\]/i);
+
+  const bankId = bankMatch ? bankMatch[1] : "";
+  const accountNo = stkMatch ? stkMatch[1] : "";
+  const accountName = nameMatch ? nameMatch[1] : "";
+
+  const refundAmount = Number(refund.RefundAmount);
+  const refundCode = refund.RefundCode || `#${refund.RefundID}`;
+  const bookingCode = refund.BookingCode;
+
+  const VIETNAM_BANKS: Record<string, string> = {
+    mbbank: "MBBank",
+    vietcombank: "Vietcombank (VCB)",
+    techcombank: "Techcombank",
+    bidv: "BIDV",
+    vietinbank: "VietinBank",
+    acb: "ACB",
+    vpbank: "VPBank",
+    tpbank: "TPBank",
+    vib: "VIB",
+    hdbank: "HDBank",
+    sacombank: "Sacombank",
+    agribank: "Agribank",
+  };
+  const bankDisplay = bankId ? (VIETNAM_BANKS[bankId.toLowerCase()] || bankId.toUpperCase()) : "—";
+
+  const qrUrl = (bankId && accountNo && refundAmount)
+    ? `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.jpg?amount=${refundAmount}&addInfo=${encodeURIComponent(`Hoan tien ${bookingCode || refundCode}`)}&accountName=${encodeURIComponent(accountName)}`
+    : null;
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setIsDragActive(true);
+    } else if (e.type === "dragleave") {
+      setIsDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setBillImage(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setBillImage(e.target.files[0]);
+    }
+  };
+
+  const selectFile = () => {
+    fileInputRef.current?.click();
+  };
+
+  const formattedDate = new Date(refund.RequestedAt).toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
+
+  const reasonText = refund.Reason ? refund.Reason.replace(/\[Bank:.*?\]|\[STK:.*?\]|\[Name:.*?\]/gi, "").trim() : "—";
+
+  return (
+    <div className={styles.detailContainer}>
+      {/* Back Link */}
+      <button onClick={onBack} className={styles.backBtn}>
+        <span>←</span> Quay lại danh sách
+      </button>
+
+      {/* Header Info */}
+      <div className={styles.detailHeader}>
+        <h2 className={styles.detailTitle}>Chi tiết thanh toán</h2>
+        <div className={styles.badgeWrapper}>
+          <span className={styles.badgeOrange}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "4px" }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 1118 0z" />
+            </svg>
+            Chờ hoàn tiền
+          </span>
+          <span className={styles.updateTime}>
+            Cập nhật: {formattedDate}
+          </span>
+        </div>
+      </div>
+
+      {/* Summary Row */}
+      <div className={styles.topSummaryRow}>
+        <div className={styles.summaryCol}>
+          <div className={styles.summaryLabel}>Mã refund</div>
+          <div className={styles.summaryValue}>
+            <span className={styles.refundCodeValue}>{refundCode}</span>
+            <CopyButton text={refundCode} />
+          </div>
+        </div>
+
+        <div className={styles.summaryCol}>
+          <div className={styles.summaryLabel}>Mã booking</div>
+          <div className={styles.summaryValue}>
+            <span>{bookingCode || "—"}</span>
+            {bookingCode && <CopyButton text={bookingCode} />}
+          </div>
+        </div>
+
+        <div className={styles.summaryCol}>
+          <div className={styles.summaryLabel}>Số tiền</div>
+          <div className={styles.summaryValue}>
+            <span className={styles.refundAmountValue}>{formatCurrency(refundAmount)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid columns */}
+      <div className={styles.detailGrid}>
+        {/* Left Column */}
+        <div className={styles.detailCard}>
+          <h4 className={styles.cardHeader}>
+            <span className={styles.cardIconWrap}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </span>
+            <span className={styles.cardTitleText}>Lý do & thông tin nhận tiền</span>
+          </h4>
+
+          <div className={styles.reasonBox}>
+            Lý do: {reasonText}
+          </div>
+
+          <div className={styles.infoTable}>
+            <div className={styles.infoTableRow}>
+              <span className={styles.infoRowLabel}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Ngân hàng
+              </span>
+              <span className={styles.infoRowValue}>{bankDisplay}</span>
+            </div>
+
+            <div className={styles.infoTableRow}>
+              <span className={styles.infoRowLabel}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+                Số tài khoản
+              </span>
+              <span className={styles.infoRowValue}>
+                {accountNo || "—"}
+                {accountNo && <CopyButton text={accountNo} />}
+              </span>
+            </div>
+
+            <div className={styles.infoTableRow}>
+              <span className={styles.infoRowLabel}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Tên người nhận
+              </span>
+              <span className={styles.infoRowValue}>{accountName || "—"}</span>
+            </div>
+          </div>
+
+          {!bankId && (
+            <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "12px", padding: "14px", fontSize: "13px", color: "#7c2d12", marginTop: "12px" }}>
+              <strong style={{ display: "block", color: "#c2410c", marginBottom: "4px" }}>⚠️ Cần liên hệ lấy tài khoản nhận tiền:</strong>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px", background: "#ffffff", padding: "10px", borderRadius: "8px", border: "1px solid #ffedd5", color: "#475569" }}>
+                <div>Khách hàng: <strong style={{ color: "#1e293b" }}>{refund.PlayerName || "Chưa rõ"}</strong></div>
+                {refund.PlayerPhone && <div>Số điện thoại: <strong style={{ color: "#2563eb" }}>{refund.PlayerPhone}</strong></div>}
+                {refund.PlayerEmail && <div>Email: <strong style={{ color: "#1e293b" }}>{refund.PlayerEmail}</strong></div>}
+              </div>
+              <button
+                type="button"
+                onClick={() => setModal({
+                  type: "updateBank",
+                  refundCode: refundCode,
+                  reason: refund.Reason ?? undefined,
+                  playerName: refund.PlayerName ?? undefined,
+                  playerEmail: refund.PlayerEmail ?? undefined,
+                  playerPhone: refund.PlayerPhone ?? undefined,
+                })}
+                style={{
+                  marginTop: "12px",
+                  background: "#ea580c",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "8.5px 16px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  width: "100%",
+                  textAlign: "center",
+                  transition: "background 0.15s",
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = "#c2410c")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "#ea580c")}
+              >
+                ✏️ Điền thông tin TK nhận tiền
+              </button>
+            </div>
+          )}
+
+          {bankId && (
+            <button
+              onClick={() => setModal({
+                type: "updateBank",
+                refundCode: refundCode,
+                reason: refund.Reason ?? undefined,
+                playerName: refund.PlayerName ?? undefined,
+                playerEmail: refund.PlayerEmail ?? undefined,
+                playerPhone: refund.PlayerPhone ?? undefined,
+              })}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#2563eb",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: 0,
+                marginTop: "14px",
+                textDecoration: "underline",
+                alignSelf: "flex-start"
+              }}
+            >
+              ✏️ Chỉnh sửa thông tin nhận tiền
+            </button>
+          )}
+        </div>
+
+        {/* Right Column */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* QR Box */}
+          <div className={styles.detailCard}>
+            <h4 className={styles.cardHeader}>
+              <span className={styles.cardIconWrap}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+              </span>
+              <span className={styles.cardTitleText}>Thanh toán qua VietQR</span>
+            </h4>
+            <p style={{ margin: 0, color: "#64748b", fontSize: "12px", alignSelf: "flex-start" }}>
+              Quét mã để chuyển khoản nhanh qua ứng dụng ngân hàng
+            </p>
+
+            {qrUrl ? (
+              <div className={styles.qrContainer}>
+                <div className={styles.vietQrCard}>
+                  <img src={qrUrl} alt="VietQR" style={{ width: "180px", height: "180px", objectFit: "contain" }} />
+                </div>
+                <div className={styles.qrFooterText}>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                  Quét mã chuyển tiền
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "180px", color: "#94a3b8", textAlign: "center", gap: "8px" }}>
+                <span style={{ fontSize: "36px" }}>🏦</span>
+                <div style={{ fontSize: "13px", fontWeight: 600 }}>Không khả dụng VietQR</div>
+                <div style={{ fontSize: "11px", maxWidth: "200px" }}>Cần cập nhật thông tin ngân hàng của khách để tạo QR tự động.</div>
+              </div>
+            )}
+          </div>
+
+          {/* Upload Bill Card */}
+          <div className={styles.detailCard}>
+            <h4 className={styles.cardHeader}>
+              <span className={styles.cardIconWrap}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              </span>
+              <span className={styles.cardTitleText}>Tải lên ảnh bill chuyển khoản <span style={{ color: "#ef4444" }}>*</span></span>
+            </h4>
+
+            <div className={styles.uploadCard}>
+              <div
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+                onClick={selectFile}
+                className={`${styles.uploadZone} ${isDragActive ? styles.uploadZoneActive : ""}`}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  style={{ display: "none" }}
+                />
+
+                <div className={styles.uploadZoneLeft}>
+                  <span className={styles.uploadZoneIcon} style={{ color: billImage ? "#10b981" : "#64748b" }}>
+                    {billImage ? "📄" : "☁️"}
+                  </span>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a", maxWidth: "150px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {billImage ? billImage.name : "Kéo thả ảnh vào đây hoặc"}
+                    </div>
+                    {!billImage && <div style={{ fontSize: "11px", color: "#64748b" }}>Định dạng: JPG, PNG, PDF</div>}
+                  </div>
+                </div>
+
+                <button type="button" className={styles.uploadBtn}>
+                  {billImage ? "Đổi file" : "Chọn file"}
+                </button>
+              </div>
+
+              {/* Warning Notice Box */}
+              <div className={styles.warningBox}>
+                <span style={{ fontSize: "16px", flexShrink: 0 }}>⚠️</span>
+                <div>
+                  <strong>Lưu ý:</strong> Đây là hoàn tiền thủ công. Bạn phải chuyển khoản ngân hàng cho khách trước, sau đó bắt buộc tải ảnh bill lên và xác nhận.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Row */}
+          <div className={styles.actionRow}>
+            <button onClick={onBack} disabled={loading} className={styles.btnCancel}>
+              Hủy
+            </button>
+            <button
+              onClick={() => billImage && onConfirm(billImage)}
+              disabled={loading || !billImage}
+              className={`${styles.btnConfirm} ${billImage ? styles.btnConfirmActive : ""}`}
+            >
+              {loading ? "Đang xử lý..." : "Xác nhận đã hoàn tiền"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -251,6 +662,147 @@ function RejectModal({
   );
 }
 
+// ── Update Bank Details Modal ─────────────────────────
+
+function UpdateBankDetailsModal({
+  refundCode,
+  reason,
+  playerName,
+  playerEmail,
+  playerPhone,
+  onConfirm,
+  onClose,
+  loading,
+}: {
+  refundCode: string;
+  reason?: string;
+  playerName?: string;
+  playerEmail?: string;
+  playerPhone?: string;
+  onConfirm: (bankId: string, accountNo: string, accountName: string) => Promise<void>;
+  onClose: () => void;
+  loading: boolean;
+}) {
+  const bankMatch = reason?.match(/\[Bank:\s*(.*?)\]/i);
+  const stkMatch = reason?.match(/\[STK:\s*(.*?)\]/i);
+  const nameMatch = reason?.match(/\[Name:\s*(.*?)\]/i);
+
+  const initialBankId = bankMatch ? bankMatch[1] : "";
+  const initialAccountNo = stkMatch ? stkMatch[1] : "";
+  const initialAccountName = nameMatch ? nameMatch[1] : "";
+
+  const [bankId, setBankId] = useState(initialBankId);
+  const [accountNo, setAccountNo] = useState(initialAccountNo);
+  const [accountName, setAccountName] = useState(initialAccountName);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const VIETNAM_BANKS = [
+    { id: "mbbank", name: "MBBank" },
+    { id: "vietcombank", name: "Vietcombank (VCB)" },
+    { id: "techcombank", name: "Techcombank" },
+    { id: "bidv", name: "BIDV" },
+    { id: "vietinbank", name: "VietinBank" },
+    { id: "acb", name: "ACB" },
+    { id: "vpbank", name: "VPBank" },
+    { id: "tpbank", name: "TPBank" },
+    { id: "vib", name: "VIB" },
+    { id: "hdbank", name: "HDBank" },
+    { id: "sacombank", name: "Sacombank" },
+    { id: "agribank", name: "Agribank" },
+    { id: "msb", name: "MSB" },
+    { id: "ocb", name: "OCB" },
+    { id: "seabank", name: "SeABank" },
+  ];
+
+  async function handleSave() {
+    if (!bankId || !accountNo.trim() || !accountName.trim()) {
+      setErrorMsg("Vui lòng chọn ngân hàng, nhập số tài khoản và tên chủ tài khoản.");
+      return;
+    }
+    setErrorMsg("");
+    try {
+      await onConfirm(bankId, accountNo.trim(), accountName.trim().toUpperCase());
+    } catch (err: any) {
+      setErrorMsg(err.message || "Không thể cập nhật thông tin ngân hàng.");
+    }
+  }
+
+  return (
+    <div className={styles.overlay} onClick={onClose}>
+      <div className={styles.modal} style={{ maxWidth: "480px" }} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <h3 className={styles.modalTitle}>Cập nhật Thông tin Nhận tiền</h3>
+          <button className={styles.modalClose} onClick={onClose} disabled={loading}>×</button>
+        </div>
+
+        <div className={styles.modalBody}>
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "14px", marginBottom: "16px", fontSize: "13px" }}>
+            <h4 style={{ margin: "0 0 8px 0", color: "#475569" }}>📞 Thông tin liên hệ khách hàng:</h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div>👤 Khách hàng: <strong>{playerName || "Chưa rõ"}</strong></div>
+              <div>📞 Số điện thoại: <strong style={{ color: "#2563eb" }}>{playerPhone || "Chưa có SĐT"}</strong></div>
+              <div>✉️ Email: <strong>{playerEmail || "Chưa có Email"}</strong></div>
+            </div>
+          </div>
+
+          {errorMsg && (
+            <div style={{ background: "#fef2f2", border: "1px solid #fee2e2", borderRadius: "8px", padding: "10px", marginBottom: "14px", color: "#ef4444", fontSize: "13px" }}>
+              ⚠️ {errorMsg}
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#475569", marginBottom: "6px" }}>Ngân hàng nhận tiền *</label>
+              <select
+                value={bankId}
+                onChange={(e) => setBankId(e.target.value)}
+                style={{ width: "100%", padding: "10px", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", background: "#ffffff" }}
+              >
+                <option value="">-- Chọn ngân hàng --</option>
+                {VIETNAM_BANKS.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#475569", marginBottom: "6px" }}>Số tài khoản *</label>
+              <input
+                type="text"
+                placeholder="Nhập số tài khoản ngân hàng..."
+                value={accountNo}
+                onChange={(e) => setAccountNo(e.target.value.replace(/\s+/g, ""))}
+                style={{ width: "100%", padding: "10px", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", color: "#0f172a", background: "#ffffff" }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#475569", marginBottom: "6px" }}>Tên chủ tài khoản (Không dấu) *</label>
+              <input
+                type="text"
+                placeholder="Ví dụ: NGUYEN VAN A"
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                style={{ width: "100%", padding: "10px", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", color: "#0f172a", background: "#ffffff" }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.modalFooter}>
+          <button onClick={onClose} disabled={loading} className={styles.btnActionClose}>
+            Hủy
+          </button>
+          <button onClick={handleSave} disabled={loading} className={styles.btnActionConfirm}>
+            {loading ? "Đang xử lý..." : "Lưu thông tin"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── StatCard component ─────────────────────────────────
 
 interface StatCardProps {
@@ -317,7 +869,7 @@ function StatCard({
 
 // ── Modal State interface ────────────────────────────────────────
 
-type ModalType = "completeManual" | "reject" | null;
+type ModalType = "completeManual" | "reject" | "updateBank" | null;
 
 interface ModalState {
   type: ModalType;
@@ -326,6 +878,9 @@ interface ModalState {
   paymentMethod?: string;
   bookingCode?: string;
   reason?: string;
+  playerName?: string;
+  playerEmail?: string;
+  playerPhone?: string;
 }
 
 // ── Main Component ─────────────────────────────────────
@@ -346,6 +901,8 @@ export default function AdminRefundPage() {
 
   // Modals
   const [modal, setModal] = useState<ModalState>({ type: null, refundCode: "" });
+  const [selectedRefund, setSelectedRefund] = useState<RefundManagerRecord | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // User credentials for Header initials
   const [userName, setUserName] = useState("Admin");
@@ -361,6 +918,14 @@ export default function AdminRefundPage() {
       setUserName(u.FullName || u.fullName || "Admin");
       setUserEmail(u.Email || u.email || "admin@pickleclub.vn");
     }
+
+    const closeDropdown = () => {
+      setTimeout(() => {
+        setActiveDropdown(null);
+      }, 0);
+    };
+    window.addEventListener("click", closeDropdown);
+    return () => window.removeEventListener("click", closeDropdown);
   }, []);
 
   useEffect(() => {
@@ -409,18 +974,18 @@ export default function AdminRefundPage() {
     setTimeout(() => setError(""), 6000);
   }
 
-  async function handleCompleteManualConfirm(file: File) {
-    if (modal.type !== "completeManual" || !modal.refundCode) return;
+  async function handleCompleteManualConfirm(refundCode: string, bookingCode: string | undefined, file: File) {
     setActionLoading(true);
     try {
       const token = getToken();
       const formData = new FormData();
-      formData.append("refundCode", modal.refundCode);
+      formData.append("refundCode", refundCode);
       formData.append("billImage", file);
 
       await completeManualRefund(token!, formData);
-      const bookingStr = modal.bookingCode ? `mã booking ${modal.bookingCode}` : `mã refund ${modal.refundCode}`;
+      const bookingStr = bookingCode ? `mã booking ${bookingCode}` : `mã refund ${refundCode}`;
       setModal({ type: null, refundCode: "" });
+      setSelectedRefund(null);
       showSuccess(`Đã hoàn tiền ${bookingStr} thành công`);
     } catch (e: any) {
       showError(e.message);
@@ -463,6 +1028,34 @@ export default function AdminRefundPage() {
       showSuccess(res.message);
     } catch (e: any) {
       showError(e.message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleUpdateBankConfirm(bankId: string, accountNo: string, accountName: string) {
+    setActionLoading(true);
+    try {
+      const token = getToken();
+      const codeToUpdate = modal.refundCode || selectedRefund?.RefundCode || "";
+      await updateRefundBankDetails(token!, {
+        refundCode: codeToUpdate,
+        bankId,
+        accountNo,
+        accountName,
+      });
+      setModal({ type: null, refundCode: "" });
+      
+      if (selectedRefund && selectedRefund.RefundCode === codeToUpdate) {
+        setSelectedRefund(prev => prev ? {
+          ...prev,
+          Reason: `${prev.Reason ? prev.Reason.replace(/\[Bank:.*?\]|\[STK:.*?\]|\[Name:.*?\]/gi, "").trim() : ""} [Bank: ${bankId}] [STK: ${accountNo}] [Name: ${accountName}]`
+        } : null);
+      }
+      
+      showSuccess(`Đã cập nhật tài khoản ngân hàng thành công`);
+    } catch (e: any) {
+      showError(e.message || "Cập nhật thất bại.");
     } finally {
       setActionLoading(false);
     }
@@ -650,7 +1243,7 @@ export default function AdminRefundPage() {
             refundAmount={modal.refundAmount}
             bookingCode={modal.bookingCode}
             reason={modal.reason}
-            onConfirm={handleCompleteManualConfirm}
+            onConfirm={(file) => handleCompleteManualConfirm(modal.refundCode, modal.bookingCode, file)}
             onClose={() => setModal({ type: null, refundCode: "" })}
             loading={actionLoading}
           />
@@ -661,6 +1254,18 @@ export default function AdminRefundPage() {
             bookingCode={modal.bookingCode}
             reason={modal.reason}
             onConfirm={handleRejectConfirm}
+            onClose={() => setModal({ type: null, refundCode: "" })}
+            loading={actionLoading}
+          />
+        )}
+        {modal.type === "updateBank" && (
+          <UpdateBankDetailsModal
+            refundCode={modal.refundCode}
+            reason={modal.reason}
+            playerName={modal.playerName}
+            playerEmail={modal.playerEmail}
+            playerPhone={modal.playerPhone}
+            onConfirm={handleUpdateBankConfirm}
             onClose={() => setModal({ type: null, refundCode: "" })}
             loading={actionLoading}
           />
@@ -678,7 +1283,17 @@ export default function AdminRefundPage() {
           </div>
         )}
 
-        {/* Stat Grid with SVG Sparklines */}
+        {selectedRefund ? (
+          <RefundDetailView
+            refund={selectedRefund}
+            onBack={() => setSelectedRefund(null)}
+            onConfirm={(file) => handleCompleteManualConfirm(selectedRefund.RefundCode!, selectedRefund.BookingCode ?? undefined, file)}
+            loading={actionLoading}
+            setModal={setModal}
+          />
+        ) : (
+          <>
+            {/* Stat Grid with SVG Sparklines */}
         <div className={styles.statGrid}>
           <StatCard
             icon={
@@ -744,7 +1359,14 @@ export default function AdminRefundPage() {
             <input
               type="date"
               value={filterDateFrom}
-              onChange={(e) => setFilterDateFrom(e.target.value)}
+              max={filterDateTo || undefined}
+              onChange={(e) => {
+                const val = e.target.value;
+                setFilterDateFrom(val);
+                if (filterDateTo && val > filterDateTo) {
+                  setFilterDateTo("");
+                }
+              }}
               className={styles.filterInput}
             />
           </div>
@@ -753,7 +1375,14 @@ export default function AdminRefundPage() {
             <input
               type="date"
               value={filterDateTo}
-              onChange={(e) => setFilterDateTo(e.target.value)}
+              min={filterDateFrom || undefined}
+              onChange={(e) => {
+                const val = e.target.value;
+                setFilterDateTo(val);
+                if (filterDateFrom && val < filterDateFrom) {
+                  setFilterDateFrom("");
+                }
+              }}
               className={styles.filterInput}
             />
           </div>
@@ -815,12 +1444,16 @@ export default function AdminRefundPage() {
             <p className={styles.noOperationsDesc}>Không tìm thấy dữ liệu khớp với bộ lọc hiện tại.</p>
           </div>
         ) : (
-          <div className={styles.tableContainer}>
-            <div className={styles.tableResponsive}>
+          <>
+            <div className={styles.sectionHeader}>
+              <h2 className={styles.sectionTitle}>Danh sách yêu cầu hoàn tiền</h2>
+            </div>
+            <div className={styles.tableContainer}>
+              <div className={styles.tableResponsive}>
               <table className={styles.dataTable}>
                 <thead>
                   <tr>
-                    {["Mã Refund", "Khách hàng", "Số tiền", "Phương thức", "Lý do hoàn", "Trạng thái", "Ngày yêu cầu", "Thao tác"].map((h) => (
+                    {["Mã & Ngày yêu cầu", "Khách hàng", "Nguồn & Giao dịch", "Số tiền hoàn", "Lý do hoàn", "Trạng thái", "Thao tác"].map((h) => (
                       <th key={h}>
                         {h}
                       </th>
@@ -830,43 +1463,51 @@ export default function AdminRefundPage() {
                 <tbody>
                   {filtered.map((r) => (
                     <tr key={r.RefundID}>
-                      {/* Mã Refund */}
+                      {/* Mã & Ngày yêu cầu */}
                       <td style={{ padding: "14px 18px" }}>
                         <div className={styles.refundCode}>
                           {r.RefundCode || `#${r.RefundID}`}
                         </div>
-                        <div className={styles.bookingSubtext}>
-                          {r.BookingID ? `Booking #${r.BookingID}` : "Đăng ký giải đấu"} {r.BookingCode && `(${r.BookingCode})`}
+                        <div className={styles.dateMain} style={{ marginTop: "4px", fontSize: "11px", color: "#64748b" }}>
+                          Yêu cầu: {new Date(r.RequestedAt).toLocaleString("vi-VN")}
                         </div>
+                        {r.ProcessedAt && (
+                          <div className={styles.dateProcessed} style={{ fontSize: "11.5px", marginTop: "3px" }}>
+                            ✓ Xong: {new Date(r.ProcessedAt).toLocaleString("vi-VN")}
+                          </div>
+                        )}
                       </td>
 
                       {/* Khách hàng */}
                       <td style={{ padding: "14px 18px" }}>
                         <div className={styles.customerName}>{r.PlayerName || "—"}</div>
-                        <div className={styles.customerEmail}>{r.PlayerEmail || ""}</div>
-                      </td>
-
-                      {/* Số tiền: Hiển thị tiền âm (-) màu đỏ đặc trưng */}
-                      <td style={{ padding: "14px 18px" }}>
-                        <div className={styles.refundAmount}>
-                          {formatCurrency(-Number(r.RefundAmount))}
+                        <div className={styles.customerEmail}>
+                          {r.PlayerPhone || r.PlayerEmail || "—"}
                         </div>
                       </td>
 
-                      {/* Phương thức */}
+                      {/* Nguồn & Giao dịch */}
                       <td style={{ padding: "14px 18px" }}>
-                        <div className={styles.methodMain}>
-                          {r.PaymentMethod === "Momo" ? "MoMo" : "VietQR/PayOS"}
+                        <div style={{ fontWeight: 700, fontSize: "13px", color: "#1e293b" }}>
+                          {r.BookingCode ? `Booking ${r.BookingCode}` : "Đăng ký giải đấu"}
                         </div>
-                        <div className={styles.methodSub}>
-                          {r.RefundMethod === "Momo"
-                            ? "Hoàn tự động"
-                            : "Chuyển khoản thủ công"}
+                        <div className={styles.methodSub} style={{ marginTop: "4px" }}>
+                          Cổng: {r.PaymentMethod === "Momo" ? "MoMo" : "VietQR/PayOS"}
+                        </div>
+                      </td>
+
+                      {/* Số tiền hoàn */}
+                      <td style={{ padding: "14px 18px" }}>
+                        <div className={styles.refundAmount} style={{ color: "#dc2626" }}>
+                          {formatCurrency(Number(r.RefundAmount))}
+                        </div>
+                        <div className={styles.methodSub} style={{ marginTop: "4.5px" }}>
+                          {r.RefundMethod === "Momo" ? "Hoàn tự động" : "Hoàn thủ công"}
                         </div>
                       </td>
 
                       {/* Lý do hoàn */}
-                      <td style={{ padding: "14px 18px", maxWidth: "250px" }}>
+                      <td style={{ padding: "14px 18px", maxWidth: "220px" }}>
                         <div className={styles.reasonText}>
                           {r.Reason || "—"}
                         </div>
@@ -877,75 +1518,120 @@ export default function AdminRefundPage() {
                         <StatusBadge status={r.Status} />
                       </td>
 
-                      {/* Ngày yêu cầu */}
-                      <td style={{ padding: "14px 18px" }}>
-                        <div className={styles.dateMain}>
-                          {new Date(r.RequestedAt).toLocaleString("vi-VN")}
-                          {r.ProcessedAt && (
-                            <div className={styles.dateProcessed}>
-                              {new Date(r.ProcessedAt).toLocaleString("vi-VN")}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-
                       {/* Thao tác */}
-                      <td style={{ padding: "14px 18px" }}>
-                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                          {/* Approve: chỉ khi Requested */}
-                          {r.Status === "Requested" && (
-                            <ActionBtn
-                              label="Duyệt"
-                              color="#2563eb"
-                              onClick={() => handleApprove(r.RefundCode!)}
-                              disabled={actionLoading}
-                            />
-                          )}
+                      <td style={{ padding: "14px 18px", position: "relative" }}>
+                        <div style={{ display: "inline-block", position: "relative" }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdown(activeDropdown === r.RefundCode ? null : r.RefundCode!);
+                            }}
+                            className={styles.btnActionMenu}
+                            disabled={actionLoading}
+                          >
+                            Thao tác ▾
+                          </button>
 
-                          {/* Process MoMo: khi Momo + Processing hoặc PendingManual */}
-                          {r.RefundMethod === "Momo" && ["Processing", "PendingManual"].includes(r.Status) && (
-                            <ActionBtn
-                              label="Gửi MoMo"
-                              color="#a855f7"
-                              onClick={() => handleProcessMomo(r.RefundCode!)}
-                              disabled={actionLoading}
-                            />
-                          )}
+                          {activeDropdown === r.RefundCode && (
+                            <div className={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedRefund(r);
+                                  setActiveDropdown(null);
+                                }}
+                                className={styles.dropdownItem}
+                              >
+                                🔍 Xem chi tiết
+                              </button>
 
-                          {/* Complete Manual: PayOS + PendingManual hoặc Processing */}
-                          {r.RefundMethod !== "Momo" && ["PendingManual", "Processing"].includes(r.Status) && (
-                            <ActionBtn
-                              label="Hoàn tất thủ công"
-                              color="#16a34a"
-                              onClick={() => setModal({
-                                type: "completeManual",
-                                refundCode: r.RefundCode!,
-                                refundAmount: Number(r.RefundAmount),
-                                bookingCode: r.BookingCode ?? undefined,
-                                reason: r.Reason ?? undefined,
-                                paymentMethod: r.PaymentMethod,
-                              })}
-                              disabled={actionLoading}
-                            />
-                          )}
+                              {r.Status === "Requested" && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleApprove(r.RefundCode!);
+                                    setActiveDropdown(null);
+                                  }}
+                                  className={styles.dropdownItem}
+                                  style={{ color: "#2563eb" }}
+                                  disabled={actionLoading}
+                                >
+                                  ✓ Duyệt yêu cầu
+                                </button>
+                              )}
 
-                          {/* Reject: Requested, Approved, Processing, PendingManual */}
-                          {["Requested", "Approved", "Processing", "PendingManual"].includes(r.Status) && (
-                            <ActionBtn
-                              label="Từ chối"
-                              color="#dc2626"
-                              onClick={() => setModal({
-                                type: "reject",
-                                refundCode: r.RefundCode!,
-                                bookingCode: r.BookingCode ?? undefined,
-                                reason: r.Reason ?? undefined,
-                              })}
-                              disabled={actionLoading}
-                            />
-                          )}
+                              {r.RefundMethod === "Momo" && ["Processing", "PendingManual"].includes(r.Status) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleProcessMomo(r.RefundCode!);
+                                    setActiveDropdown(null);
+                                  }}
+                                  className={styles.dropdownItem}
+                                  style={{ color: "#8b5cf6" }}
+                                  disabled={actionLoading}
+                                >
+                                  ⚡ Gửi lệnh MoMo
+                                </button>
+                              )}
 
-                          {["Completed", "Failed", "Rejected"].includes(r.Status) && (
-                            <span style={{ fontSize: "12px", color: "#94a3b8" }}>—</span>
+                              {r.RefundMethod !== "Momo" && ["PendingManual", "Processing"].includes(r.Status) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedRefund(r);
+                                    setActiveDropdown(null);
+                                  }}
+                                  className={styles.dropdownItem}
+                                  style={{ color: "#16a34a" }}
+                                  disabled={actionLoading}
+                                >
+                                  💵 Hoàn tất thủ công
+                                </button>
+                              )}
+
+                              {["Requested", "Approved", "Processing", "PendingManual"].includes(r.Status) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setModal({
+                                      type: "updateBank",
+                                      refundCode: r.RefundCode!,
+                                      reason: r.Reason ?? undefined,
+                                      playerName: r.PlayerName ?? undefined,
+                                      playerEmail: r.PlayerEmail ?? undefined,
+                                      playerPhone: r.PlayerPhone ?? undefined,
+                                    });
+                                    setActiveDropdown(null);
+                                  }}
+                                  className={styles.dropdownItem}
+                                  style={{ color: "#d97706" }}
+                                  disabled={actionLoading}
+                                >
+                                  ✏️ Sửa Bank khách
+                                </button>
+                              )}
+
+                              {["Requested", "Approved", "Processing", "PendingManual"].includes(r.Status) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setModal({
+                                      type: "reject",
+                                      refundCode: r.RefundCode!,
+                                      bookingCode: r.BookingCode ?? undefined,
+                                      reason: r.Reason ?? undefined,
+                                    });
+                                    setActiveDropdown(null);
+                                  }}
+                                  className={styles.dropdownItem}
+                                  style={{ color: "#dc2626" }}
+                                  disabled={actionLoading}
+                                >
+                                  ✕ Từ chối yêu cầu
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -960,7 +1646,8 @@ export default function AdminRefundPage() {
               Hiển thị {filtered.length}/{refunds.length} yêu cầu
             </div>
           </div>
-        )}
+        </>
+      )}
 
         {/* Legend */}
         <div className={styles.legendSection}>
@@ -980,7 +1667,9 @@ export default function AdminRefundPage() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </>
+    )}
+  </div>
+</div>
   );
 }

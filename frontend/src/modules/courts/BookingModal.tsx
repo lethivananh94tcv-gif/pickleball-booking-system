@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { bookCourt } from "@/services/bookingApi";
 import type { Booking } from "@/services/bookingApi";
 import type { CourtSlot } from "@/services/courtApi";
@@ -44,9 +44,44 @@ export default function BookingModal({
   const [loading, setLoading] = useState(false);
   const [policyChecked, setPolicyChecked] = useState(false);
   const [validationError, setValidationError] = useState("");
+  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
+
+  useEffect(() => {
+    if (step !== "confirm") return;
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          onClose();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [step, onClose]);
+
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const currentUser = getUser();
   const totalFee = slot.Price;
+
+  // Format Vietnam Date safely from YYYY-MM-DD
+  const getVietnamFormattedDate = () => {
+    if (!bookingDate) return "";
+    const [y, m, d] = bookingDate.split("-").map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    return dateObj.toLocaleDateString("vi-VN", {
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
 
   async function handleConfirmBooking() {
     const token = getToken();
@@ -96,21 +131,31 @@ export default function BookingModal({
         {/* ── STEP: Xác nhận ── */}
         {step === "confirm" && (
           <>
-            <button className={styles.closeBtnTop} onClick={onClose}>&times;</button>
+            <button className={styles.closeBtnTop} onClick={onClose}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+            
             <div className={styles.header}>
               <div className={styles.headerTitleRow}>
                 <div className={styles.headerIconWrapper}>
-                  <svg className={styles.headerIconSvg} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className={styles.headerIconSvg} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                     <line x1="16" y1="2" x2="16" y2="6"></line>
                     <line x1="8" y1="2" x2="8" y2="6"></line>
                     <line x1="3" y1="10" x2="21" y2="10"></line>
+                    <polyline points="9 16 11 18 15 14"></polyline>
                   </svg>
                 </div>
                 <div className={styles.headerTitleArea}>
                   <div className={styles.titleRow}>
                     <h2>Xác nhận đặt sân của bạn</h2>
-                    <span className={styles.statusBadge}>SẴN SÀNG</span>
+                    <span className={styles.statusBadge}>
+                      <span className={styles.statusDot}></span>
+                      Sẵn sàng
+                    </span>
                   </div>
                   <p>Vui lòng kiểm tra lại thông tin để hoàn tất việc đặt sân.</p>
                 </div>
@@ -121,14 +166,16 @@ export default function BookingModal({
               {/* Box 1: Sân */}
               <div className={styles.gridBox}>
                 <div className={styles.boxLabel}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                    <line x1="3" y1="15" x2="21" y2="15"></line>
+                    <line x1="12" y1="3" x2="12" y2="21"></line>
                   </svg>
                   <span>SÂN</span>
                 </div>
                 <div className={styles.boxContent}>
-                  <span className={styles.courtBadge}>{courtName}</span>
+                  <span className={styles.courtNameText}>{courtName}</span>
                   <span className={styles.courtTypeSub}>
                     {courtType === "Indoor" ? "Trong nhà (Synthetic)" : courtType === "Outdoor" ? "Ngoài trời (Outdoor)" : courtType}
                   </span>
@@ -138,18 +185,18 @@ export default function BookingModal({
               {/* Box 2: Người đặt chính */}
               <div className={styles.gridBox}>
                 <div className={styles.boxLabel}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
                   <span>NGƯỜI ĐẶT CHÍNH</span>
                 </div>
                 <div className={styles.boxContentUser}>
-                  <img
-                    src="/images/home/avatar-placeholder.jpg"
-                    alt={currentUser?.FullName || currentUser?.fullName || "Khách"}
-                    className={styles.userAvatar}
-                  />
+                  <div className={styles.avatarPlaceholder}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                  </div>
                   <div className={styles.userInfo}>
                     <span className={styles.userName}>{currentUser?.FullName || currentUser?.fullName || "Khách hàng"}</span>
                     <span className={styles.userRole}>{currentUser?.RoleName || currentUser?.role || "Thành viên"}</span>
@@ -160,7 +207,7 @@ export default function BookingModal({
               {/* Box 3: Lịch hẹn */}
               <div className={styles.gridBox}>
                 <div className={styles.boxLabel}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                     <line x1="16" y1="2" x2="16" y2="6"></line>
                     <line x1="8" y1="2" x2="8" y2="6"></line>
@@ -169,11 +216,7 @@ export default function BookingModal({
                   <span>LỊCH HẸN</span>
                 </div>
                 <div className={styles.boxContent}>
-                  <span className={styles.appointmentDate}>
-                    {new Date(bookingDate).toLocaleDateString("vi-VN", {
-                      weekday: "long", day: "2-digit", month: "2-digit", year: "numeric",
-                    })}
-                  </span>
+                  <span className={styles.appointmentDate}>{getVietnamFormattedDate()}</span>
                   <span className={styles.appointmentTime}>
                     {formatTime(slot.StartTime)} – {formatTime(slot.EndTime)}
                   </span>
@@ -183,14 +226,17 @@ export default function BookingModal({
               {/* Box 4: Tổng thanh toán */}
               <div className={styles.gridBox}>
                 <div className={styles.boxLabel}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
                     <line x1="12" y1="10" x2="12" y2="10"></line>
+                    <circle cx="12" cy="12" r="3"></circle>
                   </svg>
                   <span>TỔNG THANH TOÁN</span>
                 </div>
                 <div className={styles.boxContentPrice}>
-                  <span className={styles.totalPriceVal}>{formatCurrency(totalFee)}</span>
+                  <span className={styles.totalPriceVal}>
+                    {totalFee.toLocaleString("vi-VN")} <span className={styles.currencyUnderline}>đ</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -202,7 +248,7 @@ export default function BookingModal({
                   <polyline points="12 6 12 12 16 14"></polyline>
                 </svg>
               </div>
-              <p>Sân đang được giữ cho bạn. Vui lòng hoàn tất việc đặt sân trong vòng <strong>10:00 phút</strong> nữa để đảm bảo chỗ của mình.</p>
+              <p>Sân đang được giữ cho bạn. Vui lòng hoàn tất việc đặt sân trong vòng <strong className={styles.alertTimer}>{formatCountdown(timeLeft)} phút</strong> nữa để đảm bảo chỗ của mình.</p>
             </div>
 
             <div className={styles.policyRow}>
@@ -212,6 +258,11 @@ export default function BookingModal({
                   checked={policyChecked}
                   onChange={(e) => setPolicyChecked(e.target.checked)}
                 />
+                <span className={styles.customCheckbox}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </span>
                 <span className={styles.policyText}>
                   Tôi đồng ý với <a href="#" onClick={(e) => e.preventDefault()} className={styles.policyLink}>Chính sách của PickleClub</a> và các điều khoản hủy sân.
                 </span>
@@ -220,7 +271,12 @@ export default function BookingModal({
 
             {validationError && (
               <div className={styles.validationErrorMsg}>
-                {validationError}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>{validationError}</span>
               </div>
             )}
 

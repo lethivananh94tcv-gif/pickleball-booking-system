@@ -8,6 +8,8 @@ import { getToken, getUser } from "@/utils/authStorage";
 import StateBox from "@/components/common/StateBox";
 import { formatCurrency } from "@/utils/formatCurrency";
 import styles from "./AdminBookingsPage.module.css";
+import { getCourts } from "@/services/courtApi";
+import type { Court } from "@/types/court";
 
 // Dùng locale sv-SE để có format YYYY-MM-DD theo múi giờ VN
 function todayStr() {
@@ -148,11 +150,24 @@ export default function AdminBookingsPage() {
     }
   }, [router]);
 
+  const [courts, setCourts] = useState<Court[]>([]);
+
   useEffect(() => {
     if (token) {
       loadBookings();
+      loadCourts();
     }
   }, [token, date]);
+
+  async function loadCourts() {
+    if (!token) return;
+    try {
+      const data = await getCourts(false, token);
+      setCourts(data);
+    } catch (err) {
+      console.error("Failed to load courts", err);
+    }
+  }
 
   async function loadBookings(silent = false) {
     if (!token) return;
@@ -421,9 +436,13 @@ export default function AdminBookingsPage() {
 
             {/* Bookings Lists by Court */}
             {Object.entries(groupedBookings)
-              .filter(([courtName]) => selectedCourt === "Tất cả" || selectedCourt === courtName)
+              .filter(([courtName, courtBookings]) => {
+                if (selectedCourt === "Tất cả") {
+                  return courtBookings.length > 0;
+                }
+                return selectedCourt === courtName;
+              })
               .sort(([a], [b]) => {
-                // Sắp xếp các sân theo booking mới nhất trong sân đó
                 const aLatest = groupedBookings[a][0]?.CreatedAt ?? "";
                 const bLatest = groupedBookings[b][0]?.CreatedAt ?? "";
                 return bLatest > aLatest ? 1 : -1;
@@ -445,13 +464,20 @@ export default function AdminBookingsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {courtBookings.map((b) => {
-                            const isActioning = actioningId === b.BookingID;
-                            const canCheckIn = ["Confirmed", "Paid"].includes(b.Status);
-                            const canCancel = ["PendingPayment", "Confirmed", "Paid"].includes(b.Status);
+                          {courtBookings.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>
+                                Không có lịch đặt nào cho <strong>{courtName}</strong> trong ngày này.
+                              </td>
+                            </tr>
+                          ) :
+                            courtBookings.map((b) => {
+                              const isActioning = actioningId === b.BookingID;
+                              const canCheckIn = ["Confirmed", "Paid"].includes(b.Status);
+                              const canCancel = ["PendingPayment", "Confirmed", "Paid"].includes(b.Status);
 
-                            return (
-                              <tr key={b.BookingID} className={isActioning ? styles.rowActioning : ""}>
+                              return (
+                                <tr key={b.BookingID} className={isActioning ? styles.rowActioning : ""}>
                                 {/* Mã & Giờ */}
                                 <td style={{ padding: "14px 18px" }}>
                                   <div className={styles.bookingCode}>{b.BookingCode}</div>

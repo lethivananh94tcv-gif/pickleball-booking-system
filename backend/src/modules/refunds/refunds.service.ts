@@ -21,15 +21,10 @@ function generateRefundCode(bookingId: number): string {
   // UTC+7
   const vn = new Date(now.getTime() + 7 * 60 * 60 * 1000);
   const pad = (n: number) => String(n).padStart(2, "0");
-  const ts =
-    `${vn.getUTCFullYear()}` +
-    `${pad(vn.getUTCMonth() + 1)}` +
-    `${pad(vn.getUTCDate())}` +
-    `${pad(vn.getUTCHours())}` +
-    `${pad(vn.getUTCMinutes())}` +
-    `${pad(vn.getUTCSeconds())}`;
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `RF-${bookingId}-${ts}-${rand}`;
+  const yy = String(vn.getUTCFullYear()).slice(-2);
+  const mm = pad(vn.getUTCMonth() + 1);
+  const dd = pad(vn.getUTCDate());
+  return `RF-${yy}${mm}${dd}-${bookingId}`;
 }
 
 // ── Helper: Tính refund amount ─────────────────────────
@@ -800,4 +795,33 @@ async function _getPaymentForRefund(bookingId: number, paymentId: number) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Cập nhật thông tin ngân hàng cho yêu cầu hoàn tiền.
+ * Do Staff, Manager, hoặc Admin thực hiện.
+ */
+export async function updateRefundBankDetails(
+  refundCode: string,
+  bankId: string,
+  accountNo: string,
+  accountName: string,
+  userId: number
+) {
+  const refund = await refundRepo.getRefundByCode(refundCode);
+  if (!refund) {
+    throw Object.assign(new Error("Không tìm thấy yêu cầu hoàn tiền."), { statusCode: 404 });
+  }
+
+  // Prepend or replace bank info in the current reason
+  let currentReason = refund.Reason || "";
+  // Strip old bank info if exists
+  currentReason = currentReason.replace(/\[Bank:.*?\]|\[STK:.*?\]|\[Name:.*?\]/g, "").trim();
+
+  // Create new formatted bank details
+  const newReason = `[Bank: ${bankId}] [STK: ${accountNo}] [Name: ${accountName}]${currentReason ? `\nLý do: ${currentReason}` : ""}`;
+
+  await refundRepo.updateRefundReason(refund.RefundID, newReason);
+
+  return { refundCode, success: true };
 }
