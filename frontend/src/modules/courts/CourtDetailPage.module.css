@@ -652,6 +652,17 @@
   background: var(--pcs-brand-primary-light);
 }
 
+.favoriteBtn.isFavorite {
+  background: var(--pcs-brand-primary);
+  color: #ffffff;
+  border-color: var(--pcs-brand-primary);
+}
+
+.favoriteBtn.isFavorite:hover {
+  background: #0d9488;
+  border-color: #0d9488;
+}
+
 /* Reassurance Badges */
 .reassurance {
   display: flex;

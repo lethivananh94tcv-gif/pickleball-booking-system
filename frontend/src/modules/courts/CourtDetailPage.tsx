@@ -14,6 +14,7 @@ import ReviewList from "@/components/reviews/ReviewList";
 import ReviewStatsView from "@/components/reviews/ReviewStatsView";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { getToken } from "@/utils/authStorage";
+import { getFavorites, toggleFavorite } from "@/services/favoriteApi";
 import styles from "./CourtDetailPage.module.css";
 
 function todayVN() {
@@ -26,6 +27,7 @@ export default function CourtDetailPage({ courtId }: { courtId: string }) {
   const [court, setCourt] = useState<Court | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isFavorite, setIsFavorite] = useState(false);
 
   // Booking UI State
   const [date, setDate] = useState(todayVN());
@@ -116,6 +118,36 @@ export default function CourtDetailPage({ courtId }: { courtId: string }) {
     }
     fetchCourt();
   }, [courtId]);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    async function checkFavorite() {
+      try {
+        const favs = await getFavorites(token as string);
+        const exists = favs.some((f) => f.TargetType === "Court" && f.TargetID === Number(courtId));
+        setIsFavorite(exists);
+      } catch (err) {
+        console.error("Failed to check court favorites", err);
+      }
+    }
+    checkFavorite();
+  }, [courtId]);
+
+  const handleToggleFavorite = async () => {
+    const token = getToken();
+    if (!token) {
+      alert("Vui lòng đăng nhập để thêm sân vào danh sách yêu thích!");
+      router.push("/login");
+      return;
+    }
+    try {
+      const newState = await toggleFavorite(token, "Court", Number(courtId));
+      setIsFavorite(newState);
+    } catch (err: any) {
+      alert(err.message || "Không thể thực hiện yêu cầu.");
+    }
+  };
 
   useEffect(() => {
     async function fetchReviews() {
@@ -513,8 +545,12 @@ export default function CourtDetailPage({ courtId }: { courtId: string }) {
                 📅 Đặt sân ngay
               </button>
 
-              <button type="button" className={styles.favoriteBtn}>
-                💚 Thêm vào yêu thích
+              <button 
+                type="button" 
+                onClick={handleToggleFavorite} 
+                className={`${styles.favoriteBtn} ${isFavorite ? styles.isFavorite : ""}`}
+              >
+                {isFavorite ? "❤️ Đã thêm vào yêu thích" : "💚 Thêm vào yêu thích"}
               </button>
 
               {/* Reassurance text */}

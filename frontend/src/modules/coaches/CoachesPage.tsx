@@ -7,6 +7,8 @@ import { getCoachImageUrl } from "@/utils/image";
 import type { Coach } from "@/types/coach";
 import { formatCurrency } from "@/utils/formatCurrency";
 import StateBox from "@/components/common/StateBox";
+import { getToken } from "@/utils/authStorage";
+import { getFavorites, toggleFavorite } from "@/services/favoriteApi";
 import styles from "./CoachesPage.module.css";
 import AICoachForm, { AICoachPayload } from "./components/AICoachForm";
 import AICoachCard, { CoachScoreResult } from "./components/AICoachCard";
@@ -117,6 +119,44 @@ export default function CoachesPage() {
   const [sortBy, setSortBy] = useState("rating");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Favorite state
+  const [favoriteCoaches, setFavoriteCoaches] = useState<number[]>([]);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    async function loadFavorites() {
+      try {
+        const favs = await getFavorites(token as string);
+        const coachIds = favs
+          .filter((f) => f.TargetType === "Coach")
+          .map((f) => f.TargetID);
+        setFavoriteCoaches(coachIds);
+      } catch (err) {
+        console.error("Failed to load favorite coaches", err);
+      }
+    }
+    loadFavorites();
+  }, []);
+
+  const handleToggleCoachFavorite = async (coachId: number) => {
+    const token = getToken();
+    if (!token) {
+      alert("Vui lòng đăng nhập để thêm huấn luyện viên vào danh sách yêu thích!");
+      return;
+    }
+    try {
+      const isFav = await toggleFavorite(token, "Coach", coachId);
+      if (isFav) {
+        setFavoriteCoaches((prev) => [...prev, coachId]);
+      } else {
+        setFavoriteCoaches((prev) => prev.filter((id) => id !== coachId));
+      }
+    } catch (err: any) {
+      alert(err.message || "Không thể thực hiện yêu cầu.");
+    }
+  };
 
   // AI State
   const [showAiForm, setShowAiForm] = useState(false);
@@ -434,6 +474,8 @@ export default function CoachesPage() {
                         key={result.coach.CoachID} 
                         coachResult={result} 
                         isBestMatch={index === 0} 
+                        isFavorite={favoriteCoaches.includes(result.coach.CoachID)}
+                        onToggleFavorite={() => handleToggleCoachFavorite(result.coach.CoachID)}
                       />
                     ))}
                   </div>
@@ -460,7 +502,12 @@ export default function CoachesPage() {
                           : "Top yêu thích"}
                       </div>
 
-                      <div className={styles.favorite}>♡</div>
+                      <div 
+                        onClick={() => handleToggleCoachFavorite(coach.CoachID)}
+                        className={`${styles.favorite} ${favoriteCoaches.includes(coach.CoachID) ? styles.isFavorite : ""}`}
+                      >
+                        {favoriteCoaches.includes(coach.CoachID) ? "♥" : "♡"}
+                      </div>
 
                       <img 
                         src={getCoachImageUrl(coach.AvatarURL)} 
@@ -544,7 +591,13 @@ export default function CoachesPage() {
                               }
                             }}
                           />
-                          <button type="button">♡</button>
+                          <button 
+                            type="button"
+                            onClick={() => handleToggleCoachFavorite(coach.CoachID)}
+                            className={favoriteCoaches.includes(coach.CoachID) ? styles.isFavorite : ""}
+                          >
+                            {favoriteCoaches.includes(coach.CoachID) ? "♥" : "♡"}
+                          </button>
                         </div>
 
                         <div className={styles.cardBody}>

@@ -15,9 +15,16 @@ export type CoachScoreResult = {
 interface AICoachCardProps {
   coachResult: CoachScoreResult;
   isBestMatch?: boolean;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
-const AICoachCard: React.FC<AICoachCardProps> = ({ coachResult, isBestMatch = false }) => {
+const AICoachCard: React.FC<AICoachCardProps> = ({ 
+  coachResult, 
+  isBestMatch = false,
+  isFavorite = false,
+  onToggleFavorite
+}) => {
   const { coach, score, reasons } = coachResult;
   
   // Fake reasons if empty
@@ -34,7 +41,12 @@ const AICoachCard: React.FC<AICoachCardProps> = ({ coachResult, isBestMatch = fa
         <div className={`${styles.badge} ${isBestMatch ? styles.bestMatch : styles.alternative}`}>
           {isBestMatch ? '🏆 BEST MATCH' : '🤖 ALTERNATIVE'}
         </div>
-        <button className={styles.favoriteBtn}>♡</button>
+        <button 
+          onClick={onToggleFavorite}
+          className={`${styles.favoriteBtn} ${isFavorite ? styles.isFavorite : ""}`}
+        >
+          {isFavorite ? "♥" : "♡"}
+        </button>
       </div>
 
       <div className={styles.coachInfo}>

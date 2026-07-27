@@ -48,6 +48,9 @@
   color: var(--pcs-neutral-500);
   cursor: pointer;
 }
+.favoriteBtn.isFavorite {
+  color: #ef4444 !important;
+}
 .coachInfo {
   display: flex;
   gap: 12px;

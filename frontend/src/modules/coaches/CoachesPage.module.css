@@ -985,3 +985,9 @@
     flex-direction: column;
   }
 }
+
+/* Red heart for favorited coaches */
+.favorite.isFavorite,
+.cardImage button.isFavorite {
+  color: #ef4444 !important;
+}
