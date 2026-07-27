@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import * as api from "@/services/matchingApi";
 import styles from "./MatchingLayout.module.css";
 import CustomTimePicker from "./components/CustomTimePicker";
+import GroupMembersModal from "./components/GroupMembersModal";
 
 interface OpponentsTabProps {
   token: string;
@@ -30,6 +31,7 @@ export default function OpponentsTab({ token, userProfile, showToast }: Opponent
   const [loadingOpponents, setLoadingOpponents] = useState(false);
 
   const [selectedOpponentGroup, setSelectedOpponentGroup] = useState<any | null>(null);
+  const [selectedGroupForMembers, setSelectedGroupForMembers] = useState<any | null>(null);
   const [challengeMsg, setChallengeMsg] = useState("Chào bạn, nhóm mình cùng giao lưu thi đấu Pickleball nhé!");
   const [challengeDate, setChallengeDate] = useState("");
   const [challengeStartTime, setChallengeStartTime] = useState("");
@@ -89,8 +91,9 @@ export default function OpponentsTab({ token, userProfile, showToast }: Opponent
       try {
         setLoadingMyGroups(true);
         const data = await api.getUserGroups(token);
-        // Only show groups where current user is Leader (since only Leader can send challenges)
-        setMyGroups(data || []);
+        // Only show real groups (not auto-created challenge chat boxes)
+        const filtered = (data || []).filter((g: any) => !g.IsChallengeChat && !g.GroupName?.includes("Thách đấu") && !g.Description?.includes("Box chat chung"));
+        setMyGroups(filtered);
       } catch (err: any) {
         showToast(err.message || "Không thể tải nhóm chơi của bạn", "error");
       } finally {
@@ -370,7 +373,14 @@ export default function OpponentsTab({ token, userProfile, showToast }: Opponent
                       </div>
                     </div>
 
-                    <div style={{ marginTop: "1rem" }}>
+                    <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
+                      <button
+                        onClick={() => setSelectedGroupForMembers(opponent)}
+                        className={styles.secondaryBtn}
+                        style={{ flex: 1, backgroundColor: "#ffffff", color: "#334155", borderColor: "#cbd5e1", padding: "0.6rem 1rem", fontSize: "14px", fontWeight: "600" }}
+                      >
+                        Thành viên ({opponent.members?.length || opponent.CurrentPlayers || 0})
+                      </button>
                       <button
                         onClick={() => {
                           setSelectedOpponentGroup(opponent);
@@ -381,7 +391,7 @@ export default function OpponentsTab({ token, userProfile, showToast }: Opponent
                           setChallengeEndTime("10:00");
                         }}
                         className={styles.primaryBtn}
-                        style={{ width: "100%" }}
+                        style={{ flex: 1 }}
                       >
                         Thách đấu
                       </button>
@@ -486,6 +496,11 @@ export default function OpponentsTab({ token, userProfile, showToast }: Opponent
           </div>
         </div>
       )}
+
+      <GroupMembersModal 
+        group={selectedGroupForMembers} 
+        onClose={() => setSelectedGroupForMembers(null)} 
+      />
     </div>
   );
 }

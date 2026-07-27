@@ -73,7 +73,9 @@ async def recommend_promotions(request: RecommendRequest):
         # Step 2: Pass predictions to central Decision Engine
         raw_recommendations = AIDecisionEngine.optimize_promotions(
             predictions=predictions,
+            # pyrefly: ignore [bad-argument-type]
             threshold_occupancy=request.thresholdOccupancy,
+            # pyrefly: ignore [bad-argument-type]
             base_price=request.basePrice
         )
         

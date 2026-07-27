@@ -206,8 +206,10 @@ export async function findUserGroups(userId: number) {
         g.SkillLevel,
         g.AverageExperience,
         g.Description,
+        m.RoleInGroup AS MyRole,
+        CASE WHEN g.Description LIKE '%Box chat chung%' OR g.GroupName LIKE '%Thách đấu%' THEN 1 ELSE 0 END AS IsChallengeChat,
         (SELECT COUNT(*) FROM GroupMembers gm WHERE gm.GroupID = g.GroupID AND gm.Status = 'Active') AS CurrentPlayers,
-        4 AS MaxPlayers,
+        CASE WHEN g.Description LIKE '%Box chat chung%' OR g.GroupName LIKE '%Thách đấu%' THEN 10 ELSE 4 END AS MaxPlayers,
         u.FullName AS CreatorName
       FROM PlayingGroups g
       INNER JOIN GroupMembers m ON g.GroupID = m.GroupID
@@ -302,3 +304,21 @@ export async function getRecentActivityCount(userId: number): Promise<number> {
   return (bookingsRes.recordset[0]?.cnt || 0) + (matchesRes.recordset[0]?.cnt || 0);
 }
 
+export async function getAcceptedOpponentLeaders(userId: number): Promise<number[]> {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input("UserID", sql.Int, userId)
+    .query(`
+      SELECT 
+        CASE 
+          WHEN Player1ID = @UserID THEN Player2ID
+          ELSE Player1ID
+        END AS OpponentLeaderID
+      FROM PlayerMatches
+      WHERE (Player1ID = @UserID OR Player2ID = @UserID)
+        AND MatchType = 'Opponent'
+        AND MatchStatus = 'Accepted'
+    `);
+  return result.recordset.map((row: any) => row.OpponentLeaderID);
+}

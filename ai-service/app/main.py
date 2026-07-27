@@ -11,7 +11,7 @@ logger = logging.getLogger("ai-service")
 
 # Load dotenv from correct path
 dotenv_path = Path(__file__).resolve().parent.parent / '.env'
-load_dotenv(dotenv_path=dotenv_path)
+load_dotenv(dotenv_path=dotenv_path, override=True)
 
 # Log config status
 from app.services.llm_client_manager import API_KEYS
@@ -63,3 +63,4 @@ async def health():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+

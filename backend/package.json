@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 5000",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start -p 5000",
     "scrape:admin": "node scripts/scrape-admin-data.js",
     "db:migrate-ai": "node scripts/run-ai-migrations.js",

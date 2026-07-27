@@ -13,7 +13,7 @@ from pathlib import Path
 
 # Load dotenv from correct path
 dotenv_path = Path(__file__).resolve().parent.parent.parent / '.env'
-load_dotenv(dotenv_path=dotenv_path)
+load_dotenv(dotenv_path=dotenv_path, override=True)
 
 from app.services.llm_client_manager import API_KEYS, generate_content_with_retry
 
