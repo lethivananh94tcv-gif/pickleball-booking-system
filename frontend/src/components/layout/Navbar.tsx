@@ -189,8 +189,8 @@ export default function Navbar() {
   }
 
   return (
-    <header className={styles.header}>
-      <div className={styles.inner}>
+    <header className={styles.header} suppressHydrationWarning>
+      <div className={styles.inner} suppressHydrationWarning>
       <Link href="/" className={styles.logo}>
   <Image
     src="/images/logo.png"
@@ -237,7 +237,7 @@ export default function Navbar() {
         </nav>
 
         {/* RIGHT ACTIONS */}
-        <div className={styles.actions}>
+        <div className={styles.actions} suppressHydrationWarning>
           {user ? (
             <>
               {/* NOTIFICATION BELL */}

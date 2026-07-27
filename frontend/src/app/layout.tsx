@@ -30,8 +30,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi">
-      <body className={beVietnamPro.className}>
+    <html lang="vi" suppressHydrationWarning>
+      <body className={beVietnamPro.className} suppressHydrationWarning>
         <GoogleProvider>
           <Suspense fallback={null}>
             <Navbar />

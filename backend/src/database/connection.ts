@@ -18,6 +18,16 @@ function startBackgroundJobs() {
 
   console.log("[System] Bắt đầu background jobs: Tự động dọn dẹp DB...");
 
+  // Tự động sinh slot cho 7 ngày tới sau khi kết nối DB thành công (chạy 1 lần sau 3s lúc start)
+  setTimeout(async () => {
+    try {
+      const { autoGenerateSlotsForNext7Days } = await import("@/modules/courts/courts.service");
+      await autoGenerateSlotsForNext7Days(true);
+    } catch (err) {
+      console.error("[Cron] Lỗi khởi chạy auto-generate court slots lúc start:", err);
+    }
+  }, 3000);
+
   // Thiết lập vòng lặp chạy mỗi 10 giây
   setInterval(async () => {
     try {
@@ -45,6 +55,10 @@ function startBackgroundJobs() {
       // Chạy tác vụ 4: Tự động kích hoạt/hết hạn voucher AI
       const { runPromotionsStatusScheduler } = await import("@/modules/ai/ai-analytics.service");
       await runPromotionsStatusScheduler().catch(err => console.error("[Cron] Lỗi chạy AI promotion scheduler:", err));
+
+      // Chạy tác vụ 5: Tự động duy trì slot cho 7 ngày tới (throttled 30 phút trong hàm)
+      const { autoGenerateSlotsForNext7Days } = await import("@/modules/courts/courts.service");
+      await autoGenerateSlotsForNext7Days(false).catch(err => console.error("[Cron] Lỗi chạy auto-generate court slots:", err));
 
       // Chỉ log ra console nếu thực sự có đơn được xử lý để tránh spam log
       if (res.releasedHoldings > 0 || res.autoCheckedIn > 0 || completed > 0 || releasedTournaments.releasedCount > 0) {

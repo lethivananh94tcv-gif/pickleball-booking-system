@@ -41,6 +41,9 @@ export async function getAvailableCourts(
     throw new Error("bookingDate is required");
   }
 
+  // Tự động sinh/duy trì slot 7 ngày tới (throttled 30 phút trong hàm)
+  await autoGenerateSlotsForNext7Days(false).catch(() => {});
+
   if (startTime || endTime) {
     if (!startTime || !endTime) {
       throw new Error("Cần cung cấp cả startTime và endTime, hoặc không cung cấp cả hai");
@@ -76,7 +79,9 @@ export async function createCourt(
   validateTimeRange(data.openTime, data.closeTime);
 
   if (!courtFile) {
-    return courtRepo.createCourt(data);
+    const created = await courtRepo.createCourt(data);
+    await autoGenerateSlotsForNext7Days(true).catch(() => {});
+    return created;
   }
 
   // Create court first to get the ID
@@ -92,6 +97,7 @@ export async function createCourt(
       courtImage: newImagePath,
     };
     const finalCourt = await courtRepo.updateCourt(courtId, updatedData);
+    await autoGenerateSlotsForNext7Days(true).catch(() => {});
     return finalCourt;
   } catch (error) {
     if (newImagePath) {
@@ -149,6 +155,8 @@ export async function updateCourt(
     if (!result) {
       throw new Error("Không thể cập nhật thông tin sân");
     }
+
+    await autoGenerateSlotsForNext7Days(true).catch(() => {});
 
     if (newImagePath && oldImagePath && oldImagePath.startsWith("/uploads/courts/")) {
       deleteFile(oldImagePath);
@@ -216,7 +224,37 @@ export async function getCourtSlots(courtId: number, slotDate: string) {
     throw new Error("Court not found");
   }
 
-  const slots = await courtRepo.findCourtSlots(courtId, slotDate);
+  let slots = await courtRepo.findCourtSlots(courtId, slotDate);
+  if (slots.length === 0 && court.Status === "Available") {
+    const nowVN = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
+    );
+    const year = nowVN.getFullYear();
+    const month = String(nowVN.getMonth() + 1).padStart(2, "0");
+    const day = String(nowVN.getDate()).padStart(2, "0");
+    const todayStr = `${year}-${month}-${day}`;
+
+    const maxDate = new Date(nowVN);
+    maxDate.setDate(maxDate.getDate() + 7);
+    const maxYear = maxDate.getFullYear();
+    const maxMonth = String(maxDate.getMonth() + 1).padStart(2, "0");
+    const maxDay = String(maxDate.getDate()).padStart(2, "0");
+    const maxStr = `${maxYear}-${maxMonth}-${maxDay}`;
+
+    if (slotDate >= todayStr && slotDate <= maxStr) {
+      try {
+        await generateCourtSlots({
+          courtId,
+          slotDate,
+          durationMinutes: 60,
+          price: Number(court.PricePerHour),
+        });
+        slots = await courtRepo.findCourtSlots(courtId, slotDate);
+      } catch {
+        // Bỏ qua lỗi nếu không thể sinh slot (vd: đã qua khung giờ hôm nay)
+      }
+    }
+  }
   
   let activePromos: any[] = [];
   try {
@@ -469,4 +507,68 @@ export async function generateCourtSlots(input: {
   const skipped = allSlots.length - created;
 
   return { total: allSlots.length, created, skipped };
+}
+
+// Biến toàn cục để ghi nhớ lần sinh slot tự động gần nhất, tránh query lặp khi chạy qua cron/request
+const globalAny = globalThis as any;
+if (!globalAny.__lastSlotAutoGenTime) {
+  globalAny.__lastSlotAutoGenTime = 0;
+}
+
+/**
+ * Tự động sinh slot cho hôm nay + 7 ngày tiếp theo (tổng 8 ngày) cho tất cả các sân đang hoạt động.
+ * Giúp đảm bảo hệ thống luôn có sẵn trọn vẹn 7 ngày trong tương lai mà Admin/Staff không cần tạo thủ công.
+ */
+export async function autoGenerateSlotsForNext7Days(force = false): Promise<{ totalCourts: number; createdSlots: number }> {
+  const now = Date.now();
+  // Nếu không force và đã chạy trong vòng 30 phút trước đó (1800000ms), bỏ qua để tối ưu hiệu suất
+  if (!force && now - globalAny.__lastSlotAutoGenTime < 30 * 60 * 1000) {
+    return { totalCourts: 0, createdSlots: 0 };
+  }
+  globalAny.__lastSlotAutoGenTime = now;
+
+  try {
+    const courts = await courtRepo.findAllCourts(false);
+    const availableCourts = courts.filter((c: any) => c.Status === "Available");
+
+    const nowVN = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
+    );
+    const dates: string[] = [];
+    for (let i = 0; i <= 7; i++) {
+      const d = new Date(nowVN);
+      d.setDate(d.getDate() + i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      dates.push(`${year}-${month}-${day}`);
+    }
+
+    let totalCreated = 0;
+    for (const court of availableCourts) {
+      for (const dateStr of dates) {
+        try {
+          const res = await generateCourtSlots({
+            courtId: court.CourtID,
+            slotDate: dateStr,
+            durationMinutes: 60,
+            price: Number(court.PricePerHour),
+          });
+          if (res && res.created) {
+            totalCreated += res.created;
+          }
+        } catch {
+          // Bỏ qua lỗi (ví dụ: slot đã tồn tại đầy đủ, sân bảo trì, hoặc khung giờ hôm nay đã qua)
+        }
+      }
+    }
+
+    if (totalCreated > 0) {
+      console.log(`[Auto-Slot] Đã tự động sinh ${totalCreated} slot mới cho hôm nay và 7 ngày tới trên ${availableCourts.length} sân.`);
+    }
+    return { totalCourts: availableCourts.length, createdSlots: totalCreated };
+  } catch (err) {
+    console.error("[Auto-Slot] Lỗi hệ thống khi tự động sinh slot 7 ngày tới:", err);
+    return { totalCourts: 0, createdSlots: 0 };
+  }
 }
