@@ -9,7 +9,7 @@ export async function getUserFavoritesController(req: NextRequest) {
     const user = requireAuth(req);
     if (user instanceof Response) return user;
 
-    const favorites = await favService.getFavorites(user.UserID);
+    const favorites = await favService.getFavorites(user.userId);
     return successResponse(favorites, "Lấy danh sách yêu thích thành công");
   } catch (error) {
     return handleError(error);
@@ -33,7 +33,7 @@ export async function toggleFavoriteController(req: NextRequest) {
     }
 
     const isFavorite = await favService.toggleFavorite(
-      user.UserID,
+      user.userId,
       targetType,
       Number(targetId)
     );
