@@ -503,7 +503,8 @@ export async function getGroupMessages(groupId: number, limit: number = 50) {
         u.FullName AS SenderName,
         u.AvatarURL AS SenderAvatar,
         m.Content,
-        m.CreatedAt
+        m.CreatedAt,
+        m.IsPinned
       FROM GroupMessages m
       JOIN Users u ON m.SenderID = u.UserID
       WHERE m.GroupID = @GroupID AND m.IsDeleted = 0
@@ -660,7 +661,7 @@ export async function createChallengeChatGroup(
     averageExperience: number;
   },
   creatorId: number,
-  memberIds: number[]
+  members: { userId: number; role: string }[]
 ) {
   const pool = await getPool();
   const transaction = new sql.Transaction(pool);
@@ -684,15 +685,17 @@ export async function createChallengeChatGroup(
 
     const groupId = groupResult.recordset[0].GroupID;
 
-    // 2. Insert all members with role 'Member' (NO ONE has 'Leader' role!)
-    for (const uId of memberIds) {
+    // 2. Insert all members with their original roles (Leader or Member)
+    for (const m of members) {
+      const roleToInsert = m.role === 'Leader' ? 'Leader' : 'Member';
       await transaction
         .request()
         .input("GroupID", sql.Int, groupId)
-        .input("UserID", sql.Int, uId)
+        .input("UserID", sql.Int, m.userId)
+        .input("RoleInGroup", sql.NVarChar(30), roleToInsert)
         .query(`
           INSERT INTO GroupMembers (GroupID, UserID, RoleInGroup, JoinedAt, Status)
-          VALUES (@GroupID, @UserID, 'Member', GETDATE(), 'Active')
+          VALUES (@GroupID, @UserID, @RoleInGroup, GETDATE(), 'Active')
         `);
     }
 
@@ -703,3 +706,18 @@ export async function createChallengeChatGroup(
     throw error;
   }
 }
+
+export async function pinGroupMessage(groupId: number, messageId: number) {
+  const pool = await getPool();
+  await pool.request()
+    .input("GroupID", sql.Int, groupId)
+    .query(`UPDATE GroupMessages SET IsPinned = 0 WHERE GroupID = @GroupID AND IsPinned = 1`);
+    
+  await pool.request()
+    .input("GroupID", sql.Int, groupId)
+    .input("MessageID", sql.Int, messageId)
+    .query(`UPDATE GroupMessages SET IsPinned = 1 WHERE GroupID = @GroupID AND MessageID = @MessageID`);
+    
+  return true;
+}
+

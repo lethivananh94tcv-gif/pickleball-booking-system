@@ -181,6 +181,14 @@ export async function sendGroupMessage(token: string, groupId: number, content: 
   return response.data;
 }
 
+export async function pinGroupMessage(token: string, groupId: number, messageId: number): Promise<void> {
+  await apiClient<ApiResponse<any>>(`/api/playgroups/${groupId}/messages/${messageId}/pin`, {
+    method: "POST",
+    token,
+  });
+}
+
+
 export async function closeGroup(token: string, groupId: number): Promise<PlayGroup> {
   const response = await apiClient<ApiResponse<PlayGroup>>(`/api/playgroups/${groupId}/close`, {
     method: "PATCH",

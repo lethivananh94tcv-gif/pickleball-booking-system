@@ -180,17 +180,24 @@ export async function getInvitationById(invitationId: number) {
   return record ? processInvitationMessage(record) : null;
 }
 
-export async function updateInvitationStatus(invitationId: number, status: string) {
+export async function updateInvitationStatus(invitationId: number, status: string, expectedCurrentStatus?: string) {
   const pool = await getPool();
-  await pool
-    .request()
-    .input("InvitationID", sql.Int, invitationId)
-    .input("Status", sql.NVarChar(30), status)
-    .query(`
+  let query = `
       UPDATE PlayInvitations
       SET Status = @Status, RespondedAt = GETDATE()
       WHERE InvitationID = @InvitationID
-    `);
+  `;
+  const request = pool.request()
+    .input("InvitationID", sql.Int, invitationId)
+    .input("Status", sql.NVarChar(30), status);
+
+  if (expectedCurrentStatus) {
+    query += ` AND Status = @ExpectedStatus`;
+    request.input("ExpectedStatus", sql.NVarChar(30), expectedCurrentStatus);
+  }
+
+  const result = await request.query(query);
+  return result.rowsAffected[0] > 0;
 }
 
 export async function checkPendingInvitation(

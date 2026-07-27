@@ -160,3 +160,16 @@ export async function markMessagesAsReadController(req: NextRequest, groupId: nu
     return handleError(error);
   }
 }
+
+export async function pinGroupMessageController(req: NextRequest, groupId: number, messageId: number) {
+  try {
+    const auth = requireAuth(req);
+    if (auth instanceof Response) return auth;
+
+    await service.pinGroupMessage(groupId, messageId, auth.userId);
+    return successResponse(null, "Ghim tin nhắn thành công");
+  } catch (error) {
+    return handleError(error);
+  }
+}
+

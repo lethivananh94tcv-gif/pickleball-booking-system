@@ -654,7 +654,7 @@ export default function MatchingLayout() {
                       <ul className={styles.guideList}>
                         <li><strong>Danh sách nhóm:</strong> Xem toàn bộ các nhóm bạn đang tham gia hoặc chủ động tạo nhóm mới với bạn bè.</li>
                         <li><strong>Trưởng nhóm (Captain):</strong> Có quyền mời thêm thành viên, đổi tên nhóm và đặc biệt là <strong>đại diện mang đội đi thách đấu các nhóm khác</strong>.</li>
-                        <li><strong>Box Chat Thách Đấu Tự Động:</strong> Khi 2 đội đồng ý thi đấu với nhau, hệ thống tự động tạo ra một <strong>phòng chat chung</strong> (mang tên <code>⚔️ Thách đấu: [Đội A] vs [Đội B]</code>) kết nối tất cả thành viên của cả 2 bên. Phòng chat này bình đẳng tuyệt đối, <strong>không có trưởng nhóm</strong> và bất kỳ thành viên nào cũng có quyền tự do bấm <strong>Rời nhóm</strong> khi trận đấu đã kết thúc!</li>
+                        <li><strong>Box Chat Thách Đấu Tự Động:</strong> Khi 2 đội đồng ý thi đấu với nhau, hệ thống tự động tạo ra một <strong>phòng chat chung</strong> (mang tên <code>⚔️ Thách đấu: [Đội A] vs [Đội B]</code>) kết nối tất cả thành viên của cả 2 bên. Phòng chat này sẽ có <strong>trưởng nhóm của cả 2 đội đại diện</strong> và bất kỳ thành viên nào cũng có quyền tự do bấm <strong>Rời nhóm</strong> khi trận đấu đã kết thúc!</li>
                       </ul>
                     </div>
 

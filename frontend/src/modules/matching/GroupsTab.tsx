@@ -37,6 +37,33 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
   const chatInputRef = React.useRef<HTMLInputElement>(null);
   const firebaseListenerRef = useRef<{ ref: any; callback: any } | null>(null);
 
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    messageId: number;
+    groupId: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, []);
+
+  const handlePinMessage = async () => {
+    if (!contextMenu) return;
+    try {
+      await api.pinGroupMessage(token, contextMenu.groupId, contextMenu.messageId);
+      loadMessages(contextMenu.groupId);
+      showToast("Đã ghim tin nhắn!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Không thể ghim tin nhắn", "error");
+    }
+    setContextMenu(null);
+  };
+
+
   const toggleGroupOptions = (groupId: number) => {
     setExpandedGroupIds((prev) => ({
       ...prev,
@@ -360,7 +387,7 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
                         {group.GroupName}
                       </h4>
                       <span className={styles.cardTag} style={{ backgroundColor: "var(--pcs-brand-primary-light)", color: "var(--pcs-brand-primary-hover)" }}>
-                        {isChallengeChat ? "Trưởng nhóm: Không có (Box chat chung)" : `Trưởng nhóm: ${isLeader ? "Tôi" : (group.CreatorName || "Ẩn danh")}`}
+                        {isChallengeChat ? "Trưởng nhóm: Đại diện 2 đội" : `Trưởng nhóm: ${isLeader ? "Tôi" : (group.CreatorName || "Ẩn danh")}`}
                       </span>
                     </div>
                   </div>
@@ -630,6 +657,86 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
               <button className={styles.closeBtn} onClick={() => setChatGroup(null)}>×</button>
             </div>
 
+            {(chatGroup.IsChallengeChat === 1 || chatGroup.IsChallengeChat === true || chatGroup.Description?.includes("Box chat chung") || chatGroup.GroupName?.includes("Thách đấu")) && 
+             !messages.some(m => m.Content && m.Content.includes("THÔNG BÁO ĐẶT SÂN THÀNH CÔNG")) && (
+              <div style={{
+                backgroundColor: "#fef3c7",
+                borderBottom: "1px solid #fde68a",
+                padding: "12px 16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "24px" }}>🏟️</span>
+                  <div>
+                    <div style={{ fontWeight: "700", color: "#d97706", fontSize: "14.5px" }}>Gợi ý: Đặt sân cho trận đấu</div>
+                    <div style={{ color: "#b45309", fontSize: "12.5px", marginTop: "2px" }}>Các bạn đã chốt được lịch giao lưu? Đặt sân ngay nhé!</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => window.open(`/bookings/team?groupId=${chatGroup.GroupID}`, "_blank")}
+                  style={{
+                    backgroundColor: "#d97706",
+                    color: "white",
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    border: "none",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    boxShadow: "0 2px 4px rgba(217, 119, 6, 0.2)",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = "#b45309";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = "#d97706";
+                    e.currentTarget.style.transform = "translateY(0)";
+                  }}
+                >
+                  Đặt sân ngay
+                </button>
+              </div>
+            )}
+
+            {(() => {
+              const pinnedMessage = messages.find((m: any) => m.IsPinned);
+              if (!pinnedMessage) return null;
+              return (
+                <div 
+                  style={{
+                    padding: "8px 12px",
+                    backgroundColor: "rgba(255, 255, 255, 0.9)",
+                    backdropFilter: "blur(4px)",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                    borderBottom: "1px solid var(--pcs-neutral-200)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    zIndex: 10
+                  }}
+                  onClick={() => {
+                    const el = document.getElementById(`msg-${pinnedMessage.MessageID}`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                >
+                  <span>📌</span>
+                  <div style={{ flex: 1, overflow: "hidden" }}>
+                    <div style={{ fontSize: "12px", fontWeight: "600", color: "var(--pcs-primary-600)" }}>Tin nhắn đã ghim</div>
+                    <div style={{ fontSize: "13px", color: "var(--pcs-neutral-700)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {pinnedMessage.Content}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div style={{ flex: 1, overflowY: "auto", padding: "1rem", backgroundColor: "var(--pcs-neutral-50)", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               {messages.length === 0 ? (
                 <div style={{ textAlign: "center", color: "var(--pcs-neutral-600)", marginTop: "2rem" }}>
@@ -639,7 +746,22 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
                 messages.map((msg) => {
                   const isMine = msg.IsMine;
                   return (
-                    <div key={msg.MessageID} style={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start" }}>
+                    <div 
+                      key={msg.MessageID} 
+                      id={`msg-${msg.MessageID}`}
+                      style={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start", position: "relative" }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setContextMenu({
+                          visible: true,
+                          x: e.clientX,
+                          y: e.clientY,
+                          messageId: msg.MessageID,
+                          groupId: chatGroup.GroupID
+                        });
+                      }}
+                    >
                       {!isMine && <span style={{ fontSize: "12px", color: "var(--pcs-neutral-600)", marginBottom: "0.25rem", marginLeft: "0.25rem" }}>{msg.SenderName}</span>}
                       <div style={{
                         maxWidth: "75%",
@@ -649,7 +771,8 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
                         color: isMine ? "#ffffff" : "var(--pcs-neutral-900)",
                         boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
                         border: isMine ? "none" : "1px solid var(--pcs-neutral-200)",
-                        wordBreak: "break-word"
+                        wordBreak: "break-word",
+                        whiteSpace: "pre-wrap"
                       }}>
                         {msg.Content}
                       </div>
@@ -662,6 +785,43 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
               )}
               <div ref={messagesEndRef} />
             </div>
+
+            {contextMenu && contextMenu.visible && (
+              <div 
+                style={{
+                  position: "fixed",
+                  top: contextMenu.y,
+                  left: contextMenu.x,
+                  backgroundColor: "white",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  borderRadius: "8px",
+                  padding: "4px 0",
+                  zIndex: 9999,
+                  minWidth: "150px"
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button 
+                  style={{
+                    width: "100%",
+                    padding: "8px 16px",
+                    border: "none",
+                    backgroundColor: "transparent",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px"
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#f3f4f6"}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  onClick={handlePinMessage}
+                >
+                  📌 Ghim tin nhắn
+                </button>
+              </div>
+            )}
 
             <div style={{ padding: "1rem", borderTop: "1px solid var(--pcs-neutral-200)", backgroundColor: "#ffffff" }}>
               <form onSubmit={handleSendMessage} style={{ display: "flex", gap: "0.5rem" }}>

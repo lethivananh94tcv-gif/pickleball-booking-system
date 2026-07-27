@@ -37,10 +37,10 @@ export default function GroupMembersModal({ group, onClose }: GroupMembersModalP
           <div style={{
             margin: "0 1.5rem 1rem 1.5rem",
             padding: "0.75rem 1rem",
-            backgroundColor: "#fef3c7",
-            border: "1px solid #fde68a",
+            backgroundColor: "#e0f2fe",
+            border: "1px solid #bae6fd",
             borderRadius: "10px",
-            color: "#92400e",
+            color: "#0369a1",
             fontSize: "13px",
             display: "flex",
             alignItems: "center",
@@ -48,7 +48,7 @@ export default function GroupMembersModal({ group, onClose }: GroupMembersModalP
           }}>
             <span style={{ fontSize: "18px" }}>⚔️</span>
             <span>
-              <strong>Box Chat Chung Thách Đấu:</strong> Không gian bình đẳng không có trưởng nhóm. Toàn bộ thành viên hai bên tự do giao lưu và lên lịch thi đấu!
+              <strong>Box Chat Chung Thách Đấu:</strong> Hai nhóm trưởng có thể đại diện giao lưu và chốt lịch thi đấu cùng các thành viên!
             </span>
           </div>
         )}
@@ -61,7 +61,7 @@ export default function GroupMembersModal({ group, onClose }: GroupMembersModalP
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               {members.map((m: any, idx: number) => {
-                const isLeader = !isChallengeChat && m.RoleInGroup === "Leader";
+                const isLeader = m.RoleInGroup === "Leader";
                 const name = m.FullName || m.Email || "Tay vợt ẩn danh";
                 const initial = name.charAt(0).toUpperCase();
 
@@ -77,71 +77,87 @@ export default function GroupMembersModal({ group, onClose }: GroupMembersModalP
                       border: isLeader ? "1px solid #fde68a" : "1px solid var(--pcs-neutral-200)",
                       borderRadius: "12px",
                       boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
-                      flexWrap: "wrap",
-                      gap: "10px"
+                      flexWrap: "nowrap", // Prevent row from wrapping awkwardly
+                      gap: "10px",
+                      overflow: "hidden" // Ensure no horizontal bleed
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: "1 1 200px" }}>
-                      {m.AvatarURL ? (
-                        <img 
-                          src={m.AvatarURL} 
-                          alt={name} 
-                          style={{ width: "44px", height: "44px", borderRadius: "50%", objectFit: "cover", border: "2px solid white", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }} 
-                        />
-                      ) : (
-                        <div style={{
-                          width: "44px",
-                          height: "44px",
-                          borderRadius: "50%",
-                          backgroundColor: isLeader ? "#f59e0b" : "var(--pcs-brand-primary-light)",
-                          color: isLeader ? "white" : "var(--pcs-brand-primary)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: "700",
-                          fontSize: "18px"
-                        }}>
-                          {initial}
-                        </div>
-                      )}
-                      <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: "1 1 auto", minWidth: 0 }}>
+                      <div style={{ flexShrink: 0 }}>
+                        {m.AvatarURL ? (
+                          <img 
+                            src={m.AvatarURL} 
+                            alt={name} 
+                            style={{ width: "44px", height: "44px", borderRadius: "50%", objectFit: "cover", border: "2px solid white", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }} 
+                          />
+                        ) : (
+                          <div style={{
+                            width: "44px",
+                            height: "44px",
+                            borderRadius: "50%",
+                            backgroundColor: isLeader ? "#f59e0b" : "var(--pcs-brand-primary-light)",
+                            color: isLeader ? "white" : "var(--pcs-brand-primary)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: "700",
+                            fontSize: "18px"
+                          }}>
+                            {initial}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: "1 1 auto" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span style={{ fontWeight: "700", fontSize: "15px", color: "var(--pcs-neutral-900)" }}>
+                          <span style={{ 
+                            fontWeight: "700", 
+                            fontSize: "15px", 
+                            color: "var(--pcs-neutral-900)",
+                            flex: "0 0 140px", // Exact fixed width to ensure vertical alignment of badges
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis"
+                          }}>
                             {name}
                           </span>
                           {isLeader ? (
                             <span style={{
+                              flexShrink: 0,
                               fontSize: "11px",
                               backgroundColor: "#fef3c7",
                               color: "#d97706",
                               border: "1px solid #fde68a",
                               padding: "2px 6px",
                               borderRadius: "6px",
-                              fontWeight: "700"
+                              fontWeight: "700",
+                              whiteSpace: "nowrap"
                             }}>
                               👑 Trưởng nhóm
                             </span>
                           ) : (
                             <span style={{
+                              flexShrink: 0,
                               fontSize: "11px",
                               backgroundColor: "#e0f2fe",
                               color: "#0369a1",
                               border: "1px solid #bae6fd",
                               padding: "2px 6px",
                               borderRadius: "6px",
-                              fontWeight: "600"
+                              fontWeight: "600",
+                              whiteSpace: "nowrap"
                             }}>
                               👤 Thành viên
                             </span>
                           )}
                         </div>
-                        <div style={{ fontSize: "12px", color: "var(--pcs-neutral-500)", marginTop: "2px" }}>
+                        <div style={{ fontSize: "12px", color: "var(--pcs-neutral-500)", marginTop: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {m.PlayingRole || "Pickleball Player"} {m.JoinedAt ? `• Tham gia: ${new Date(m.JoinedAt).toLocaleDateString("vi-VN")}` : ""}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", gap: "16px", alignItems: "center", fontSize: "13px" }}>
+                    <div style={{ display: "flex", gap: "16px", alignItems: "center", fontSize: "13px", flexShrink: 0 }}>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ color: "var(--pcs-neutral-500)", fontSize: "11px" }}>Trình độ</div>
                         <div style={{ fontWeight: "600", color: "var(--pcs-brand-primary-hover)" }}>

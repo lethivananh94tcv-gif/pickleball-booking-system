@@ -998,6 +998,15 @@ export async function createTeamBooking(input: {
         startTime: input.startTime,
         endTime: input.endTime,
       });
+
+      // 4. Gửi thông báo tự động vào Box Chat Thách Đấu
+      try {
+        const { createGroupMessage } = await import("../playgroups/playgroups.repository");
+        const msgContent = `🎉 THÔNG BÁO ĐẶT SÂN THÀNH CÔNG 🎉\n🏟️ Sân: ${court.CourtName || "Sân Pickleball"}\n📅 Ngày: ${new Date(input.bookingDate).toLocaleDateString("vi-VN")}\n⏰ Thời gian: ${input.startTime} - ${input.endTime}\n🎫 Mã booking: ${result.BookingCode || `TM-${result.BookingID}`}\n\nCác thành viên hãy chuẩn bị thể lực thật tốt cho trận đấu sắp tới nhé!`;
+        await createGroupMessage(input.groupId, input.userId, msgContent);
+      } catch (chatErr) {
+        console.warn("Lỗi khi gửi tin nhắn đặt sân vào box chat:", chatErr);
+      }
     } catch (err) {
       console.warn("Error sending team booking notification/email to opponent:", err);
     }

@@ -234,3 +234,11 @@ export async function markMessagesAsRead(userId: number, groupId: number) {
   }
   return repo.markMessagesAsRead(userId, groupId);
 }
+
+export async function pinGroupMessage(groupId: number, messageId: number, userId: number) {
+  const isMember = await repo.checkUserInGroup(groupId, userId);
+  if (!isMember) {
+    throw new Error("Bạn không có quyền ghim tin nhắn trong nhóm này.");
+  }
+  return repo.pinGroupMessage(groupId, messageId);
+}

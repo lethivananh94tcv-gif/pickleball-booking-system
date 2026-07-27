@@ -255,7 +255,7 @@ export async function acceptInvitation(invitationId: number, userId: number) {
     if (!group) throw new Error("Không tìm thấy nhóm chơi.");
 
     if (group.CurrentPlayers >= group.MaxPlayers) {
-      await repo.updateInvitationStatus(invitationId, 'Expired');
+      await repo.updateInvitationStatus(invitationId, 'Expired', 'Pending');
       throw new Error("Nhóm chơi đã đầy thành viên. Lời mời đã bị hủy.");
     }
 
@@ -263,13 +263,15 @@ export async function acceptInvitation(invitationId: number, userId: number) {
 
     const isMember = await groupRepo.checkUserInGroup(groupId, targetUserId);
     if (isMember) {
-      await repo.updateInvitationStatus(invitationId, 'Accepted');
+      await repo.updateInvitationStatus(invitationId, 'Accepted', 'Pending');
       return { message: "Người chơi đã ở trong nhóm này rồi." };
     }
 
+    const updated = await repo.updateInvitationStatus(invitationId, 'Accepted', 'Pending');
+    if (!updated) throw new Error("Lời mời này đã được xử lý trước đó.");
+
     // Join the group
     await groupRepo.addGroupMember(groupId, targetUserId);
-    await repo.updateInvitationStatus(invitationId, 'Accepted');
   } else if (invite.InvitationType === 'InviteToPlay') {
     // 1. Check if an active group with exactly these two players already exists
     const existingGroupId = await groupRepo.findActiveGroupBetweenPlayers(invite.SenderID, userId);
@@ -358,9 +360,14 @@ export async function acceptInvitation(invitationId: number, userId: number) {
       throw new Error("Không thể chấp nhận lời thách đấu do hai nhóm có thành viên bị trùng lặp.");
     }
 
+    // Use concurrency check to prevent double-clicking or race condition
+    const updated = await repo.updateInvitationStatus(invitationId, 'Accepted', 'Pending');
+    if (!updated) {
+      throw new Error("Lời mời này đã được xử lý trước đó.");
+    }
+
     // Upsert opponent match record with 'Accepted' status
     await matchingRepo.upsertPlayerMatch(invite.SenderID, userId, 100.00, 'Opponent', 'Accepted');
-    await repo.updateInvitationStatus(invitationId, 'Accepted');
 
     // Create challenge chat box between ALL members of both teams with NO leader
     try {
@@ -372,16 +379,33 @@ export async function acceptInvitation(invitationId: number, userId: number) {
           ...(senderGroupDetails.members || []),
           ...(targetGroupDetails.members || [])
         ];
-        const uniqueUserIds = Array.from(new Set(allMembers.map((m: any) => m.UserID))).filter(Boolean) as number[];
         
-        if (uniqueUserIds.length > 0) {
+        // Ensure no duplicate users and retain their original roles
+        const uniqueMembersMap = new Map<number, { userId: number; role: string }>();
+        allMembers.forEach((m: any) => {
+          if (m.UserID) {
+            uniqueMembersMap.set(m.UserID, { userId: m.UserID, role: m.RoleInGroup });
+          }
+        });
+        const uniqueMembers = Array.from(uniqueMembersMap.values());
+        
+        if (uniqueMembers.length > 0) {
           const chatGroupName = (`Thách đấu: ${senderGroupDetails.GroupName} vs ${targetGroupDetails.GroupName}`).slice(0, 100);
-          await groupRepo.createChallengeChatGroup({
-            groupName: chatGroupName,
-            skillLevel: senderGroupDetails.SkillLevel || "Intermediate",
-            description: "Box chat chung giữa hai đội thách đấu (Không có trưởng nhóm).",
-            averageExperience: senderGroupDetails.AverageExperience || 0,
-          }, invite.SenderID, uniqueUserIds);
+          
+          // Double check if a challenge chat between these exact members/teams already exists recently
+          const pool = await getPool();
+          const existingRes = await pool.request()
+            .input("GroupName", sql.NVarChar(100), chatGroupName)
+            .query(`SELECT GroupID FROM PlayingGroups WHERE GroupName = @GroupName AND CreatedAt > DATEADD(minute, -5, GETDATE())`);
+            
+          if (existingRes.recordset.length === 0) {
+            await groupRepo.createChallengeChatGroup({
+              groupName: chatGroupName,
+              skillLevel: senderGroupDetails.SkillLevel || "Intermediate",
+              description: "Box chat chung giữa hai đội thách đấu.",
+              averageExperience: senderGroupDetails.AverageExperience || 0,
+            }, invite.SenderID, uniqueMembers);
+          }
         }
       }
     } catch (err) {
@@ -420,7 +444,10 @@ export async function rejectInvitation(invitationId: number, userId: number) {
     throw new Error("Bạn không phải người nhận lời mời này.");
   }
 
-  await repo.updateInvitationStatus(invitationId, 'Rejected');
+  const updated = await repo.updateInvitationStatus(invitationId, 'Rejected', 'Pending');
+  if (!updated) {
+    throw new Error("Lời mời này đã được xử lý trước đó.");
+  }
 
   const rejectedInv = await repo.getInvitationById(invitationId);
   // Gửi email notification
