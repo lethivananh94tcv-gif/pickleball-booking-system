@@ -335,6 +335,32 @@ export async function acceptInvitation(invitationId: number, userId: number) {
     // Upsert opponent match record with 'Accepted' status
     await matchingRepo.upsertPlayerMatch(invite.SenderID, userId, 100.00, 'Opponent', 'Accepted');
     await repo.updateInvitationStatus(invitationId, 'Accepted');
+
+    // Create challenge chat box between ALL members of both teams with NO leader
+    try {
+      const senderGroupDetails = await groupRepo.getGroupDetails(invite.GroupID);
+      const targetGroupDetails = await groupRepo.getGroupDetails(targetGroup.GroupID);
+      
+      if (senderGroupDetails && targetGroupDetails) {
+        const allMembers = [
+          ...(senderGroupDetails.members || []),
+          ...(targetGroupDetails.members || [])
+        ];
+        const uniqueUserIds = Array.from(new Set(allMembers.map((m: any) => m.UserID))).filter(Boolean) as number[];
+        
+        if (uniqueUserIds.length > 0) {
+          const chatGroupName = (`⚔️ Thách đấu: ${senderGroupDetails.GroupName} vs ${targetGroupDetails.GroupName}`).slice(0, 100);
+          await groupRepo.createChallengeChatGroup({
+            groupName: chatGroupName,
+            skillLevel: senderGroupDetails.SkillLevel || "Intermediate",
+            description: "Box chat chung giữa hai đội thách đấu (Không có trưởng nhóm).",
+            averageExperience: senderGroupDetails.AverageExperience || 0,
+          }, invite.SenderID, uniqueUserIds);
+        }
+      }
+    } catch (err) {
+      console.error("Error creating challenge chat box:", err);
+    }
   }
 
   const updatedInvitation = await repo.getInvitationById(invitationId);

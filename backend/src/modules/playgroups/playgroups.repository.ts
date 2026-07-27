@@ -80,6 +80,8 @@ export async function listGroups(filters: { skillLevel?: string; keyword?: strin
     INNER JOIN Users u ON g.CreatedBy = u.UserID
     LEFT JOIN GroupMembers gm ON g.GroupID = gm.GroupID AND gm.Status = 'Active'
     WHERE g.Status IN ('Open', 'Active', 'Full')
+      AND g.GroupName NOT LIKE '%⚔️ Thách đấu%'
+      AND g.Description NOT LIKE '%Box chat chung%'
   `;
 
   const request = pool.request();
@@ -276,14 +278,25 @@ export async function removeGroupMember(groupId: number, userId: number) {
         WHERE GroupID = @GroupID AND UserID = @UserID AND Status = 'Active'
       `);
 
-    // Update group status to Open if it was Full
+    // Query count of remaining active members
+    const countRes = await transaction.request()
+      .input("GroupID", sql.Int, groupId)
+      .query(`SELECT COUNT(*) AS count FROM GroupMembers WHERE GroupID = @GroupID AND Status = 'Active'`);
+    const remainingCount = countRes.recordset[0]?.count || 0;
+
+    // Update group status to Closed if 0 members, or Open if it was Full
     await transaction
       .request()
       .input("GroupID", sql.Int, groupId)
+      .input("RemainingCount", sql.Int, remainingCount)
       .query(`
         UPDATE PlayingGroups
         SET
-          Status = CASE WHEN Status = 'Full' THEN 'Open' ELSE Status END,
+          Status = CASE 
+            WHEN @RemainingCount = 0 THEN 'Closed'
+            WHEN Status = 'Full' THEN 'Open' 
+            ELSE Status 
+          END,
           UpdatedAt = GETDATE()
         WHERE GroupID = @GroupID
       `);
@@ -306,6 +319,58 @@ export async function updateGroupStatus(groupId: number, status: string) {
       SET Status = @Status, UpdatedAt = GETDATE()
       WHERE GroupID = @GroupID
     `);
+}
+
+export async function removeAllGroupMembers(groupId: number) {
+  const pool = await getPool();
+  await pool
+    .request()
+    .input("GroupID", sql.Int, groupId)
+    .query(`
+      UPDATE GroupMembers
+      SET Status = 'Left'
+      WHERE GroupID = @GroupID AND Status = 'Active'
+    `);
+}
+
+export async function transferLeadership(groupId: number, oldLeaderId: number, newLeaderId: number) {
+  const pool = await getPool();
+  const transaction = new sql.Transaction(pool);
+  try {
+    await transaction.begin();
+
+    await transaction.request()
+      .input("GroupID", sql.Int, groupId)
+      .input("NewLeaderID", sql.Int, newLeaderId)
+      .query(`
+        UPDATE PlayingGroups
+        SET CreatedBy = @NewLeaderID, UpdatedAt = GETDATE()
+        WHERE GroupID = @GroupID
+      `);
+
+    await transaction.request()
+      .input("GroupID", sql.Int, groupId)
+      .input("NewLeaderID", sql.Int, newLeaderId)
+      .query(`
+        UPDATE GroupMembers
+        SET RoleInGroup = 'Leader'
+        WHERE GroupID = @GroupID AND UserID = @NewLeaderID
+      `);
+
+    await transaction.request()
+      .input("GroupID", sql.Int, groupId)
+      .input("OldLeaderID", sql.Int, oldLeaderId)
+      .query(`
+        UPDATE GroupMembers
+        SET RoleInGroup = 'Member'
+        WHERE GroupID = @GroupID AND UserID = @OldLeaderID
+      `);
+
+    await transaction.commit();
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
 }
 
 export async function findActiveGroupBetweenPlayers(player1Id: number, player2Id: number): Promise<number | null> {
@@ -541,4 +606,56 @@ export async function markMessagesAsRead(userId: number, groupId: number) {
       END
     `);
   return true;
+}
+
+export async function createChallengeChatGroup(
+  data: {
+    groupName: string;
+    skillLevel: string;
+    description: string;
+    averageExperience: number;
+  },
+  creatorId: number,
+  memberIds: number[]
+) {
+  const pool = await getPool();
+  const transaction = new sql.Transaction(pool);
+
+  try {
+    await transaction.begin();
+
+    // 1. Insert PlayingGroup
+    const groupResult = await transaction
+      .request()
+      .input("GroupName", sql.NVarChar(100), data.groupName)
+      .input("CreatorID", sql.Int, creatorId)
+      .input("SkillLevel", sql.NVarChar(30), data.skillLevel)
+      .input("AverageExperience", sql.Decimal(5, 2), data.averageExperience)
+      .input("Description", sql.NVarChar(255), data.description)
+      .query(`
+        INSERT INTO PlayingGroups (GroupName, CreatedBy, SkillLevel, AverageExperience, Status, Description, CreatedAt, UpdatedAt)
+        OUTPUT INSERTED.GroupID
+        VALUES (@GroupName, @CreatorID, @SkillLevel, @AverageExperience, 'Active', @Description, GETDATE(), GETDATE())
+      `);
+
+    const groupId = groupResult.recordset[0].GroupID;
+
+    // 2. Insert all members with role 'Member' (NO ONE has 'Leader' role!)
+    for (const uId of memberIds) {
+      await transaction
+        .request()
+        .input("GroupID", sql.Int, groupId)
+        .input("UserID", sql.Int, uId)
+        .query(`
+          INSERT INTO GroupMembers (GroupID, UserID, RoleInGroup, JoinedAt, Status)
+          VALUES (@GroupID, @UserID, 'Member', GETDATE(), 'Active')
+        `);
+    }
+
+    await transaction.commit();
+    return groupId;
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
 }
