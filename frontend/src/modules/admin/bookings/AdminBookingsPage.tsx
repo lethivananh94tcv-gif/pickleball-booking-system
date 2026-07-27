@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getDailyBookings, checkInBooking, cancelBooking } from "@/services/bookingApi";
 import type { DailyBooking } from "@/services/bookingApi";
 import { getToken, getUser } from "@/utils/authStorage";
@@ -113,6 +113,7 @@ function StatCard({
 
 export default function AdminBookingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [token, setToken] = useState<string | null>(null);
   const [date, setDate] = useState(todayStr());
   const [bookings, setBookings] = useState<DailyBooking[]>([]);
@@ -153,6 +154,13 @@ export default function AdminBookingsPage() {
       loadBookings();
     }
   }, [token, date]);
+
+  useEffect(() => {
+    const query = searchParams.get("search") || searchParams.get("code") || "";
+    if (query) {
+      setSearchQuery(query);
+    }
+  }, [searchParams]);
 
   async function loadBookings(silent = false) {
     if (!token) return;
