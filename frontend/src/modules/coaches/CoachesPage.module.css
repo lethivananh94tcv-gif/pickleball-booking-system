@@ -279,7 +279,6 @@
   width: 100%;
   height: 200px;
   object-fit: cover;
-  object-position: top;
 }
 .featuredBody {
   padding: 20px;
@@ -415,7 +414,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top;
 }
 .cardImage button {
   position: absolute;
@@ -839,7 +837,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top;
 }
 
 .authorText {
