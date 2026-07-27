@@ -174,11 +174,19 @@ export async function getGroupMessages(groupId: number, userId: number) {
 
   const messages = await repo.getGroupMessages(groupId, 50);
 
-  // Attach IsMine flag
-  return messages.map((m: any) => ({
-    ...m,
-    IsMine: m.SenderID === userId
-  }));
+  // Attach IsMine flag and adjust UTC timestamp (DB stores local Vietnam time via GETDATE(), but mssql driver treats it as UTC)
+  return messages.map((m: any) => {
+    let createdAt = m.CreatedAt;
+    if (createdAt) {
+      const realUtcTime = new Date(createdAt).getTime() - 7 * 60 * 60 * 1000;
+      createdAt = new Date(realUtcTime).toISOString();
+    }
+    return {
+      ...m,
+      CreatedAt: createdAt,
+      IsMine: m.SenderID === userId
+    };
+  });
 }
 
 export async function sendGroupMessage(groupId: number, userId: number, content: string) {
@@ -198,12 +206,19 @@ export async function sendGroupMessage(groupId: number, userId: number, content:
 
   const newMessage = await repo.createGroupMessage(groupId, userId, trimmedContent);
 
+  let createdAt = newMessage?.CreatedAt;
+  if (createdAt) {
+    const realUtcTime = new Date(createdAt).getTime() - 7 * 60 * 60 * 1000;
+    createdAt = new Date(realUtcTime).toISOString();
+  }
+
   // Gửi email notification (bất đồng bộ, không dùng await/throw lỗi luồng chính)
   notificationsService.notifyGroupChatMessage(userId, groupId, trimmedContent).catch(err => console.error("notifyGroupChatMessage error:", err));
 
   // Return with basic info, the client can refetch if needed
   return {
     ...newMessage,
+    CreatedAt: createdAt || newMessage?.CreatedAt,
     IsMine: true
   };
 }
