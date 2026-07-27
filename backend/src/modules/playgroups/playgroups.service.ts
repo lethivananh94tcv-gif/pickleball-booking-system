@@ -133,8 +133,23 @@ export async function updatePlayGroup(
     throw new Error("Nhóm chơi không tồn tại.");
   }
 
+  const isMember = await repo.checkUserInGroup(groupId, userId);
+  if (!isMember) {
+    throw new Error("Bạn không phải là thành viên của nhóm này.");
+  }
+
   if (group.CreatorID !== userId) {
-    throw new Error("Bạn không có quyền chỉnh sửa nhóm này.");
+    if (!data.groupName || !data.groupName.trim()) {
+      throw new Error("Tên nhóm không được để trống.");
+    }
+    await repo.updateGroup(groupId, {
+      groupName: data.groupName.trim(),
+      skillLevel: group.SkillLevel,
+      averageExperience: group.AverageExperience,
+      description: group.Description || "",
+      status: group.Status || "Open",
+    });
+    return repo.getGroupDetails(groupId);
   }
 
   if (!data.groupName || !data.groupName.trim()) {

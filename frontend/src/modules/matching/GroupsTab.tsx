@@ -33,6 +33,10 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
     loading?: boolean;
   } | null>(null);
   const [expandedGroupIds, setExpandedGroupIds] = useState<Record<number, boolean>>({});
+  const [showChatOptionsModal, setShowChatOptionsModal] = useState(false);
+  const [renamingGroupModal, setRenamingGroupModal] = useState<{ groupId: number; groupName: string } | null>(null);
+  const [newGroupNameInput, setNewGroupNameInput] = useState("");
+  const [renamingLoading, setRenamingLoading] = useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
   const chatInputRef = React.useRef<HTMLInputElement>(null);
@@ -307,6 +311,31 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
       loadGroups();
     } catch (err: any) {
       showToast(err.message || "Cập nhật nhóm thất bại", "error");
+    }
+  };
+
+  const handleRenameGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!renamingGroupModal || !newGroupNameInput.trim() || renamingLoading) return;
+    setRenamingLoading(true);
+    try {
+      await api.updateGroup(token, renamingGroupModal.groupId, {
+        groupName: newGroupNameInput.trim(),
+        skillLevel: chatGroup?.SkillLevel || "Intermediate",
+        averageExperience: chatGroup?.AverageExperience || 1,
+        description: chatGroup?.Description || "",
+        status: chatGroup?.Status || "Open",
+      });
+      showToast("Đổi tên nhóm thành công!");
+      if (chatGroup && chatGroup.GroupID === renamingGroupModal.groupId) {
+        setChatGroup(prev => prev ? { ...prev, GroupName: newGroupNameInput.trim() } : null);
+      }
+      setGroups(prev => prev.map(g => g.GroupID === renamingGroupModal.groupId ? { ...g, GroupName: newGroupNameInput.trim() } : g));
+      setRenamingGroupModal(null);
+    } catch (err: any) {
+      showToast(err.message || "Đổi tên nhóm thất bại", "error");
+    } finally {
+      setRenamingLoading(false);
     }
   };
 
@@ -776,7 +805,27 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
               ) : (
                 <>
               <div className={styles.modalHeader} style={{ padding: "1.25rem 1.5rem", margin: 0, borderBottom: "1px solid #f1f5f9", backgroundColor: "#ffffff", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", minWidth: 0, width: "100%", boxSizing: "border-box" }}>
-                <h4 className={styles.modalTitle} style={{ color: "#0f172a", margin: 0, fontSize: "16px", minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>💬 {chatGroup.GroupName}</h4>
+                <div 
+                  onClick={() => setShowChatOptionsModal(true)}
+                  style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "8px", 
+                    cursor: "pointer", 
+                    minWidth: 0, 
+                    flex: 1,
+                    padding: "4px 8px",
+                    margin: "-4px -8px",
+                    borderRadius: "8px",
+                    transition: "background 0.2s ease"
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#f1f5f9"; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                  title="Nhấn để xem tùy chọn nhóm"
+                >
+                  <h4 className={styles.modalTitle} style={{ color: "#0f172a", margin: 0, fontSize: "16px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{chatGroup.GroupName}</h4>
+                  <span style={{ fontSize: "12px", color: "#64748b", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: "24px", height: "24px", borderRadius: "50%", background: "#f8fafc", border: "1px solid #e2e8f0" }}>▼</span>
+                </div>
                 <button className={styles.closeBtn} style={{ color: "#64748b", fontSize: "24px", flexShrink: 0 }} onClick={() => setChatGroup(null)}>×</button>
               </div>
 
@@ -1209,6 +1258,139 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CHAT OPTIONS MODAL */}
+      {showChatOptionsModal && chatGroup && (() => {
+        const isChallengeChat = chatGroup.IsChallengeChat === 1 || chatGroup.IsChallengeChat === true || chatGroup.Description?.includes("Box chat chung") || chatGroup.GroupName?.includes("Thách đấu");
+        const isLeader = !isChallengeChat && userProfile && chatGroup.CreatorID === userProfile.UserID && chatGroup.MyRole !== "Member";
+        return (
+          <div className={styles.modalOverlay} style={{ zIndex: 1000 }} onClick={() => setShowChatOptionsModal(false)}>
+            <div className={styles.modalCard} style={{ backgroundColor: "#ffffff", maxWidth: "440px", width: "100%", padding: "1.75rem", borderRadius: "20px", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "1rem" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#0f172a" }}>
+                    Tùy chọn nhóm chat
+                  </h3>
+                  <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#64748b" }}>
+                    {chatGroup.GroupName}
+                  </p>
+                </div>
+                <button className={styles.closeBtn} onClick={() => setShowChatOptionsModal(false)} style={{ fontSize: "24px", color: "#94a3b8", cursor: "pointer", background: "none", border: "none" }}>×</button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {/* Option 1: Rename group (For both members and leader) */}
+                <button
+                  onClick={() => {
+                    setShowChatOptionsModal(false);
+                    setRenamingGroupModal({ groupId: chatGroup.GroupID, groupName: chatGroup.GroupName || "" });
+                    setNewGroupNameInput(chatGroup.GroupName || "");
+                  }}
+                  className={styles.secondaryBtn}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "12px 16px", borderRadius: "12px", backgroundColor: "#f8fafc", borderColor: "#e2e8f0", color: "#1e293b", fontSize: "14.5px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#f1f5f9"; e.currentTarget.style.borderColor = "#cbd5e1"; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "#f8fafc"; e.currentTarget.style.borderColor = "#e2e8f0"; }}
+                >
+                  Đổi tên nhóm chat
+                </button>
+
+                {/* Option 2: View members (For both members and leader) */}
+                <button
+                  onClick={() => {
+                    setShowChatOptionsModal(false);
+                    setSelectedGroupForMembers(chatGroup);
+                  }}
+                  className={styles.secondaryBtn}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "12px 16px", borderRadius: "12px", backgroundColor: "#f8fafc", borderColor: "#e2e8f0", color: "#1e293b", fontSize: "14.5px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#f1f5f9"; e.currentTarget.style.borderColor = "#cbd5e1"; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "#f8fafc"; e.currentTarget.style.borderColor = "#e2e8f0"; }}
+                >
+                  Xem thành viên ({chatGroup.CurrentPlayers || 0})
+                </button>
+
+                {/* Option 3: Edit Group Settings (Leader ONLY) */}
+                {isLeader && (
+                  <button
+                    onClick={() => {
+                      setShowChatOptionsModal(false);
+                      handleOpenEdit(chatGroup);
+                    }}
+                    className={styles.secondaryBtn}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "12px 16px", borderRadius: "12px", backgroundColor: "#f0fdf4", borderColor: "#bbf7d0", color: "#15803d", fontSize: "14.5px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#dcfce7"; e.currentTarget.style.borderColor = "#86efac"; }}
+                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "#f0fdf4"; e.currentTarget.style.borderColor = "#bbf7d0"; }}
+                  >
+                    Chỉnh sửa thông tin nhóm
+                  </button>
+                )}
+
+                {/* Option 4: Leave group (For both members and leader) */}
+                {!isChallengeChat && (
+                  <button
+                    onClick={() => {
+                      setShowChatOptionsModal(false);
+                      handleLeaveGroup(chatGroup.GroupID, isLeader || false, chatGroup.GroupName);
+                    }}
+                    className={styles.secondaryBtn}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "12px 16px", borderRadius: "12px", backgroundColor: "#fff7ed", borderColor: "#fed7aa", color: "#c2410c", fontSize: "14.5px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#ffedd5"; e.currentTarget.style.borderColor = "#fb923c"; }}
+                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "#fff7ed"; e.currentTarget.style.borderColor = "#fed7aa"; }}
+                  >
+                    Rời khỏi nhóm
+                  </button>
+                )}
+
+                {/* Option 5: Disband group (Leader ONLY) */}
+                {isLeader && (
+                  <button
+                    onClick={() => {
+                      setShowChatOptionsModal(false);
+                      handleCloseGroup(chatGroup.GroupID, chatGroup.GroupName || "");
+                    }}
+                    className={styles.secondaryBtn}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "12px 16px", borderRadius: "12px", backgroundColor: "#fef2f2", borderColor: "#fecaca", color: "#dc2626", fontSize: "14.5px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#fee2e2"; e.currentTarget.style.borderColor = "#f87171"; }}
+                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "#fef2f2"; e.currentTarget.style.borderColor = "#fecaca"; }}
+                  >
+                    Giải tán nhóm
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* RENAME GROUP MODAL */}
+      {renamingGroupModal && (
+        <div className={styles.modalOverlay} style={{ zIndex: 1001 }} onClick={() => !renamingLoading && setRenamingGroupModal(null)}>
+          <div className={styles.modalCard} style={{ backgroundColor: "#ffffff", maxWidth: "400px", width: "100%", padding: "1.75rem", borderRadius: "20px", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#0f172a" }}>Đổi tên nhóm chat</h3>
+              <button className={styles.closeBtn} onClick={() => !renamingLoading && setRenamingGroupModal(null)} disabled={renamingLoading}>×</button>
+            </div>
+            <form onSubmit={handleRenameGroup}>
+              <div style={{ marginBottom: "1.5rem" }}>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: "600", color: "#334155", marginBottom: "8px" }}>Tên nhóm mới:</label>
+                <input
+                  type="text"
+                  value={newGroupNameInput}
+                  onChange={(e) => setNewGroupNameInput(e.target.value)}
+                  placeholder="Nhập tên nhóm..."
+                  className={styles.input}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: "10px", border: "1px solid #cbd5e1" }}
+                  required
+                  disabled={renamingLoading}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button type="button" onClick={() => setRenamingGroupModal(null)} className={styles.secondaryBtn} disabled={renamingLoading} style={{ padding: "10px 18px", borderRadius: "10px" }}>Hủy</button>
+                <button type="submit" className={styles.primaryBtn} disabled={renamingLoading || !newGroupNameInput.trim()} style={{ padding: "10px 20px", borderRadius: "10px", backgroundColor: "#22c55e", color: "white", border: "none", fontWeight: "600" }}>{renamingLoading ? "Đang lưu..." : "Lưu tên mới"}</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
