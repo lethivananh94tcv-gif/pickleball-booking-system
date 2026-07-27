@@ -9,6 +9,11 @@ function todayVN() {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
 }
 
+function getCurrentHourVN() {
+  const nowStr = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", hour12: false });
+  return parseInt(nowStr, 10);
+}
+
 export default function SearchBookingBar() {
   const router = useRouter();
   const [keyword, setKeyword] = useState("");
@@ -16,6 +21,18 @@ export default function SearchBookingBar() {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  useEffect(() => {
+    const isToday = !date || date === todayVN();
+    if (isToday && startTime) {
+      const startH = parseInt(startTime.split(":")[0], 10);
+      const currentH = getCurrentHourVN();
+      if (startH <= currentH) {
+        setStartTime("");
+        setEndTime("");
+      }
+    }
+  }, [date, startTime]);
 
   const timeBoxRef = useRef<HTMLDivElement>(null);
   const [popoverCoords, setPopoverCoords] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -193,10 +210,18 @@ export default function SearchBookingBar() {
                   style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #d1ebd6", fontSize: "13px", color: "#073b2b", outline: "none", fontWeight: "600", backgroundColor: "#ffffff", cursor: "pointer" }}
                 >
                   <option value="">Chọn giờ</option>
-                  {Array.from({ length: 18 }, (_, i) => i + 5).map((h) => {
-                    const timeStr = `${h < 10 ? "0" : ""}${h}:00`;
-                    return <option key={timeStr} value={timeStr}>{timeStr}</option>;
-                  })}
+                  {(() => {
+                    const isToday = !date || date === todayVN();
+                    const currentH = getCurrentHourVN();
+                    const validHours = Array.from({ length: 18 }, (_, i) => i + 5).filter((h) => !isToday || h > currentH);
+                    if (validHours.length === 0) {
+                      return <option value="" disabled>Hết giờ hôm nay</option>;
+                    }
+                    return validHours.map((h) => {
+                      const timeStr = `${h < 10 ? "0" : ""}${h}:00`;
+                      return <option key={timeStr} value={timeStr}>{timeStr}</option>;
+                    });
+                  })()}
                 </select>
               </div>
 
@@ -209,12 +234,23 @@ export default function SearchBookingBar() {
                   style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #d1ebd6", fontSize: "13px", color: "#073b2b", outline: "none", fontWeight: "600", backgroundColor: !startTime ? "#f8fafc" : "#ffffff", cursor: !startTime ? "not-allowed" : "pointer" }}
                 >
                   <option value="">Chọn giờ</option>
-                  {Array.from({ length: 18 }, (_, i) => i + 6).map((h) => {
-                    const timeStr = `${h < 10 ? "0" : ""}${h}:00`;
-                    const isAfterStart = !startTime || timeStr > startTime;
-                    if (!isAfterStart) return null;
-                    return <option key={timeStr} value={timeStr}>{timeStr}</option>;
-                  })}
+                  {(() => {
+                    const isToday = !date || date === todayVN();
+                    const currentH = getCurrentHourVN();
+                    const validEndHours = Array.from({ length: 18 }, (_, i) => i + 6).filter((h) => {
+                      const timeStr = `${h < 10 ? "0" : ""}${h}:00`;
+                      const isAfterStart = !startTime || timeStr > startTime;
+                      const isAfterNow = !isToday || h > currentH;
+                      return isAfterStart && isAfterNow;
+                    });
+                    if (validEndHours.length === 0) {
+                      return <option value="" disabled>--:--</option>;
+                    }
+                    return validEndHours.map((h) => {
+                      const timeStr = `${h < 10 ? "0" : ""}${h}:00`;
+                      return <option key={timeStr} value={timeStr}>{timeStr}</option>;
+                    });
+                  })()}
                 </select>
               </div>
             </div>

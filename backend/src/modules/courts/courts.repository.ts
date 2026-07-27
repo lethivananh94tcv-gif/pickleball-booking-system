@@ -94,6 +94,7 @@ export async function findAvailableCourts(
       WHERE cs.SlotDate = @SlotDate
         AND cs.Status = 'Available'
         AND c.Status = 'Available'
+        AND CAST(CAST(cs.SlotDate AS VARCHAR(10)) + ' ' + CONVERT(VARCHAR(8), cs.EndTime, 108) AS DATETIME) > DATEADD(hour, 7, GETUTCDATE())
         AND NOT EXISTS (
           SELECT 1 FROM TournamentCourtBlocks b
           WHERE b.CourtID = c.CourtID
