@@ -242,3 +242,11 @@ export async function pinGroupMessage(groupId: number, messageId: number, userId
   }
   return repo.pinGroupMessage(groupId, messageId);
 }
+
+export async function unpinGroupMessage(groupId: number, messageId: number, userId: number) {
+  const isMember = await repo.checkUserInGroup(groupId, userId);
+  if (!isMember) {
+    throw new Error("Bạn không có quyền bỏ ghim tin nhắn trong nhóm này.");
+  }
+  return repo.unpinGroupMessage(groupId, messageId);
+}

@@ -537,42 +537,42 @@ export async function createGroupMessage(groupId: number, senderId: number, cont
 
   if (savedMsg) {
     // Fetch sender info for Firebase Realtime Database
-    pool
-      .request()
-      .input("SenderID", sql.Int, senderId)
-      .query("SELECT FullName, AvatarURL FROM Users WHERE UserID = @SenderID")
-      .then((userResult) => {
-        const user = userResult.recordset[0];
-        const senderName = user?.FullName || "Thành viên";
-        const senderAvatar = user?.AvatarURL || "";
+    try {
+      const userResult = await pool
+        .request()
+        .input("SenderID", sql.Int, senderId)
+        .query("SELECT FullName, AvatarURL FROM Users WHERE UserID = @SenderID");
+      
+      const user = userResult.recordset[0];
+      const senderName = user?.FullName || "Thành viên";
+      const senderAvatar = user?.AvatarURL || "";
 
-        let finalCreatedAt = savedMsg.CreatedAt;
-        if (finalCreatedAt) {
-          const realUtcTime = new Date(finalCreatedAt).getTime() - 7 * 60 * 60 * 1000;
-          finalCreatedAt = new Date(realUtcTime).toISOString();
-        }
+      let finalCreatedAt = savedMsg.CreatedAt;
+      if (finalCreatedAt) {
+        const realUtcTime = new Date(finalCreatedAt).getTime() - 7 * 60 * 60 * 1000;
+        finalCreatedAt = new Date(realUtcTime).toISOString();
+      }
 
-        // Push to Firebase Realtime Database
-        const firebaseURL = `https://pcs363875-default-rtdb.asia-southeast1.firebasedatabase.app/group_messages/${groupId}.json`;
-        return fetch(firebaseURL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            MessageID: savedMsg.MessageID,
-            GroupID: groupId,
-            SenderID: senderId,
-            SenderName: senderName,
-            SenderAvatar: senderAvatar,
-            Content: content,
-            CreatedAt: finalCreatedAt
-          })
-        });
-      })
-      .catch((err) => {
-        console.error("Firebase chat sync failed:", err);
+      // Push to Firebase Realtime Database
+      const firebaseURL = `https://pcs363875-default-rtdb.asia-southeast1.firebasedatabase.app/group_messages/${groupId}.json`;
+      await fetch(firebaseURL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          MessageID: savedMsg.MessageID,
+          GroupID: groupId,
+          SenderID: senderId,
+          SenderName: senderName,
+          SenderAvatar: senderAvatar,
+          Content: content,
+          CreatedAt: finalCreatedAt
+        })
       });
+    } catch (err) {
+      console.error("Firebase chat sync failed:", err);
+    }
   }
 
   return savedMsg;
@@ -721,3 +721,11 @@ export async function pinGroupMessage(groupId: number, messageId: number) {
   return true;
 }
 
+export async function unpinGroupMessage(groupId: number, messageId: number) {
+  const pool = await getPool();
+  await pool.request()
+    .input("GroupID", sql.Int, groupId)
+    .input("MessageID", sql.Int, messageId)
+    .query(`UPDATE GroupMessages SET IsPinned = 0 WHERE GroupID = @GroupID AND MessageID = @MessageID`);
+  return true;
+}

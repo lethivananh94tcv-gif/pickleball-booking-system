@@ -6,7 +6,7 @@ import { findUserById, getOrCreateWalkInGuestUser, findCourtByIdForBooking, find
 import { calculateHours, validateBookingDate, validateHoldingLimit, validateCoachFeePerHour } from "./bookings.validation";
 import { isScheduleExpired } from "../coaches/coaches.validation";
 import { sendBookingCreatedEmail, sendPaymentSuccessEmail, sendCoachAssignedEmail, sendNoShowEmail, sendPaymentExpiredEmail } from "@/utils/mail";
-import { countActiveGroupMembers } from "../playgroups/playgroups.repository";
+import { countActiveGroupMembers, createGroupMessage } from "../playgroups/playgroups.repository";
 import { getAcceptedOpponentLeaders } from "../player-matching/player-matching.repository";
 import { AppError } from "@/utils/AppError";
 import { getPool, sql } from "@/database/connection";
@@ -1001,7 +1001,6 @@ export async function createTeamBooking(input: {
 
       // 4. Gửi thông báo tự động vào Box Chat Thách Đấu
       try {
-        const { createGroupMessage } = await import("../playgroups/playgroups.repository");
         const msgContent = `🎉 THÔNG BÁO ĐẶT SÂN THÀNH CÔNG 🎉\n🏟️ Sân: ${court.CourtName || "Sân Pickleball"}\n📅 Ngày: ${new Date(input.bookingDate).toLocaleDateString("vi-VN")}\n⏰ Thời gian: ${input.startTime} - ${input.endTime}\n🎫 Mã booking: ${result.BookingCode || `TM-${result.BookingID}`}\n\nCác thành viên hãy chuẩn bị thể lực thật tốt cho trận đấu sắp tới nhé!`;
         await createGroupMessage(input.groupId, input.userId, msgContent);
       } catch (chatErr) {

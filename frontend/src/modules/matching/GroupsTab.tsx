@@ -34,6 +34,7 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
   } | null>(null);
   const [expandedGroupIds, setExpandedGroupIds] = useState<Record<number, boolean>>({});
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const messagesContainerRef = React.useRef<HTMLDivElement>(null);
   const chatInputRef = React.useRef<HTMLInputElement>(null);
   const firebaseListenerRef = useRef<{ ref: any; callback: any } | null>(null);
 
@@ -63,6 +64,18 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
     setContextMenu(null);
   };
 
+  const handleUnpinMessage = async () => {
+    if (!contextMenu) return;
+    try {
+      await api.unpinGroupMessage(token, contextMenu.groupId, contextMenu.messageId);
+      loadMessages(contextMenu.groupId);
+      showToast("Đã bỏ ghim tin nhắn!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Không thể bỏ ghim tin nhắn", "error");
+    }
+    setContextMenu(null);
+  };
+
 
   const toggleGroupOptions = (groupId: number) => {
     setExpandedGroupIds((prev) => ({
@@ -72,7 +85,14 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
   };
 
   useEffect(() => {
@@ -98,13 +118,13 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
           const fbData = snapshot.val();
           if (fbData) {
             setMessages((prev) => {
-              const existingIds = new Set(prev.map((m) => m.MessageID));
+              const existingIds = new Set(prev.map((m) => String(m.MessageID)));
               const newMsgs: api.GroupMessage[] = [];
 
               Object.keys(fbData).forEach((key) => {
                 const item = fbData[key];
                 const msgId = item.MessageID || key;
-                if (!existingIds.has(msgId)) {
+                if (!existingIds.has(String(msgId))) {
                   newMsgs.push({
                     MessageID: msgId,
                     GroupID: groupId,
@@ -133,9 +153,9 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
   };
 
   const handleOpenChat = async (group: api.PlayGroup) => {
+    if (chatGroup?.GroupID === group.GroupID) return;
     setChatGroup(group);
     setMessages([]);
-    loadMessages(group.GroupID);
     try {
       await api.markGroupMessagesAsRead(token, group.GroupID);
       setUnreadCounts(prev => ({ ...prev, [group.GroupID]: 0 }));
@@ -143,8 +163,11 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
     } catch (err) {}
   };
 
-  // Clean up Firebase listener when chat modal is closed or component unmounted
+  // Clean up Firebase listener and load messages whenever chatGroup changes
   useEffect(() => {
+    if (chatGroup) {
+      loadMessages(chatGroup.GroupID);
+    }
     return () => {
       if (firebaseListenerRef.current) {
         off(firebaseListenerRef.current.ref);
@@ -172,7 +195,12 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
     try {
       setSendingMessage(true);
       const newMsg = await api.sendGroupMessage(token, chatGroup.GroupID, chatContent);
-      setMessages((prev) => [...prev, newMsg]);
+      setMessages((prev) => {
+        if (prev.some((m) => String(m.MessageID) === String(newMsg.MessageID))) {
+          return prev;
+        }
+        return [...prev, newMsg];
+      });
       setChatContent("");
       requestAnimationFrame(() => {
         chatInputRef.current?.focus();
@@ -344,8 +372,10 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
   };
 
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+    <div style={{ height: "calc(100vh - 120px)", display: "flex", flexDirection: "column", paddingBottom: "1rem" }}>
+      {false && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
         <div>
           <h3 style={{ fontSize: "20px", fontWeight: "700", margin: 0 }}>Nhóm chơi bóng</h3>
           <p style={{ fontSize: "14px", color: "var(--pcs-neutral-600)", marginTop: "0.25rem" }}>Quản lý hoặc tham gia các nhóm chơi bóng để cùng luyện tập và thi đấu.</p>
@@ -492,6 +522,8 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
             );
           })}
         </div>
+      )}
+      </>
       )}
 
       {/* CREATE GROUP MODAL */}
@@ -648,204 +680,344 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
         </div>
       )}
 
-      {/* CHAT MODAL */}
-      {chatGroup && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContent} style={{ display: "flex", flexDirection: "column", height: "600px", maxHeight: "90vh" }}>
-            <div className={styles.modalHeader}>
-              <h4 className={styles.modalTitle}>💬 Chat: {chatGroup.GroupName}</h4>
-              <button className={styles.closeBtn} onClick={() => setChatGroup(null)}>×</button>
-            </div>
-
-            {(chatGroup.IsChallengeChat === 1 || chatGroup.IsChallengeChat === true || chatGroup.Description?.includes("Box chat chung") || chatGroup.GroupName?.includes("Thách đấu")) && 
-             !messages.some(m => m.Content && m.Content.includes("THÔNG BÁO ĐẶT SÂN THÀNH CÔNG")) && (
-              <div style={{
-                backgroundColor: "#fef3c7",
-                borderBottom: "1px solid #fde68a",
-                padding: "12px 16px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "12px"
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "24px" }}>🏟️</span>
-                  <div>
-                    <div style={{ fontWeight: "700", color: "#d97706", fontSize: "14.5px" }}>Gợi ý: Đặt sân cho trận đấu</div>
-                    <div style={{ color: "#b45309", fontSize: "12.5px", marginTop: "2px" }}>Các bạn đã chốt được lịch giao lưu? Đặt sân ngay nhé!</div>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => window.open(`/bookings/team?groupId=${chatGroup.GroupID}`, "_blank")}
-                  style={{
-                    backgroundColor: "#d97706",
-                    color: "white",
-                    padding: "8px 14px",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                    fontWeight: "600",
-                    border: "none",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    boxShadow: "0 2px 4px rgba(217, 119, 6, 0.2)",
-                    transition: "all 0.2s"
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = "#b45309";
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = "#d97706";
-                    e.currentTarget.style.transform = "translateY(0)";
-                  }}
-                >
-                  Đặt sân ngay
-                </button>
+      {/* SPLIT PANE CHAT VIEW (INLINE) */}
+      {true && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "row", maxWidth: "880px", width: "100%", margin: "0 auto", minWidth: 0, height: "100%", backgroundColor: "#ffffff", padding: 0, overflow: "hidden", borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+            
+            {/* LEFT SIDEBAR: LIST OF GROUPS */}
+            <div style={{ width: "280px", backgroundColor: "#f0fdf4", borderRight: "1px solid #dcfce7", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+              <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid #dcfce7", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h4 style={{ margin: 0, fontSize: "18px", color: "#166534", fontWeight: "700" }}>Tin nhắn</h4>
+                <button onClick={() => setShowCreateModal(true)} style={{ background: "none", border: "none", color: "#16a34a", cursor: "pointer", fontSize: "28px", padding: 0, lineHeight: 1 }} title="Tạo nhóm mới">+</button>
               </div>
-            )}
-
-            {(() => {
-              const pinnedMessage = messages.find((m: any) => m.IsPinned);
-              if (!pinnedMessage) return null;
-              return (
-                <div 
-                  style={{
-                    padding: "8px 12px",
-                    backgroundColor: "rgba(255, 255, 255, 0.9)",
-                    backdropFilter: "blur(4px)",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                    borderBottom: "1px solid var(--pcs-neutral-200)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    zIndex: 10
-                  }}
-                  onClick={() => {
-                    const el = document.getElementById(`msg-${pinnedMessage.MessageID}`);
-                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }}
-                >
-                  <span>📌</span>
-                  <div style={{ flex: 1, overflow: "hidden" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "600", color: "var(--pcs-primary-600)" }}>Tin nhắn đã ghim</div>
-                    <div style={{ fontSize: "13px", color: "var(--pcs-neutral-700)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {pinnedMessage.Content}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            <div style={{ flex: 1, overflowY: "auto", padding: "1rem", backgroundColor: "var(--pcs-neutral-50)", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {messages.length === 0 ? (
-                <div style={{ textAlign: "center", color: "var(--pcs-neutral-600)", marginTop: "2rem" }}>
-                  Chưa có tin nhắn nào. Hãy gửi lời chào đến mọi người!
-                </div>
-              ) : (
-                messages.map((msg) => {
-                  const isMine = msg.IsMine;
+              <div style={{ flex: 1, overflowY: "auto", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {groups.map(g => {
+                  const isSelected = chatGroup?.GroupID === g.GroupID;
                   return (
                     <div 
-                      key={msg.MessageID} 
-                      id={`msg-${msg.MessageID}`}
-                      style={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start", position: "relative" }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setContextMenu({
-                          visible: true,
-                          x: e.clientX,
-                          y: e.clientY,
-                          messageId: msg.MessageID,
-                          groupId: chatGroup.GroupID
-                        });
+                      key={g.GroupID}
+                      onClick={() => handleOpenChat(g)}
+                      style={{ 
+                        padding: "0.875rem 1rem", 
+                        borderRadius: "14px", 
+                        cursor: "pointer",
+                        background: isSelected 
+                          ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" 
+                          : "rgba(255, 255, 255, 0.65)",
+                        border: isSelected 
+                          ? "1px solid #047857" 
+                          : "1px solid rgba(16, 185, 129, 0.15)",
+                        boxShadow: isSelected 
+                          ? "0 6px 16px rgba(16, 185, 129, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3)" 
+                          : "0 1px 3px rgba(0, 0, 0, 0.03)",
+                        transform: isSelected ? "translateY(-1px)" : "translateY(0)",
+                        transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
+                      }}
+                      onMouseOver={(e) => { 
+                        if (!isSelected) {
+                          e.currentTarget.style.background = "#ffffff";
+                          e.currentTarget.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.12)";
+                          e.currentTarget.style.borderColor = "#86efac";
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                        }
+                      }}
+                      onMouseOut={(e) => { 
+                        if (!isSelected) {
+                          e.currentTarget.style.background = "rgba(255, 255, 255, 0.65)";
+                          e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.03)";
+                          e.currentTarget.style.borderColor = "rgba(16, 185, 129, 0.15)";
+                          e.currentTarget.style.transform = "translateY(0)";
+                        }
                       }}
                     >
-                      {!isMine && <span style={{ fontSize: "12px", color: "var(--pcs-neutral-600)", marginBottom: "0.25rem", marginLeft: "0.25rem" }}>{msg.SenderName}</span>}
-                      <div style={{
-                        maxWidth: "75%",
-                        padding: "0.5rem 0.75rem",
-                        borderRadius: "12px",
-                        backgroundColor: isMine ? "#3b82f6" : "#ffffff",
-                        color: isMine ? "#ffffff" : "var(--pcs-neutral-900)",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                        border: isMine ? "none" : "1px solid var(--pcs-neutral-200)",
-                        wordBreak: "break-word",
-                        whiteSpace: "pre-wrap"
+                      <div style={{ 
+                        fontWeight: "700", 
+                        fontSize: "14.5px", 
+                        color: isSelected ? "#ffffff" : "#15803d", 
+                        marginBottom: "4px", 
+                        whiteSpace: "nowrap", 
+                        overflow: "hidden", 
+                        textOverflow: "ellipsis",
+                        textShadow: isSelected ? "0 1px 2px rgba(0,0,0,0.15)" : "none"
                       }}>
-                        {msg.Content}
+                        {g.GroupName}
                       </div>
-                      <span style={{ fontSize: "10px", color: "var(--pcs-neutral-400)", marginTop: "0.25rem" }}>
-                        {new Date(msg.CreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      <div style={{ 
+                        fontSize: "12px", 
+                        color: isSelected ? "#d1fae5" : "#16a34a", 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: "6px",
+                        fontWeight: isSelected ? "600" : "500"
+                      }}>
+                        <span style={{ 
+                          display: "inline-block", 
+                          width: "8px", 
+                          height: "8px", 
+                          borderRadius: "50%", 
+                          backgroundColor: isSelected ? "#fef08a" : "#22c55e",
+                          boxShadow: isSelected ? "0 0 6px #fef08a" : "none"
+                        }}></span>
+                        {g.CurrentPlayers} / {g.MaxPlayers} thành viên
+                      </div>
                     </div>
                   );
-                })
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {contextMenu && contextMenu.visible && (
-              <div 
-                style={{
-                  position: "fixed",
-                  top: contextMenu.y,
-                  left: contextMenu.x,
-                  backgroundColor: "white",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  borderRadius: "8px",
-                  padding: "4px 0",
-                  zIndex: 9999,
-                  minWidth: "150px"
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button 
-                  style={{
-                    width: "100%",
-                    padding: "8px 16px",
-                    border: "none",
-                    backgroundColor: "transparent",
-                    textAlign: "left",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px"
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#f3f4f6"}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                  onClick={handlePinMessage}
-                >
-                  📌 Ghim tin nhắn
-                </button>
+                })}
               </div>
-            )}
-
-            <div style={{ padding: "1rem", borderTop: "1px solid var(--pcs-neutral-200)", backgroundColor: "#ffffff" }}>
-              <form onSubmit={handleSendMessage} style={{ display: "flex", gap: "0.5rem" }}>
-                <input
-                  ref={chatInputRef}
-                  type="text"
-                  value={chatContent}
-                  onChange={(e) => setChatContent(e.target.value)}
-                  placeholder="Nhập tin nhắn..."
-                  className={styles.input}
-                  style={{ flex: 1, marginBottom: 0 }}
-                  maxLength={1000}
-                />
-                <button
-                  type="submit"
-                  className={styles.primaryBtn}
-                  disabled={sendingMessage || !chatContent.trim()}
-                  style={{ whiteSpace: "nowrap" }}
-                >
-                  {sendingMessage ? "..." : "Gửi"}
-                </button>
-              </form>
             </div>
-          </div>
+
+            {/* RIGHT SIDE: MAIN CHAT AREA */}
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", backgroundColor: "#ffffff", position: "relative", overflow: "hidden" }}>
+              {!chatGroup ? (
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", flexDirection: "column", gap: "1rem", backgroundColor: "#f8fafc" }}>
+                  <span style={{ fontSize: "64px" }}>💬</span>
+                  <p style={{ fontSize: "16px", fontWeight: "600", color: "#64748b" }}>Chọn một nhóm bên trái để bắt đầu trò chuyện</p>
+                </div>
+              ) : (
+                <>
+              <div className={styles.modalHeader} style={{ padding: "1.25rem 1.5rem", margin: 0, borderBottom: "1px solid #f1f5f9", backgroundColor: "#ffffff", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", minWidth: 0, width: "100%", boxSizing: "border-box" }}>
+                <h4 className={styles.modalTitle} style={{ color: "#0f172a", margin: 0, fontSize: "16px", minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>💬 {chatGroup.GroupName}</h4>
+                <button className={styles.closeBtn} style={{ color: "#64748b", fontSize: "24px", flexShrink: 0 }} onClick={() => setChatGroup(null)}>×</button>
+              </div>
+
+              {(chatGroup.IsChallengeChat === 1 || chatGroup.IsChallengeChat === true || chatGroup.Description?.includes("Box chat chung") || chatGroup.GroupName?.includes("Thách đấu")) && 
+               !messages.some(m => m.Content && m.Content.includes("THÔNG BÁO ĐẶT SÂN THÀNH CÔNG")) && (
+                <div style={{
+                  backgroundColor: "#fef3c7",
+                  borderBottom: "1px solid #fde68a",
+                  padding: "12px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "24px" }}>🏟️</span>
+                    <div>
+                      <div style={{ fontWeight: "700", color: "#d97706", fontSize: "14.5px" }}>Gợi ý: Đặt sân cho trận đấu</div>
+                      <div style={{ color: "#b45309", fontSize: "12.5px", marginTop: "2px" }}>Các bạn đã chốt được lịch giao lưu? Đặt sân ngay nhé!</div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => window.open(`/bookings/team?groupId=${chatGroup.GroupID}`, "_blank")}
+                    style={{
+                      backgroundColor: "#d97706",
+                      color: "white",
+                      padding: "8px 14px",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      border: "none",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      boxShadow: "0 2px 4px rgba(217, 119, 6, 0.2)",
+                      transition: "all 0.2s"
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.backgroundColor = "#b45309";
+                      e.currentTarget.style.transform = "translateY(-1px)";
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.backgroundColor = "#d97706";
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }}
+                  >
+                    Đặt sân ngay
+                  </button>
+                </div>
+              )}
+
+              {(() => {
+                const pinnedMessage = messages.find((m: any) => m.IsPinned);
+                if (!pinnedMessage) return null;
+                return (
+                  <div 
+                    style={{
+                      padding: "8px 16px",
+                      backgroundColor: "rgba(255, 255, 255, 0.95)",
+                      backdropFilter: "blur(4px)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+                      borderBottom: "1px solid #f1f5f9",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      zIndex: 10,
+                      minWidth: 0,
+                      width: "100%",
+                      boxSizing: "border-box"
+                    }}
+                    onClick={() => {
+                      const el = document.getElementById(`msg-${pinnedMessage.MessageID}`);
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                  >
+                    <span style={{ fontSize: "16px", flexShrink: 0 }}>📌</span>
+                    <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "700", color: "#16a34a" }}>Tin nhắn đã ghim</div>
+                      <div style={{ fontSize: "13px", color: "#475569", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%" }}>
+                        {pinnedMessage.Content?.replace(/\n/g, ' ')}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div ref={messagesContainerRef} style={{ flex: 1, minWidth: 0, overflowY: "auto", overflowX: "hidden", padding: "1.5rem", backgroundColor: "#ffffff", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                {messages.length === 0 ? (
+                  <div style={{ textAlign: "center", color: "#94a3b8", marginTop: "3rem" }}>
+                    Chưa có tin nhắn nào. Hãy bắt đầu trò chuyện!
+                  </div>
+                ) : (
+                  messages.map((msg) => {
+                    const isMine = msg.IsMine;
+                    return (
+                      <div 
+                        key={msg.MessageID} 
+                        id={`msg-${msg.MessageID}`}
+                        style={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start", position: "relative", maxWidth: "100%", minWidth: 0 }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setContextMenu({
+                            visible: true,
+                            x: e.clientX,
+                            y: e.clientY,
+                            messageId: msg.MessageID,
+                            groupId: chatGroup.GroupID
+                          });
+                        }}
+                      >
+                        {!isMine && <span style={{ fontSize: "12px", color: "#64748b", marginBottom: "0.25rem", marginLeft: "0.25rem" }}>{msg.SenderName}</span>}
+                        {msg.IsPinned && (
+                          <div style={{
+                            fontSize: "11px",
+                            color: "#dc2626",
+                            fontWeight: "bold",
+                            marginBottom: "4px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            marginLeft: isMine ? "0" : "4px",
+                            marginRight: isMine ? "4px" : "0"
+                          }}>
+                            📌 Đã ghim
+                          </div>
+                        )}
+                        <div style={{
+                          maxWidth: "65%",
+                          minWidth: 0,
+                          padding: "0.625rem 1rem",
+                          borderRadius: "16px",
+                          borderBottomRightRadius: isMine ? "4px" : "16px",
+                          borderBottomLeftRadius: !isMine ? "4px" : "16px",
+                          backgroundColor: isMine ? "#22c55e" : "#f1f5f9",
+                          color: isMine ? "#ffffff" : "#0f172a",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                          wordBreak: "break-word",
+                          overflowWrap: "anywhere",
+                          whiteSpace: "pre-wrap",
+                          fontSize: "14.5px"
+                        }}>
+                          {msg.Content}
+                        </div>
+                        <span style={{ fontSize: "11px", color: "#94a3b8", marginTop: "4px" }}>
+                          {new Date(msg.CreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {contextMenu && contextMenu.visible && (
+                <div 
+                  style={{
+                    position: "fixed",
+                    top: contextMenu.y,
+                    left: contextMenu.x,
+                    backgroundColor: "white",
+                    boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+                    borderRadius: "10px",
+                    padding: "6px 0",
+                    zIndex: 9999,
+                    minWidth: "160px",
+                    border: "1px solid #e2e8f0"
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {(() => {
+                    const isPinned = messages.find((m: any) => m.MessageID === contextMenu.messageId)?.IsPinned;
+                    return (
+                      <button 
+                        style={{
+                          width: "100%",
+                          padding: "10px 16px",
+                          border: "none",
+                          backgroundColor: "transparent",
+                          textAlign: "left",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          color: "#0f172a"
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#f1f5f9"}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                        onClick={isPinned ? handleUnpinMessage : handlePinMessage}
+                      >
+                        {isPinned ? "📌 Hủy ghim" : "📌 Ghim tin nhắn"}
+                      </button>
+                    );
+                  })()}
+                </div>
+              )}
+
+              <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid #f1f5f9", backgroundColor: "#ffffff", boxSizing: "border-box", width: "100%" }}>
+                <form onSubmit={handleSendMessage} style={{ display: "flex", gap: "12px", alignItems: "center", width: "100%", boxSizing: "border-box" }}>
+                  <input
+                    ref={chatInputRef}
+                    type="text"
+                    value={chatContent}
+                    onChange={(e) => setChatContent(e.target.value)}
+                    placeholder="Nhập tin nhắn..."
+                    className={styles.input}
+                    style={{ 
+                      flex: 1, 
+                      marginBottom: 0, 
+                      borderRadius: "99px", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0",
+                      padding: "10px 16px",
+                      fontSize: "14px",
+                      outline: "none"
+                    }}
+                    maxLength={1000}
+                  />
+                  <button
+                    type="submit"
+                    className={styles.primaryBtn}
+                    disabled={sendingMessage || !chatContent.trim()}
+                    style={{ 
+                      whiteSpace: "nowrap", 
+                      backgroundColor: "#22c55e", 
+                      color: "white", 
+                      borderRadius: "99px",
+                      padding: "10px 24px",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      border: "none"
+                    }}
+                  >
+                    {sendingMessage ? "..." : "Gửi"}
+                  </button>
+                </form>
+              </div>
+              </>
+              )}
+            </div>
         </div>
       )}
 

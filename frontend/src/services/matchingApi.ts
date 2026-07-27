@@ -188,6 +188,13 @@ export async function pinGroupMessage(token: string, groupId: number, messageId:
   });
 }
 
+export async function unpinGroupMessage(token: string, groupId: number, messageId: number): Promise<void> {
+  await apiClient<ApiResponse<any>>(`/api/playgroups/${groupId}/messages/${messageId}/unpin`, {
+    method: "POST",
+    token,
+  });
+}
+
 
 export async function closeGroup(token: string, groupId: number): Promise<PlayGroup> {
   const response = await apiClient<ApiResponse<PlayGroup>>(`/api/playgroups/${groupId}/close`, {

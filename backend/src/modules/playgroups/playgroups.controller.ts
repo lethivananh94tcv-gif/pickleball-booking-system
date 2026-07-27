@@ -173,3 +173,14 @@ export async function pinGroupMessageController(req: NextRequest, groupId: numbe
   }
 }
 
+export async function unpinGroupMessageController(req: NextRequest, groupId: number, messageId: number) {
+  try {
+    const auth = requireAuth(req);
+    if (auth instanceof Response) return auth;
+
+    await service.unpinGroupMessage(groupId, messageId, auth.userId);
+    return successResponse(null, "Bỏ ghim tin nhắn thành công");
+  } catch (error) {
+    return handleError(error);
+  }
+}
