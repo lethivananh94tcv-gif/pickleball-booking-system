@@ -1,4 +1,4 @@
-export function getImageUrl(path?: string | null, fallback: string = "/images/home/avatar-placeholder.jpg"): string {
+export function getImageUrl(path?: string | null, fallback: string = "/images/coaches/hlv1.png"): string {
   if (!path) return fallback;
   if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
     return path;

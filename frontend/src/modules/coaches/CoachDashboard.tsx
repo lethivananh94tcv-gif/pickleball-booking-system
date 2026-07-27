@@ -838,6 +838,7 @@ export default function CoachDashboard({ token }: Props) {
             src={getImageUrl(coach?.AvatarURL)}
             alt={coach?.FullName || "Coach"}
             className={styles.avatar}
+            onError={(e) => { e.currentTarget.src = "/images/coaches/hlv1.png"; }}
           />
           <div className={styles.identityText}>
             <span className={styles.eyebrow}>Coach workspace</span>
@@ -898,6 +899,7 @@ export default function CoachDashboard({ token }: Props) {
                     src={avatarPreview || getImageUrl(coach?.AvatarURL)}
                     alt="Avatar Preview"
                     className={styles.previewAvatar}
+                    onError={(e) => { e.currentTarget.src = "/images/coaches/hlv1.png"; }}
                   />
                   <div className={styles.uploadControl}>
                     <label htmlFor="avatar">Ảnh đại diện</label>
