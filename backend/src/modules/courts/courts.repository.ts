@@ -107,8 +107,8 @@ export async function findAvailableCourts(
     request.input("StartTime", sql.VarChar(5), startTime);
     request.input("EndTime", sql.VarChar(5), endTime);
     query += `
-        AND cs.StartTime = CAST(@StartTime AS TIME)
-        AND cs.EndTime = CAST(@EndTime AS TIME)
+        AND cs.StartTime >= CAST(@StartTime AS TIME)
+        AND cs.EndTime <= CAST(@EndTime AS TIME)
     `;
   }
 

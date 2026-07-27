@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { getCourts, getCourtSlots, type CourtSlot } from "@/services/courtApi";
+import { getCourts, getAvailableCourts, getCourtSlots, type CourtSlot } from "@/services/courtApi";
 import type { Court } from "@/types/court";
 import { formatCurrency } from "@/utils/formatCurrency";
 import StateBox from "@/components/common/StateBox";
@@ -18,11 +18,15 @@ import { CourtScheduleDrawer } from "./CourtScheduleDrawer";
 // Trang danh sách sân — Player
 // ─────────────────────────────────────────────────────────────
 export default function CourtsPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [courts, setCourts] = useState<Court[]>([]);
   const [type, setType] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [keyword, setKeyword] = useState("");
+
+  const dateParam = searchParams.get("date");
+  const timeParam = searchParams.get("time");
 
   // Sync keyword state with URL search query parameter from home search bar
   useEffect(() => {
@@ -82,8 +86,41 @@ export default function CourtsPage() {
       try {
         setLoading(true);
         setError("");
-        const data = await getCourts();
-        if (mounted) setCourts(data);
+        if (dateParam || timeParam) {
+          const checkDate = dateParam || new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
+          let start = "";
+          let end = "";
+          if (timeParam && timeParam.includes("-")) {
+            const parts = timeParam.split("-");
+            start = parts[0];
+            end = parts[1];
+          }
+          const availableSlots = await getAvailableCourts(checkDate, start, end);
+          if (mounted) {
+            const uniqueCourtsMap = new Map<number, Court>();
+            (availableSlots || []).forEach((item: any) => {
+              if (item.CourtID && !uniqueCourtsMap.has(item.CourtID)) {
+                uniqueCourtsMap.set(item.CourtID, {
+                  CourtID: item.CourtID,
+                  CourtCode: item.CourtCode || `CRT-${item.CourtID}`,
+                  CourtName: item.CourtName || "Sân Pickleball",
+                  CourtType: item.CourtType || "Outdoor",
+                  Location: item.Location || "Đà Nẵng",
+                  Description: item.Description || "",
+                  PricePerHour: item.PricePerHour || 100000,
+                  CourtImage: item.CourtImage || "/images/courts/default.jpg",
+                  Status: item.CourtStatus || item.Status || "Available",
+                  OpenTime: item.OpenTime || "05:00",
+                  CloseTime: item.CloseTime || "22:00",
+                });
+              }
+            });
+            setCourts(Array.from(uniqueCourtsMap.values()));
+          }
+        } else {
+          const data = await getCourts();
+          if (mounted) setCourts(data);
+        }
       } catch (err) {
         if (mounted) setError(err instanceof Error ? err.message : "Không tải được sân.");
       } finally {
@@ -93,7 +130,7 @@ export default function CourtsPage() {
 
     loadCourts();
     return () => { mounted = false; };
-  }, []);
+  }, [dateParam, timeParam]);
 
   const filteredCourts = useMemo(() => {
     return (courts || []).filter((court) => {
@@ -105,7 +142,14 @@ export default function CourtsPage() {
     });
   }, [courts, keyword, type, statusFilter]);
 
-  function resetFilter() { setKeyword(""); setType("all"); setStatusFilter("all"); }
+  function resetFilter() { 
+    setKeyword(""); 
+    setType("all"); 
+    setStatusFilter("all"); 
+    if (dateParam || timeParam || searchParams.get("search")) {
+      router.push("/courts");
+    }
+  }
 
   return (
     <main className={styles.page}>
@@ -174,6 +218,24 @@ export default function CourtsPage() {
       </section>
 
       <section className={`container ${styles.content}`}>
+        {(dateParam || timeParam || keyword) && (
+          <div style={{ marginBottom: "20px", padding: "14px 18px", backgroundColor: "#f0faf7", borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "space-between", border: "1.5px solid #00a86b", boxShadow: "0 4px 12px rgba(0, 168, 107, 0.08)" }}>
+            <div style={{ fontSize: "14px", color: "#073b2b", display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+              <span style={{ fontWeight: "700", color: "#00a86b" }}>⚡ Bộ lọc đang bật:</span>
+              {keyword && <span style={{ backgroundColor: "#ffffff", padding: "4px 10px", borderRadius: "8px", border: "1px solid #d1ebd6", fontSize: "13px", fontWeight: "600" }}>🔍 &quot;{keyword}&quot;</span>}
+              {dateParam && <span style={{ backgroundColor: "#ffffff", padding: "4px 10px", borderRadius: "8px", border: "1px solid #d1ebd6", fontSize: "13px", fontWeight: "600" }}>📅 Ngày: {dateParam.split("-").reverse().join("/")}</span>}
+              {timeParam && <span style={{ backgroundColor: "#ffffff", padding: "4px 10px", borderRadius: "8px", border: "1px solid #d1ebd6", fontSize: "13px", fontWeight: "600" }}>🕒 Giờ: {timeParam.replace("-", " - ")}</span>}
+            </div>
+            <button
+              type="button"
+              onClick={resetFilter}
+              style={{ padding: "8px 14px", backgroundColor: "#ef4444", color: "#ffffff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "12.5px", cursor: "pointer", transition: "all 0.2s" }}
+            >
+              Xóa tất cả bộ lọc ✖
+            </button>
+          </div>
+        )}
+
         <div className={styles.resultHeader}>
           <div>
             <h2>Danh sách sân</h2>
