@@ -12,7 +12,7 @@ import {
 } from "@/services/adminApi";
 import { getManagerRefunds, approveRefund } from "@/services/refundApi";
 import { getRelativeTime } from "@/utils/timeFormat";
-import { getToken, getUser } from "@/utils/authStorage";
+import { clearAuth, getToken, getUser } from "@/utils/authStorage";
 import {
   FiTrendingUp,
   FiTrendingDown,
@@ -33,13 +33,14 @@ import {
   FiEdit,
   FiPlus,
   FiSearch,
-  FiMail,
   FiCheck,
   FiX,
   FiCpu,
   FiHardDrive,
   FiDatabase,
   FiShield,
+  FiUser,
+  FiLogOut,
 } from "react-icons/fi";
 
 import {
@@ -104,6 +105,8 @@ export default function AdminPage() {
   const [customEndDate, setCustomEndDate] = useState("");
   const [showCustomPicker, setShowCustomPicker] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState("");
 
   // Time scale switch (Weekly / Monthly)
   const [timeScale, setTimeScale] = useState<"weekly" | "monthly">("weekly");
@@ -298,6 +301,19 @@ export default function AdminPage() {
   };
 
   const userName = user?.FullName || user?.fullName || "Admin";
+  const userEmail = user?.Email || user?.email || "admin@pickleclub.vn";
+  const userInitial = userName.trim().charAt(0).toUpperCase() || "A";
+
+  const handleLogout = () => {
+    clearAuth();
+    router.push("/login");
+  };
+
+  const handleGlobalSearch = () => {
+    const query = globalSearch.trim();
+    if (!query) return;
+    router.push(`/admin/bookings?search=${encodeURIComponent(query)}`);
+  };
 
   if (loading && !saaSDats) {
     return (
@@ -383,7 +399,15 @@ export default function AdminPage() {
         <div className={styles.headerLeft}>
           <div className={styles.searchBox}>
             <FiSearch className={styles.searchIcon} />
-            <input type="text" placeholder="Quick search transactions, players..." />
+            <input
+              type="text"
+              placeholder="Search booking code, player, payment..."
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleGlobalSearch();
+              }}
+            />
           </div>
         </div>
         <div className={styles.headerRight}>
@@ -397,7 +421,7 @@ export default function AdminPage() {
           
           {showNotifications && (
             <div className={styles.notificationsPanel}>
-              <h4>Recent System Notifications</h4>
+              <h4>System Notifications</h4>
               <div className={styles.notificationsList}>
                 {stats.recentActivities.slice(0, 5).map((act, idx) => (
                   <div key={idx} className={styles.notificationItem}>
@@ -409,14 +433,32 @@ export default function AdminPage() {
             </div>
           )}
 
-          <button className={styles.headerIconBtn}><FiMail /></button>
-          
-          <button className={styles.createBtn} onClick={() => router.push("/admin/bookings")}>
-            <FiPlus /> Create
+          <button className={styles.createBtn} onClick={() => router.push("/admin/courts")}>
+            <FiPlus /> Manage Courts
           </button>
           
           <div className={styles.userProfile}>
-            <div className={styles.avatarCircle}>{userName.charAt(0)}</div>
+            <button
+              className={styles.avatarCircle}
+              onClick={() => setShowUserMenu((open) => !open)}
+              aria-label="Open admin menu"
+            >
+              {userInitial}
+            </button>
+            {showUserMenu && (
+              <div className={styles.userMenu}>
+                <div className={styles.userMenuHeader}>
+                  <span>{userName}</span>
+                  <small>{userEmail}</small>
+                </div>
+                <button onClick={() => router.push("/admin/profile")}>
+                  <FiUser /> Profile
+                </button>
+                <button onClick={handleLogout} className={styles.userMenuDanger}>
+                  <FiLogOut /> Sign out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -424,8 +466,8 @@ export default function AdminPage() {
       {/* SUB-HEADER WITH FILTERS */}
       <section className={styles.subHeader}>
         <div>
-          <h1>Enterprise Dashboard</h1>
-          <p className={styles.subText}>Real-time insight & operations dashboard</p>
+          <h1>Admin Overview</h1>
+          <p className={styles.subText}>Track revenue, bookings, courts, and coaches in real time</p>
         </div>
         
         <div className={styles.filterRow}>
