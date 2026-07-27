@@ -178,6 +178,27 @@ export async function createPlayInvitation(
     }
   } else if (invitationType === 'InviteToPlay') {
     // Already validated above
+  } else if (invitationType === 'RequestJoinGroup') {
+    if (!groupId) {
+      throw new Error("Vui lòng cung cấp mã nhóm (groupId).");
+    }
+    if (!receiverId) {
+      throw new Error("Vui lòng chọn trưởng nhóm (receiverId).");
+    }
+
+    const group = await groupRepo.getGroupDetails(groupId);
+    if (!group) {
+      throw new Error("Không tìm thấy nhóm chơi.");
+    }
+
+    if (group.CurrentPlayers >= group.MaxPlayers) {
+      throw new Error("Nhóm chơi đã đầy thành viên.");
+    }
+
+    const isMember = await groupRepo.checkUserInGroup(groupId, senderId);
+    if (isMember) {
+      throw new Error("Bạn đã là thành viên của nhóm này rồi.");
+    }
   } else {
     throw new Error("Loại lời mời không hợp lệ.");
   }
@@ -224,7 +245,7 @@ export async function acceptInvitation(invitationId: number, userId: number) {
   }
 
   // Handle logic based on invitation type
-  if (invite.InvitationType === 'InviteToGroup') {
+  if (invite.InvitationType === 'InviteToGroup' || invite.InvitationType === 'RequestJoinGroup') {
     const groupId = invite.GroupID;
     if (!groupId) throw new Error("Mã nhóm không hợp lệ.");
 
@@ -236,14 +257,16 @@ export async function acceptInvitation(invitationId: number, userId: number) {
       throw new Error("Nhóm chơi đã đầy thành viên. Lời mời đã bị hủy.");
     }
 
-    const isMember = await groupRepo.checkUserInGroup(groupId, userId);
+    const targetUserId = invite.InvitationType === 'RequestJoinGroup' ? invite.SenderID : invite.ReceiverID;
+
+    const isMember = await groupRepo.checkUserInGroup(groupId, targetUserId);
     if (isMember) {
       await repo.updateInvitationStatus(invitationId, 'Accepted');
-      return { message: "Bạn đã ở trong nhóm này rồi." };
+      return { message: "Người chơi đã ở trong nhóm này rồi." };
     }
 
     // Join the group
-    await groupRepo.addGroupMember(groupId, userId);
+    await groupRepo.addGroupMember(groupId, targetUserId);
     await repo.updateInvitationStatus(invitationId, 'Accepted');
   } else if (invite.InvitationType === 'InviteToPlay') {
     // 1. Check if an active group with exactly these two players already exists
@@ -313,6 +336,7 @@ export async function acceptInvitation(invitationId: number, userId: number) {
         SELECT TOP 1 GroupID
         FROM PlayingGroups
         WHERE CreatedBy = @ReceiverID AND Status IN ('Open', 'Active', 'Full')
+          AND GroupName NOT LIKE '%Thách đấu%' AND (Description IS NULL OR Description NOT LIKE '%Box chat chung%')
         ORDER BY GroupID DESC
       `);
 
@@ -349,7 +373,7 @@ export async function acceptInvitation(invitationId: number, userId: number) {
         const uniqueUserIds = Array.from(new Set(allMembers.map((m: any) => m.UserID))).filter(Boolean) as number[];
         
         if (uniqueUserIds.length > 0) {
-          const chatGroupName = (`⚔️ Thách đấu: ${senderGroupDetails.GroupName} vs ${targetGroupDetails.GroupName}`).slice(0, 100);
+          const chatGroupName = (`Thách đấu: ${senderGroupDetails.GroupName} vs ${targetGroupDetails.GroupName}`).slice(0, 100);
           await groupRepo.createChallengeChatGroup({
             groupName: chatGroupName,
             skillLevel: senderGroupDetails.SkillLevel || "Intermediate",

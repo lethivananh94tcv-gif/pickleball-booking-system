@@ -16,6 +16,7 @@ export async function countActiveGroupsForCreator(creatorId: number): Promise<nu
       SELECT COUNT(*) AS count
       FROM PlayingGroups
       WHERE CreatedBy = @CreatorID AND Status IN ('Open', 'Active', 'Full')
+        AND GroupName NOT LIKE '%Thách đấu%' AND (Description IS NULL OR Description NOT LIKE '%Box chat chung%')
     `);
   return result.recordset[0]?.count || 0;
 }
@@ -80,7 +81,7 @@ export async function listGroups(filters: { skillLevel?: string; keyword?: strin
     INNER JOIN Users u ON g.CreatedBy = u.UserID
     LEFT JOIN GroupMembers gm ON g.GroupID = gm.GroupID AND gm.Status = 'Active'
     WHERE g.Status IN ('Open', 'Active', 'Full')
-      AND g.GroupName NOT LIKE '%⚔️ Thách đấu%'
+      AND g.GroupName NOT LIKE '%Thách đấu%'
       AND g.Description NOT LIKE '%Box chat chung%'
   `;
 

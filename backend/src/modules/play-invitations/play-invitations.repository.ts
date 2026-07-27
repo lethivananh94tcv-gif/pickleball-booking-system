@@ -48,7 +48,7 @@ export async function createInvitation(
   if (finalMessage.length > 255) finalMessage = finalMessage.substring(0, 255);
 
   let dbInvitationType = 'Player';
-  if (invitationType === 'InviteOpponent' || invitationType === 'InviteToGroup') {
+  if (invitationType === 'InviteOpponent' || invitationType === 'InviteToGroup' || invitationType === 'RequestJoinGroup') {
     dbInvitationType = 'Group';
   }
 
@@ -91,10 +91,15 @@ export async function getReceivedInvitations(userId: number) {
         u.Email AS SenderEmail,
         u.AvatarURL AS SenderAvatar,
         g.GroupName,
-        (SELECT TOP 1 GroupName FROM PlayingGroups WHERE CreatedBy = i.ReceiverID AND Status IN ('Open', 'Active', 'Full') ORDER BY GroupID DESC) AS ReceiverGroupName
+        (SELECT TOP 1 GroupName FROM PlayingGroups WHERE CreatedBy = i.ReceiverID AND Status IN ('Open', 'Active', 'Full') AND GroupName NOT LIKE '%Thách đấu%' AND (Description IS NULL OR Description NOT LIKE '%Box chat chung%') ORDER BY GroupID DESC) AS ReceiverGroupName,
+        sp.SkillLevel AS SenderSkillLevel,
+        sp.ExperienceYears AS SenderExperienceYears,
+        CONVERT(VARCHAR(5), sp.AvailableStartTime, 108) AS SenderStartTime,
+        CONVERT(VARCHAR(5), sp.AvailableEndTime, 108) AS SenderEndTime
       FROM PlayInvitations i
       INNER JOIN Users u ON i.SenderID = u.UserID
       LEFT JOIN PlayingGroups g ON i.GroupID = g.GroupID
+      LEFT JOIN PlayerProfiles sp ON i.SenderID = sp.UserID
       WHERE i.ReceiverID = @UserID AND i.Status IN ('Pending', 'Accepted')
       ORDER BY i.InvitationID DESC
     `);
@@ -120,10 +125,15 @@ export async function getSentInvitations(userId: number) {
         u.Email AS ReceiverEmail,
         u.AvatarURL AS ReceiverAvatar,
         g.GroupName,
-        (SELECT TOP 1 GroupName FROM PlayingGroups WHERE CreatedBy = i.ReceiverID AND Status IN ('Open', 'Active', 'Full') ORDER BY GroupID DESC) AS ReceiverGroupName
+        (SELECT TOP 1 GroupName FROM PlayingGroups WHERE CreatedBy = i.ReceiverID AND Status IN ('Open', 'Active', 'Full') AND GroupName NOT LIKE '%Thách đấu%' AND (Description IS NULL OR Description NOT LIKE '%Box chat chung%') ORDER BY GroupID DESC) AS ReceiverGroupName,
+        rp.SkillLevel AS ReceiverSkillLevel,
+        rp.ExperienceYears AS ReceiverExperienceYears,
+        CONVERT(VARCHAR(5), rp.AvailableStartTime, 108) AS ReceiverStartTime,
+        CONVERT(VARCHAR(5), rp.AvailableEndTime, 108) AS ReceiverEndTime
       FROM PlayInvitations i
       LEFT JOIN Users u ON i.ReceiverID = u.UserID
       LEFT JOIN PlayingGroups g ON i.GroupID = g.GroupID
+      LEFT JOIN PlayerProfiles rp ON i.ReceiverID = rp.UserID
       WHERE i.SenderID = @UserID
       ORDER BY i.InvitationID DESC
     `);

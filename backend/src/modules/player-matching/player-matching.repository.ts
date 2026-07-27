@@ -241,6 +241,38 @@ export async function findAllOtherActiveGroups(excludeGroupId: number, userId: n
   return result.recordset.map((r: any) => r.GroupID);
 }
 
+export async function findOpenRecruitingGroups(userId: number) {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input("UserID", sql.Int, userId)
+    .query(`
+      SELECT 
+        g.GroupID, 
+        g.GroupName, 
+        g.Status,
+        g.CreatedBy AS CreatorID,
+        g.SkillLevel,
+        g.AverageExperience,
+        g.Description,
+        (SELECT COUNT(*) FROM GroupMembers gm WHERE gm.GroupID = g.GroupID AND gm.Status = 'Active') AS CurrentPlayers,
+        CASE WHEN g.Description LIKE '%Box chat chung%' OR g.GroupName LIKE '%Thách đấu%' THEN 10 ELSE 4 END AS MaxPlayers,
+        u.FullName AS CreatorName,
+        u.AvatarURL AS CreatorAvatar
+      FROM PlayingGroups g
+      LEFT JOIN Users u ON g.CreatedBy = u.UserID
+      WHERE g.Status IN ('Open', 'Active')
+        AND (g.Description IS NULL OR g.Description NOT LIKE '%Box chat chung%') 
+        AND g.GroupName NOT LIKE '%Thách đấu%'
+        AND (SELECT COUNT(*) FROM GroupMembers gm WHERE gm.GroupID = g.GroupID AND gm.Status = 'Active') BETWEEN 2 AND 3
+        AND NOT EXISTS (
+          SELECT 1 FROM GroupMembers gm2 
+          WHERE gm2.GroupID = g.GroupID AND gm2.UserID = @UserID AND gm2.Status = 'Active'
+        )
+    `);
+  return result.recordset;
+}
+
 export async function findAcceptedMatchBetweenPlayers(player1Id: number, player2Id: number): Promise<boolean> {
   const pool = await getPool();
   const result = await pool

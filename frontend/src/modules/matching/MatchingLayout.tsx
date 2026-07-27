@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { getToken } from "@/utils/authStorage";
 import * as api from "@/services/matchingApi";
 import styles from "./MatchingLayout.module.css";
+import { AiOutlineProfile } from "react-icons/ai";
+import { IoSearchCircleOutline, IoPeopleOutline, IoChatboxEllipsesOutline } from "react-icons/io5";
+import { GiCrossedSwords } from "react-icons/gi";
+import { BsMailbox } from "react-icons/bs";
 
 import ProfileTab from "./ProfileTab";
 import TeammatesTab from "./TeammatesTab";
@@ -16,7 +20,7 @@ export default function MatchingLayout() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [activeTab, setActiveTab] = useState<"profile" | "teammates" | "groups" | "opponents" | "invitations">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "teammates" | "teammates_single" | "teammates_group" | "groups" | "opponents" | "invitations">("profile");
   const [userProfile, setUserProfile] = useState<api.PlayerProfile | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -387,20 +391,36 @@ export default function MatchingLayout() {
             <button
               onClick={() => setActiveTab("profile")}
               className={`${styles.tabButton} ${activeTab === "profile" ? styles.tabButtonActive : ""}`}
+              style={{ display: "flex", alignItems: "center", gap: "10px" }}
             >
-              👤 Hồ sơ chơi bóng
+              <AiOutlineProfile size={19} />
+              <span>Hồ sơ chơi bóng</span>
             </button>
             <button
-              onClick={() => setActiveTab("teammates")}
-              className={`${styles.tabButton} ${activeTab === "teammates" ? styles.tabButtonActive : ""}`}
+              onClick={() => setActiveTab("teammates_single")}
+              className={`${styles.tabButton} ${activeTab === "teammates" || activeTab === "teammates_single" ? styles.tabButtonActive : ""}`}
+              style={{ display: "flex", alignItems: "center", gap: "10px" }}
             >
-              🤝 Tìm đồng đội
+              <IoSearchCircleOutline size={21} />
+              <span>Tìm người chơi đơn</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("teammates_group")}
+              className={`${styles.tabButton} ${activeTab === "teammates_group" ? styles.tabButtonActive : ""}`}
+              style={{ display: "flex", alignItems: "center", gap: "10px" }}
+            >
+              <IoPeopleOutline size={19} />
+              <span>Tìm nhóm chơi cùng</span>
             </button>
             <button
               onClick={() => setActiveTab("groups")}
               className={`${styles.tabButton} ${activeTab === "groups" ? styles.tabButtonActive : ""}`}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}
             >
-              <span>👥 Nhóm chơi bóng</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <IoChatboxEllipsesOutline size={19} />
+                <span>Box chat</span>
+              </span>
               {unreadChatCount > 0 && (
                 <span className={styles.badge} style={{ backgroundColor: "#ef4444" }}>
                   {unreadChatCount > 9 ? "9+" : unreadChatCount}
@@ -410,14 +430,20 @@ export default function MatchingLayout() {
             <button
               onClick={() => setActiveTab("opponents")}
               className={`${styles.tabButton} ${activeTab === "opponents" ? styles.tabButtonActive : ""}`}
+              style={{ display: "flex", alignItems: "center", gap: "10px" }}
             >
-              🔥 Tìm cặp đối thủ
+              <GiCrossedSwords size={19} />
+              <span>Tìm cặp đối thủ</span>
             </button>
             <button
               onClick={() => setActiveTab("invitations")}
               className={`${styles.tabButton} ${activeTab === "invitations" ? styles.tabButtonActive : ""}`}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}
             >
-              <span>✉️ Hộp thư lời mời</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <BsMailbox size={19} />
+                <span>Hộp thư</span>
+              </span>
               {pendingCount > 0 && (
                 <span className={styles.badge}>
                   {pendingCount > 9 ? "9+" : pendingCount}
@@ -475,7 +501,7 @@ export default function MatchingLayout() {
             />
           )}
 
-          {activeTab === "teammates" && (
+          {(activeTab === "teammates" || activeTab === "teammates_single" || activeTab === "teammates_group") && (
             <TeammatesTab
               token={token!}
               userProfile={userProfile}
@@ -486,6 +512,8 @@ export default function MatchingLayout() {
               aiTeammateResults={aiTeammateResults}
               aiTeammateFallback={aiTeammateFallback}
               aiTeammateFallbackReason={aiTeammateFallbackReason}
+              defaultSubTab={activeTab === "teammates_group" ? "group" : "single"}
+              onSubTabChange={(tab) => setActiveTab(tab === "group" ? "teammates_group" : "teammates_single")}
             />
           )}
 
@@ -664,7 +692,7 @@ export default function MatchingLayout() {
 
                 {guideTab === 5 && (
                   <div>
-                    <h3 className={styles.guideStepTitle}>✉️ Bước 5: Hộp Thư Lời Mời & Quy Trình Chốt Sân</h3>
+                    <h3 className={styles.guideStepTitle}>✉️ Bước 5: Hộp Thư & Quy Trình Chốt Sân</h3>
                     <p className={styles.guideStepSubtitle}>Trung tâm điều phối kèo đấu và tự động hóa đặt sân gửi thông báo Email.</p>
                     
                     <div className={styles.guideSection}>

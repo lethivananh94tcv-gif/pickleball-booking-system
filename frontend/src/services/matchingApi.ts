@@ -59,6 +59,14 @@ export interface PlayInvitation {
   ChallengeDate?: string | null;
   ChallengeStartTime?: string | null;
   ChallengeEndTime?: string | null;
+  SenderSkillLevel?: string;
+  SenderExperienceYears?: number;
+  SenderStartTime?: string;
+  SenderEndTime?: string;
+  ReceiverSkillLevel?: string;
+  ReceiverExperienceYears?: number;
+  ReceiverStartTime?: string;
+  ReceiverEndTime?: string;
 }
 
 export async function getPlayerProfile(token: string): Promise<PlayerProfile | null> {

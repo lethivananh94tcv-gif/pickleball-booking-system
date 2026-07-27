@@ -136,7 +136,7 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
                       marginBottom: "0.75rem",
                       textAlign: "center"
                     }}>
-                      📅 Lịch thách đấu đã chấp nhận
+                      Lịch thách đấu đã chấp nhận
                     </div>
                   )}
                   <div className={styles.cardHeader}>
@@ -151,7 +151,7 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
                       <div>
                         <h4 className={styles.cardName}>{inv.SenderName || inv.SenderEmail}</h4>
                         <span className={styles.cardTag}>
-                          {inv.InvitationType === "InviteToPlay" ? "Ghép đôi đồng đội" : "Thách đấu nhóm"}
+                          {inv.InvitationType === "InviteToPlay" ? "Ghép đôi đồng đội" : inv.InvitationType === "RequestJoinGroup" ? "Xin gia nhập nhóm" : inv.InvitationType === "InviteToGroup" ? "Mời vào nhóm" : "Thách đấu nhóm"}
                         </span>
                       </div>
                     </div>
@@ -163,6 +163,26 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
                     </p>
                   </div>
                   
+                  {inv.InvitationType !== "InviteOpponent" && (() => {
+                    const skill = inv.SenderSkillLevel;
+                    const exp = inv.SenderExperienceYears;
+                    const start = inv.SenderStartTime;
+                    const end = inv.SenderEndTime;
+
+                    if (!skill && !(start && end)) return null;
+
+                    return (
+                      <div style={{ fontSize: "13px", color: "var(--pcs-neutral-700)", display: "flex", flexDirection: "column", gap: "0.35rem", padding: "0.6rem", backgroundColor: "var(--pcs-neutral-100)", borderRadius: "6px", marginBottom: "0.5rem" }}>
+                        {skill && (
+                          <div>Trình độ: <strong style={{ color: "var(--pcs-neutral-900)" }}>{skill}</strong>{exp !== undefined && exp !== null ? ` (${exp} năm KN)` : ""}</div>
+                        )}
+                        {start && end && (
+                          <div>Khung giờ rảnh: <strong style={{ color: "var(--pcs-brand-primary-hover)" }}>{start} - {end}</strong></div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {inv.InvitationType === "InviteOpponent" && (
                     <div style={{ fontSize: "13px", color: "var(--pcs-neutral-600)", display: "flex", flexDirection: "column", gap: "0.35rem", padding: "0.5rem", backgroundColor: "var(--pcs-neutral-100)", borderRadius: "6px", marginBottom: "0.5rem" }}>
                       {inv.GroupName && (
@@ -214,9 +234,9 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
                           border: "1px solid var(--pcs-brand-primary-border, #a7f3d0)",
                           lineHeight: "1.4"
                         }}>
-                          ⏳ <strong>Đã chấp nhận thách đấu!</strong><br />
+                          <strong>Đã chấp nhận thách đấu!</strong><br />
                           <span style={{ fontSize: "12px", color: "var(--pcs-neutral-600)" }}>
-                            Box chat thách đấu đã được tạo bên tab <strong>Nhóm chơi bóng</strong>. Hai bên có thể liên lạc, trao đổi qua box chat để thống nhất đặt sân!
+                            Box chat thách đấu đã được tạo bên tab <strong>Box chat</strong>. Hai bên có thể liên lạc, trao đổi qua box chat để thống nhất đặt sân!
                           </span>
                         </div>
                       )}
@@ -246,7 +266,7 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
                       marginBottom: "0.75rem",
                       textAlign: "center"
                     }}>
-                      📅 Lịch thách đấu đã chấp nhận
+                      Lịch thách đấu đã chấp nhận
                     </div>
                   )}
                   <div className={styles.cardHeader}>
@@ -261,7 +281,7 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
                       <div>
                         <h4 className={styles.cardName}>{inv.ReceiverName || inv.ReceiverEmail}</h4>
                         <span className={styles.cardTag}>
-                          {inv.InvitationType === "InviteToPlay" ? "Ghép đôi đồng đội" : "Thách đấu nhóm"}
+                          {inv.InvitationType === "InviteToPlay" ? "Ghép đôi đồng đội" : inv.InvitationType === "RequestJoinGroup" ? "Xin gia nhập nhóm" : inv.InvitationType === "InviteToGroup" ? "Mời vào nhóm" : "Thách đấu nhóm"}
                         </span>
                       </div>
                     </div>
@@ -272,6 +292,26 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
                       "{inv.Message || "Không có lời nhắn."}"
                     </p>
                   </div>
+
+                  {inv.InvitationType !== "InviteOpponent" && (() => {
+                    const skill = inv.ReceiverSkillLevel;
+                    const exp = inv.ReceiverExperienceYears;
+                    const start = inv.ReceiverStartTime;
+                    const end = inv.ReceiverEndTime;
+
+                    if (!skill && !(start && end)) return null;
+
+                    return (
+                      <div style={{ fontSize: "13px", color: "var(--pcs-neutral-700)", display: "flex", flexDirection: "column", gap: "0.35rem", padding: "0.6rem", backgroundColor: "var(--pcs-neutral-100)", borderRadius: "6px", marginBottom: "0.5rem" }}>
+                        {skill && (
+                          <div>Trình độ: <strong style={{ color: "var(--pcs-neutral-900)" }}>{skill}</strong>{exp !== undefined && exp !== null ? ` (${exp} năm KN)` : ""}</div>
+                        )}
+                        {start && end && (
+                          <div>Khung giờ rảnh: <strong style={{ color: "var(--pcs-brand-primary-hover)" }}>{start} - {end}</strong></div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {inv.InvitationType === "InviteOpponent" && (
                     <div style={{ fontSize: "13px", color: "var(--pcs-neutral-600)", display: "flex", flexDirection: "column", gap: "0.35rem", padding: "0.5rem", backgroundColor: "var(--pcs-neutral-100)", borderRadius: "6px", marginBottom: "0.5rem" }}>
@@ -307,9 +347,9 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
                       border: "1px solid var(--pcs-brand-primary-border, #a7f3d0)",
                       lineHeight: "1.4"
                     }}>
-                      ⏳ <strong>Đã chấp nhận thách đấu!</strong><br />
+                      <strong>Đã chấp nhận thách đấu!</strong><br />
                       <span style={{ fontSize: "12px", color: "var(--pcs-neutral-600)" }}>
-                        Box chat thách đấu đã được tạo bên tab <strong>Nhóm chơi bóng</strong>. Hai bên có thể liên lạc, trao đổi qua box chat để thống nhất đặt sân!
+                        Box chat thách đấu đã được tạo bên tab <strong>Box chat</strong>. Hai bên có thể liên lạc, trao đổi qua box chat để thống nhất đặt sân!
                       </span>
                     </div>
                   )}

@@ -140,21 +140,60 @@ export async function findSuitableTeammates(userId: number) {
         experienceScore,
         scheduleScore
       },
-      matchingScore: parseFloat(matchingScore.toFixed(1))
+      matchingScore: parseFloat(matchingScore.toFixed(1)),
+      isGroup: false
     };
   });
 
-  // Sort by matching score descending
-  scoredCandidates.sort((a, b) => b.matchingScore - a.matchingScore);
+  const recruitingGroups = await repo.findOpenRecruitingGroups(userId);
+  const scoredGroups = recruitingGroups.map((g: any) => {
+    const skillScore = calculateSkillScore(userProfile.SkillLevel, g.SkillLevel || "Intermediate");
+    const experienceScore = calculateExperienceScore(userProfile.ExperienceYears, g.AverageExperience || 1);
+    const scheduleScore = 85;
+    const roleScore = 95;
+    const matchingScore = roleScore * 0.40 + skillScore * 0.25 + experienceScore * 0.20 + scheduleScore * 0.15;
+
+    return {
+      profile: {
+        PlayerProfileID: `group-${g.GroupID}`,
+        UserID: g.CreatorID,
+        FullName: g.GroupName,
+        SkillLevel: g.SkillLevel || "Intermediate",
+        ExperienceYears: g.AverageExperience || 1,
+        PlayingRole: `👥 Nhóm (${g.CurrentPlayers}/${g.MaxPlayers} thành viên)`,
+        PlayStyle: g.Description || "Nhóm đang tuyển thêm đồng đội cùng chơi Pickleball",
+        AvailableStartTime: "06:00",
+        AvailableEndTime: "22:00",
+        AvatarURL: g.CreatorAvatar || null,
+        IsGroup: true,
+        GroupID: g.GroupID,
+        CurrentPlayers: g.CurrentPlayers,
+        MaxPlayers: g.MaxPlayers,
+        CreatorID: g.CreatorID,
+        CreatorName: g.CreatorName || "Trưởng nhóm"
+      },
+      scores: {
+        roleScore,
+        skillScore,
+        experienceScore,
+        scheduleScore
+      },
+      matchingScore: parseFloat(matchingScore.toFixed(1)),
+      isGroup: true
+    };
+  });
+
+  const allResults = [...scoredCandidates, ...scoredGroups];
+  allResults.sort((a, b) => b.matchingScore - a.matchingScore);
 
   // Async log/save suggested match in background for analytics (if required)
-  for (const match of scoredCandidates.slice(0, 5)) {
-    if (match.matchingScore >= 50) {
+  for (const match of allResults.slice(0, 5)) {
+    if (match.matchingScore >= 50 && !match.isGroup) {
       await repo.createPlayerMatch(userId, match.profile.UserID, match.matchingScore, "Teammate").catch(() => {});
     }
   }
 
-  return scoredCandidates;
+  return allResults;
 }
 
 export async function getUserActiveGroups(userId: number) {

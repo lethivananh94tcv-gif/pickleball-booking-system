@@ -15,6 +15,8 @@ interface TeammatesTabProps {
   aiTeammateResults: api.AITeammateResult[];
   aiTeammateFallback: boolean;
   aiTeammateFallbackReason: string;
+  defaultSubTab?: "single" | "group";
+  onSubTabChange?: (tab: "single" | "group") => void;
 }
 
 export default function TeammatesTab({
@@ -27,10 +29,28 @@ export default function TeammatesTab({
   aiTeammateResults,
   aiTeammateFallback,
   aiTeammateFallbackReason,
+  defaultSubTab = "single",
+  onSubTabChange,
 }: TeammatesTabProps) {
+  const [subTab, setSubTab] = useState<"single" | "group">(defaultSubTab);
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
   const [inviteMsg, setInviteMsg] = useState("Chào bạn, mình cùng ghép cặp đánh Pickleball nhé!");
   const [sendingInvite, setSendingInvite] = useState(false);
+
+  React.useEffect(() => {
+    if (defaultSubTab) {
+      setSubTab(defaultSubTab);
+      setTinderIndex(0);
+    }
+  }, [defaultSubTab]);
+
+  const handleSubTabSwitch = (newTab: "single" | "group") => {
+    setSubTab(newTab);
+    setTinderIndex(0);
+    if (onSubTabChange) {
+      onSubTabChange(newTab);
+    }
+  };
 
   // Tinder & View Mode states
   const [viewMode, setViewMode] = useState<"tinder" | "list">("tinder");
@@ -74,25 +94,35 @@ export default function TeammatesTab({
     setSwipeDirection(null);
   };
 
+  const handleOpenInviteModal = (player: any) => {
+    setSelectedPlayer(player);
+    if (player?.IsGroup || player?.isGroup) {
+      setInviteMsg("Chào nhóm, mình muốn xin gia nhập vào nhóm của các bạn để cùng giao lưu Pickleball!");
+    } else {
+      setInviteMsg("Chào bạn, mình cùng ghép cặp đánh Pickleball nhé!");
+    }
+  };
+
   const handleSendInvitation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlayer) return;
 
     try {
       setSendingInvite(true);
+      const isGroup = selectedPlayer.IsGroup || selectedPlayer.isGroup;
       await api.sendInvitation(token, {
-        receiverId: selectedPlayer.UserID,
-        groupId: null,
-        invitationType: "InviteToPlay",
+        receiverId: isGroup ? (selectedPlayer.CreatorID || selectedPlayer.UserID) : selectedPlayer.UserID,
+        groupId: isGroup ? selectedPlayer.GroupID : null,
+        invitationType: isGroup ? "RequestJoinGroup" : "InviteToPlay",
         message: inviteMsg,
       });
-      showToast(`Gửi lời mời ghép cặp tới ${selectedPlayer.FullName} thành công!`);
+      showToast(isGroup ? `Gửi yêu cầu xin gia nhập nhóm "${selectedPlayer.FullName}" thành công!` : `Gửi lời mời ghép cặp tới ${selectedPlayer.FullName} thành công!`);
       setSelectedPlayer(null);
       if (viewMode === "tinder") {
         triggerSwipeRight();
       }
     } catch (err: any) {
-      showToast(err.message || "Gửi lời mời thất bại. Có thể hai người đã có lời mời chờ xử lý hoặc đã ghép cặp.", "error");
+      showToast(err.message || "Gửi lời mời thất bại. Có thể bạn đã gửi lời mời chờ xử lý hoặc đã là thành viên.", "error");
     } finally {
       setSendingInvite(false);
     }
@@ -103,7 +133,12 @@ export default function TeammatesTab({
 
   const sortedTeammates = React.useMemo(() => {
     const items = [...teammates];
-    return items.map(item => {
+    const filtered = items.filter(item => {
+      const isGrp = item.profile?.IsGroup || item.profile?.isGroup || item.isGroup;
+      if (subTab === "single") return !isGrp;
+      return isGrp;
+    });
+    return filtered.map(item => {
       const player = item.profile || {};
       const aiResult = aiTeammateResults.find(r => r.player?.UserID === player.UserID);
       const scoreVal = aiResult && typeof aiResult.score === "number" 
@@ -114,7 +149,7 @@ export default function TeammatesTab({
         finalScore: scoreVal
       };
     }).sort((a, b) => b.finalScore - a.finalScore);
-  }, [teammates, aiTeammateResults]);
+  }, [teammates, aiTeammateResults, subTab]);
 
   if (!hasCompleteProfile) {
     return (
@@ -127,27 +162,79 @@ export default function TeammatesTab({
   return (
     <div>
       {/* Page Title & View Mode Toggle */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "12px" }}>
-        <div>
-          <h3 style={{ fontSize: "20px", fontWeight: "700", margin: 0 }}>Tìm kiếm đồng đội & Đối thủ</h3>
-          <p style={{ fontSize: "14px", color: "var(--pcs-neutral-600)", marginTop: "0.25rem" }}>Kết nối, ghép cặp và thách đấu bằng công cụ thông minh AI của Pickle Club.</p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem", flexWrap: "nowrap", gap: "16px" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 style={{ fontSize: "20px", fontWeight: "700", margin: 0 }}>
+            {subTab === "single" ? "Tìm kiếm đồng đội (Người chơi đơn)" : "Tìm nhóm chơi cùng (2-3 thành viên)"}
+          </h3>
+          <p style={{ fontSize: "14px", color: "var(--pcs-neutral-600)", marginTop: "0.25rem", marginBottom: 0 }}>
+            {subTab === "single" 
+              ? "Kết nối 1-1 với những người chơi có lịch rảnh và trình độ phù hợp bằng AI." 
+              : "Khám phá và xin gia nhập vào các nhóm đang tuyển thêm đồng đội cùng chơi Pickleball."}
+          </p>
         </div>
-        <div className={styles.viewModeToggle}>
+        <div className={styles.viewModeToggle} style={{ flexShrink: 0 }}>
           <button 
             type="button" 
             className={`${styles.toggleBtn} ${viewMode === "tinder" ? styles.toggleBtnActive : ""}`}
             onClick={() => setViewMode("tinder")}
           >
-            🔥 Ghép cặp nhanh
+            Ghép cặp nhanh
           </button>
           <button 
             type="button" 
             className={`${styles.toggleBtn} ${viewMode === "list" ? styles.toggleBtnActive : ""}`}
             onClick={() => setViewMode("list")}
           >
-            📋 Danh sách
+            Danh sách
           </button>
         </div>
+      </div>
+
+      {/* Target Type Sub-Tabs */}
+      <div style={{ display: "flex", gap: "12px", marginBottom: "1.5rem", borderBottom: "2px solid var(--pcs-neutral-200)", paddingBottom: "12px" }}>
+        <button
+          type="button"
+          onClick={() => handleSubTabSwitch("single")}
+          style={{
+            padding: "10px 20px",
+            borderRadius: "8px",
+            fontWeight: "600",
+            fontSize: "15px",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            backgroundColor: subTab === "single" ? "var(--pcs-brand-primary, #10b981)" : "var(--pcs-neutral-100)",
+            color: subTab === "single" ? "#ffffff" : "var(--pcs-neutral-700)",
+            boxShadow: subTab === "single" ? "0 4px 6px -1px rgba(16, 185, 129, 0.2)" : "none",
+            transition: "all 0.2s"
+          }}
+        >
+          Tìm người chơi đơn
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSubTabSwitch("group")}
+          style={{
+            padding: "10px 20px",
+            borderRadius: "8px",
+            fontWeight: "600",
+            fontSize: "15px",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            backgroundColor: subTab === "group" ? "var(--pcs-brand-primary, #10b981)" : "var(--pcs-neutral-100)",
+            color: subTab === "group" ? "#ffffff" : "var(--pcs-neutral-700)",
+            boxShadow: subTab === "group" ? "0 4px 6px -1px rgba(16, 185, 129, 0.2)" : "none",
+            transition: "all 0.2s"
+          }}
+        >
+          Tìm nhóm chơi cùng
+        </button>
       </div>
 
       {/* Redesigned Premium AI Loading State */}
@@ -251,8 +338,12 @@ export default function TeammatesTab({
       {/* Loading & Empty States */}
       {loading ? (
         <div className={styles.loadingInner}>Đang tìm kiếm đồng đội phù hợp...</div>
-      ) : teammates.length === 0 ? (
-        <div className={styles.emptyState}>Không tìm thấy đồng đội nào phù hợp trong khung giờ rảnh của bạn hiện tại.</div>
+      ) : sortedTeammates.length === 0 ? (
+        <div className={styles.emptyState}>
+          {subTab === "single"
+            ? "Không tìm thấy người chơi đơn nào phù hợp trong khung giờ rảnh của bạn hiện tại."
+            : "Không có nhóm chơi nào (2-3 thành viên) đang mở tuyển thành viên trong thời điểm này."}
+        </div>
       ) : viewMode === "tinder" ? (
         /* Tinder Swiping Deck Mode */
         <div className={styles.tinderDeckContainer}>
@@ -354,7 +445,7 @@ export default function TeammatesTab({
                   type="button" 
                   onClick={() => {
                     const topPlayer = sortedTeammates[tinderIndex]?.profile;
-                    if (topPlayer) setSelectedPlayer(topPlayer);
+                    if (topPlayer) handleOpenInviteModal(topPlayer);
                   }} 
                   className={`${styles.circleBtn} ${styles.btnLike}`}
                   title="Ghép cặp (Swipe Right)"
@@ -381,7 +472,7 @@ export default function TeammatesTab({
         <>
           <div style={{ marginTop: "1rem", marginBottom: "1rem" }}>
             <h4 style={{ fontSize: "16px", fontWeight: "700", margin: 0, color: "var(--pcs-neutral-700)" }}>
-              👥 Danh sách đồng đội phù hợp
+              {subTab === "single" ? "Danh sách người chơi đơn phù hợp" : "Danh sách các nhóm chơi đang mở tuyển"}
             </h4>
           </div>
           <div className={styles.gridList}>
@@ -508,11 +599,11 @@ export default function TeammatesTab({
 
                   <div style={{ marginTop: "1rem" }}>
                     <button
-                      onClick={() => setSelectedPlayer(player)}
+                      onClick={() => handleOpenInviteModal(player)}
                       className={styles.primaryBtn}
                       style={{ width: "100%", background: aiResult ? "var(--pcs-brand-primary-hover)" : undefined }}
                     >
-                      Ghép cặp
+                      {player.IsGroup || player.isGroup ? "Xin gia nhập" : "Ghép cặp"}
                     </button>
                   </div>
                 </div>
@@ -526,15 +617,23 @@ export default function TeammatesTab({
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
-              <h4 className={styles.modalTitle}>Gửi lời mời ghép cặp</h4>
+              <h4 className={styles.modalTitle}>
+                {selectedPlayer.IsGroup || selectedPlayer.isGroup ? "Xin gia nhập nhóm chơi" : "Gửi lời mời ghép cặp"}
+              </h4>
               <button className={styles.closeBtn} onClick={() => setSelectedPlayer(null)}>×</button>
             </div>
             <form onSubmit={handleSendInvitation}>
               <div className={styles.formGroup}>
-                <label className={styles.label}>Gửi tới:</label>
+                <label className={styles.label}>
+                  {selectedPlayer.IsGroup || selectedPlayer.isGroup ? "Gửi tới nhóm:" : "Gửi tới:"}
+                </label>
                 <input
                   type="text"
-                  value={selectedPlayer.FullName}
+                  value={
+                    selectedPlayer.IsGroup || selectedPlayer.isGroup
+                      ? `${selectedPlayer.FullName} (Trưởng nhóm: ${selectedPlayer.CreatorName || "Leader"})`
+                      : selectedPlayer.FullName
+                  }
                   disabled
                   className={styles.input}
                   style={{ backgroundColor: "var(--pcs-neutral-50)" }}
