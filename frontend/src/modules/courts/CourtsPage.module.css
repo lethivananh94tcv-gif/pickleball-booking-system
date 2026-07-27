@@ -858,3 +858,32 @@
   line-height: 1;
   z-index: 5;
 }
+
+/* Floating favorite button on court cards */
+.favoriteBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #ffffff;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-shadow: var(--pcs-shadow-sm, 0 1px 3px rgba(0,0,0,0.1));
+  cursor: pointer;
+  color: var(--pcs-neutral-500, #64748b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  z-index: 2;
+  transition: all 0.2s ease;
+}
+
+.favoriteBtn:hover {
+  transform: scale(1.1);
+}
+
+.favoriteBtn.isFavorite {
+  color: #ef4444 !important;
+}

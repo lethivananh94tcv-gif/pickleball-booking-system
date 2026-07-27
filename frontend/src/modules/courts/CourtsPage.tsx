@@ -7,6 +7,8 @@ import { getCourts, getCourtSlots, type CourtSlot } from "@/services/courtApi";
 import type { Court } from "@/types/court";
 import { formatCurrency } from "@/utils/formatCurrency";
 import StateBox from "@/components/common/StateBox";
+import { getToken } from "@/utils/authStorage";
+import { getFavorites, toggleFavorite } from "@/services/favoriteApi";
 import BookingModal from "./BookingModal";
 import styles from "./CourtsPage.module.css";
 
@@ -31,6 +33,44 @@ export default function CourtsPage() {
   }, [searchParams]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Favorites state
+  const [favoriteCourts, setFavoriteCourts] = useState<number[]>([]);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    async function loadFavorites() {
+      try {
+        const favs = await getFavorites(token as string);
+        const courtIds = favs
+          .filter((f) => f.TargetType === "Court")
+          .map((f) => f.TargetID);
+        setFavoriteCourts(courtIds);
+      } catch (err) {
+        console.error("Failed to load favorite courts", err);
+      }
+    }
+    loadFavorites();
+  }, []);
+
+  const handleToggleCourtFavorite = async (courtId: number) => {
+    const token = getToken();
+    if (!token) {
+      alert("Vui lòng đăng nhập để thêm sân vào danh sách yêu thích!");
+      return;
+    }
+    try {
+      const isFav = await toggleFavorite(token, "Court", courtId);
+      if (isFav) {
+        setFavoriteCourts((prev) => [...prev, courtId]);
+      } else {
+        setFavoriteCourts((prev) => prev.filter((id) => id !== courtId));
+      }
+    } catch (err: any) {
+      alert(err.message || "Không thể thực hiện yêu cầu.");
+    }
+  };
 
   // UC-12: Drawer lịch sân
   const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
@@ -161,6 +201,16 @@ export default function CourtsPage() {
                     sizes="(max-width: 768px) 100vw, 33vw"
                     style={{ objectFit: 'cover' }}
                   />
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleCourtFavorite(court.CourtID);
+                    }}
+                    className={`${styles.favoriteBtn} ${favoriteCourts.includes(court.CourtID) ? styles.isFavorite : ""}`}
+                  >
+                    {favoriteCourts.includes(court.CourtID) ? "♥" : "♡"}
+                  </button>
                   <span className={`${styles.status} ${
                     court.Status === "Available" ? styles.statusAvailable
                       : court.Status === "Maintenance" ? styles.statusMaintenance
