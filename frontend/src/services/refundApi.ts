@@ -36,6 +36,7 @@ export interface RefundRecord {
 export interface RefundManagerRecord extends RefundRecord {
   PlayerName?: string;
   PlayerEmail?: string;
+  PlayerPhone?: string;
   BookingCode?: string;
 }
 
@@ -189,6 +190,29 @@ export async function rejectRefund(
       method: "POST",
       token,
       body: { refundCode, rejectReason },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Staff/Manager/Admin cập nhật thông tin ngân hàng nhận tiền của khách.
+ */
+export async function updateRefundBankDetails(
+  token: string,
+  data: {
+    refundCode: string;
+    bankId: string;
+    accountNo: string;
+    accountName: string;
+  }
+): Promise<{ success: boolean; message: string }> {
+  const res = await apiClient<ApiResponse<{ success: boolean; message: string }>>(
+    "/api/refunds/update-bank-details",
+    {
+      method: "PUT",
+      token,
+      body: data,
     }
   );
   return res.data;

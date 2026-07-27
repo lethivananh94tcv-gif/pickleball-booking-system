@@ -3023,15 +3023,10 @@ export async function updateRegistrationAction(
       const now = new Date();
       const vn = new Date(now.getTime() + 7 * 60 * 60 * 1000);
       const pad = (n: number) => String(n).padStart(2, "0");
-      const ts =
-        `${vn.getUTCFullYear()}` +
-        `${pad(vn.getUTCMonth() + 1)}` +
-        `${pad(vn.getUTCDate())}` +
-        `${pad(vn.getUTCHours())}` +
-        `${pad(vn.getUTCMinutes())}` +
-        `${pad(vn.getUTCSeconds())}`;
-      const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-      const refundCode = `RF-T-${registrationId}-${ts}-${rand}`;
+      const yy = String(vn.getUTCFullYear()).slice(-2);
+      const mm = pad(vn.getUTCMonth() + 1);
+      const dd = pad(vn.getUTCDate());
+      const refundCode = `RF-T-${yy}${mm}${dd}-${registrationId}`;
 
       const reasonStr = typeof body.value === "string" ? body.value : "Từ chối hồ sơ giải đấu";
 

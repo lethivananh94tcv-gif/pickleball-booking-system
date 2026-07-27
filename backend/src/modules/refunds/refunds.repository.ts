@@ -238,7 +238,8 @@ export async function getManagerRefunds(filters?: {
       COALESCE(p.PaymentMethod, tp.PaymentMethod) AS PaymentMethod,
       COALESCE(b.BookingCode, 'REG-' + CAST(r.RegistrationID AS VARCHAR(10))) AS BookingCode,
       u.FullName AS PlayerName,
-      u.Email AS PlayerEmail
+      u.Email AS PlayerEmail,
+      u.PhoneNumber AS PlayerPhone
     FROM Refunds r
     LEFT JOIN Payments p ON p.PaymentID = r.PaymentID
     LEFT JOIN Bookings b ON b.BookingID = r.BookingID
@@ -286,6 +287,22 @@ export async function updateRefundStatus(input: UpdateRefundStatusInput): Promis
     SET ${setClauses.join(", ")}
     WHERE RefundID = @RefundID
   `);
+}
+
+/**
+ * Cập nhật lý do (bao gồm bank details format) cho refund.
+ */
+export async function updateRefundReason(refundId: number, reason: string): Promise<void> {
+  const pool = await getPool();
+  await pool
+    .request()
+    .input("RefundID", sql.Int, refundId)
+    .input("Reason", sql.NVarChar(255), reason)
+    .query(`
+      UPDATE Refunds
+      SET Reason = @Reason, UpdatedAt = GETDATE()
+      WHERE RefundID = @RefundID
+    `);
 }
 
 /**

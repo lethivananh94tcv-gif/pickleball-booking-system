@@ -69,24 +69,40 @@ export default function PaymentModal({
   const [appliedPromotion, setAppliedPromotion] = useState<any>(null);
 
   async function handleApplyVoucher(code: string) {
-    const token = getToken();
-    if (!token) throw new Error("Vui lòng đăng nhập");
-    const result = await applyPromotion(token, bookingId, code);
-    setAppliedPromotion({
-      promotionCode: result.promotionCode,
-      promotionName: "Voucher giảm giá",
-      discountAmount: result.discountAmount,
-    });
-    setCurrentAmount(result.finalAmount);
-    setOriginalAmount(result.originalAmount);
+    setErrorMsg("");
+    try {
+      const token = getToken();
+      if (!token) {
+        setErrorMsg("Vui lòng đăng nhập để áp dụng voucher.");
+        return;
+      }
+      const result = await applyPromotion(token, bookingId, code);
+      setAppliedPromotion({
+        promotionCode: result.promotionCode,
+        promotionName: "Voucher giảm giá",
+        discountAmount: result.discountAmount,
+      });
+      setCurrentAmount(result.finalAmount);
+      setOriginalAmount(result.originalAmount);
+    } catch (err: any) {
+      setErrorMsg(err instanceof Error ? err.message : "Áp dụng voucher thất bại.");
+    }
   }
 
   async function handleRemoveVoucher() {
-    const token = getToken();
-    if (!token) throw new Error("Vui lòng đăng nhập");
-    await removePromotion(token, bookingId);
-    setAppliedPromotion(null);
-    setCurrentAmount(originalAmount);
+    setErrorMsg("");
+    try {
+      const token = getToken();
+      if (!token) {
+        setErrorMsg("Vui lòng đăng nhập.");
+        return;
+      }
+      await removePromotion(token, bookingId);
+      setAppliedPromotion(null);
+      setCurrentAmount(originalAmount);
+    } catch (err: any) {
+      setErrorMsg(err instanceof Error ? err.message : "Gỡ voucher thất bại.");
+    }
   }
 
   async function handlePay() {

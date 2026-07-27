@@ -67,6 +67,7 @@ export type RefundRecord = {
 export type RefundManagerRecord = RefundRecord & {
   PlayerName?: string;
   PlayerEmail?: string;
+  PlayerPhone?: string;
   BookingCode?: string;
 };
 

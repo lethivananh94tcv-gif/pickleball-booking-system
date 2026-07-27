@@ -1,6 +1,9 @@
 @echo off
 echo Dang khoi dong Pickleball Booking System...
 
+rem Giai phong cac cong 3000, 5000, 8000 neu dang bi chiem
+call node kill-ports.js
+
 echo 1. Khoi dong AI Service (cong 8000)...
 start cmd /k "cd ai-service && .\venv\Scripts\python -m app.main"
 

@@ -390,29 +390,25 @@
 }
 
 .dataTable th {
-  padding: 16px 20px;
+  padding: 14px 18px;
   font-size: 11px;
   font-weight: 700;
-  color: #4f46e5;
-  background: rgba(79, 70, 229, 0.05);
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   text-align: left;
-  border-bottom: 1px solid rgba(79, 70, 229, 0.1);
+  border-bottom: 1px solid #e2e8f0;
+  background: #f9fafc;
   white-space: nowrap;
 }
 
 .dataTable tr {
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
   transition: background 0.15s ease;
 }
 
-.dataTable tbody tr:nth-child(even) {
-  background: rgba(79, 70, 229, 0.015);
-}
-
 .dataTable tr:hover {
-  background: rgba(79, 70, 229, 0.04) !important;
+  background: #fafafa !important;
 }
 
 .refundCode {
@@ -460,8 +456,36 @@
 .reasonText {
   font-size: 13px;
   color: #475569;
+  max-height: 48px;
+  overflow-y: auto;
+  padding-right: 4px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Section headers matching booking styles */
+.sectionHeader {
+  margin-top: 10px;
+  margin-bottom: 14px;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.sectionTitle::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background: #2563eb;
+  border-radius: 4px;
 }
 
 .dateMain {
@@ -914,4 +938,418 @@
   font-size: 12px;
   color: #64748b;
   margin: 0;
+}
+
+/* ==========================================================================
+   Redesigned Manual Refund View Classes
+   ========================================================================== */
+
+.detailContainer {
+  padding: 10px 0 20px 0;
+  width: 100%;
+}
+
+.detailHeader {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 24px;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #16a34a;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  margin-bottom: 16px;
+  transition: color 0.15s;
+}
+
+.backBtn:hover {
+  color: #15803d;
+}
+
+.detailTitle {
+  font-size: 28px;
+  font-weight: 850;
+  color: #0f172a;
+  margin: 0;
+}
+
+.badgeWrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.badgeOrange {
+  background: #fff7ed;
+  border: 1px solid #ffedd5;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.updateTime {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.topSummaryRow {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.summaryCol {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.summaryCol:not(:last-child) {
+  border-right: 1px solid #f1f5f9;
+  padding-right: 16px;
+}
+
+.summaryLabel {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.summaryValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+}
+
+.refundCodeValue {
+  color: #059669 !important;
+  font-family: monospace;
+}
+
+.refundAmountValue {
+  color: #ef4444 !important;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.detailCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.cardIconWrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e6f4ea;
+  color: #137333;
+  font-size: 14px;
+}
+
+.cardTitleText {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #137333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.reasonBox {
+  background: #e6f4ea;
+  color: #137333;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.infoTable {
+  display: flex;
+  flex-direction: column;
+}
+
+.infoTableRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.infoTableRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.infoRowLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.infoRowValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+}
+
+.qrContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.vietQrCard {
+  border: 1px solid #f1f5f9;
+  border-radius: 16px;
+  padding: 16px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.qrFooterText {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #059669;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.uploadCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.uploadZone {
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 20px 16px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.uploadZoneActive {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.uploadZoneLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.uploadZoneIcon {
+  font-size: 20px;
+}
+
+.uploadBtn {
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.uploadBtn:hover {
+  background: #15803d;
+}
+
+.warningBox {
+  background: #fffbeb;
+  border: 1px solid #fef08a;
+  color: #b45309;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.actionRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.btnCancel {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #1e293b;
+  padding: 8px 24px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btnCancel:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.btnConfirm {
+  background: #cbd5e1;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 24px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: not-allowed;
+  transition: all 0.15s;
+}
+
+.btnConfirmActive {
+  background: #16a34a;
+  cursor: pointer;
+}
+
+.btnConfirmActive:hover {
+  background: #15803d;
+}
+
+/* Redesigned Floating Actions Dropdown Menu */
+.btnActionMenu {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btnActionMenu:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.dropdownMenu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  min-width: 175px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  animation: slideDown 0.12s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdownItem {
+  background: none;
+  border: none;
+  padding: 9px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.12s ease;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.dropdownItem:hover {
+  background: #f1f5f9;
 }

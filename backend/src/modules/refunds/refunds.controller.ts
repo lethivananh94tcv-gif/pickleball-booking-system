@@ -75,7 +75,7 @@ export async function getManagerRefundsController(req: NextRequest) {
     const auth = requireAuth(req);
     if (auth instanceof Response) return auth;
 
-    const roleCheck = requireRoles(auth, ["Admin", "Manager"]);
+    const roleCheck = requireRoles(auth, ["Admin", "Manager", "Staff"]);
     if (roleCheck) return roleCheck;
 
     const { searchParams } = new URL(req.url);
@@ -118,7 +118,7 @@ export async function getRefundStatusController(req: NextRequest) {
 
     // Player chỉ xem refund của chính mình
     const isManagerOrAdmin = auth.roles?.some((r: string) =>
-      ["Admin", "Manager"].includes(r)
+      ["Admin", "Manager", "Staff"].includes(r)
     );
     if (!isManagerOrAdmin && result.CreatedBy !== auth.userId) {
       throw Object.assign(new Error("Bạn không có quyền xem refund này."), { statusCode: 403 });
@@ -261,6 +261,44 @@ export async function rejectRefundController(req: NextRequest) {
     );
 
     return successResponse(result, result.message);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// ── PUT /api/refunds/update-bank-details ──────────────
+
+/**
+ * Staff/Manager/Admin cập nhật thông tin nhận tiền của khách hàng.
+ * Body: { refundCode: string, bankId: string, accountNo: string, accountName: string }
+ */
+export async function updateRefundBankDetailsController(req: NextRequest) {
+  try {
+    const auth = requireAuth(req);
+    if (auth instanceof Response) return auth;
+
+    const roleCheck = requireRoles(auth, ["Admin", "Manager", "Staff"]);
+    if (roleCheck) return roleCheck;
+
+    const body = await req.json();
+    const { refundCode, bankId, accountNo, accountName } = body;
+
+    if (!refundCode || !bankId || !accountNo || !accountName) {
+      throw Object.assign(
+        new Error("Vui lòng nhập đầy đủ thông tin: refundCode, bankId, accountNo, accountName."),
+        { statusCode: 400 }
+      );
+    }
+
+    const result = await refundService.updateRefundBankDetails(
+      refundCode.trim(),
+      bankId.trim(),
+      accountNo.trim(),
+      accountName.trim(),
+      auth.userId
+    );
+
+    return successResponse(result, "Cập nhật thông tin ngân hàng thành công.");
   } catch (error) {
     return handleError(error);
   }
