@@ -100,7 +100,23 @@ export async function getReceivedInvitations(userId: number) {
       INNER JOIN Users u ON i.SenderID = u.UserID
       LEFT JOIN PlayingGroups g ON i.GroupID = g.GroupID
       LEFT JOIN PlayerProfiles sp ON i.SenderID = sp.UserID
-      WHERE i.ReceiverID = @UserID AND i.Status IN ('Pending', 'Accepted')
+      WHERE (
+        i.ReceiverID = @UserID 
+        OR (
+          i.Message LIKE '%"Type":"InviteOpponent"%'
+          AND EXISTS (
+            SELECT 1 FROM GroupMembers gm
+            INNER JOIN PlayingGroups pg ON gm.GroupID = pg.GroupID
+            WHERE pg.CreatedBy = i.ReceiverID
+              AND pg.Status IN ('Open', 'Active', 'Full')
+              AND pg.GroupName NOT LIKE '%Thách đấu%'
+              AND (pg.Description IS NULL OR pg.Description NOT LIKE '%Box chat chung%')
+              AND gm.UserID = @UserID
+              AND gm.Status = 'Active'
+          )
+        )
+      )
+      AND i.Status IN ('Pending', 'Accepted')
       ORDER BY i.InvitationID DESC
     `);
   return result.recordset.map(processInvitationMessage);

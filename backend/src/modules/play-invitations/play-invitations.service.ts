@@ -240,7 +240,9 @@ export async function acceptInvitation(invitationId: number, userId: number) {
     throw new Error("Lời mời này đã được xử lý trước đó.");
   }
 
-  if (invite.ReceiverID !== userId) {
+  if (invite.InvitationType === 'InviteOpponent' && invite.ReceiverID !== userId) {
+    throw new Error("Chỉ trưởng nhóm mới có quyền đồng ý lời mời thách đấu này.");
+  } else if (invite.ReceiverID !== userId) {
     throw new Error("Bạn không phải người nhận lời mời này.");
   }
 
@@ -412,7 +414,9 @@ export async function rejectInvitation(invitationId: number, userId: number) {
     throw new Error("Lời mời này đã được xử lý trước đó.");
   }
 
-  if (invite.ReceiverID !== userId) {
+  if (invite.InvitationType === 'InviteOpponent' && invite.ReceiverID !== userId) {
+    throw new Error("Chỉ trưởng nhóm mới có quyền từ chối lời mời thách đấu này.");
+  } else if (invite.ReceiverID !== userId) {
     throw new Error("Bạn không phải người nhận lời mời này.");
   }
 

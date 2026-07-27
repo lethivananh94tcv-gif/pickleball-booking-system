@@ -114,19 +114,75 @@ export async function notifyPlayInvitationCreated(invitation: any) {
     const senderInfo = await notifRepo.getUserEmailInfo(invitation.SenderID);
     const senderName = senderInfo ? senderInfo.FullName : "Một người chơi";
 
-    if (invitation.InvitationType === "InviteToPlay" || invitation.InvitationType === "InviteToGroup") {
+    if (invitation.InvitationType === "InviteOpponent") {
+      const type = "CHALLENGE_INVITATION";
+      const subject = `Nhóm của ${senderName} đã gửi lời thách đấu`;
+      const title = "Lời mời thách đấu";
+      const message = `Nhóm của ${senderName} vừa gửi lời thách đấu cho nhóm của bạn.${invitation.Message ? `\n\nLời nhắn: "${invitation.Message}"` : ""}`;
+      
+      const targetMembers = await notifRepo.getTargetGroupMemberEmails(invitation.ReceiverID);
+      for (const member of targetMembers) {
+        if (member.UserID === invitation.SenderID) continue;
+
+        await createNotification({
+          userId: member.UserID,
+          title: title,
+          message: `Nhóm của ${senderName} vừa gửi lời thách đấu cho nhóm của bạn!`,
+          notificationType: "Matching"
+        });
+
+        try {
+          await sendNotificationEmail({
+            to: member.Email,
+            fullName: member.FullName,
+            type: type,
+            subject: subject,
+            title: title,
+            message: message,
+            actionUrl: `${FRONTEND_URL}/matching`,
+            actionText: "Xem lời mời",
+          });
+
+          await notifRepo.createEmailLog({
+            userId: member.UserID,
+            email: member.Email,
+            notificationType: type,
+            refType: "PlayInvitation",
+            refId: invitation.InvitationID,
+            status: "Sent"
+          });
+        } catch (err: any) {
+          await notifRepo.createEmailLog({
+            userId: member.UserID,
+            email: member.Email,
+            notificationType: type,
+            refType: "PlayInvitation",
+            refId: invitation.InvitationID,
+            status: "Failed",
+            errorMessage: err.message || "Unknown error"
+          });
+        }
+      }
+      return;
+    } else if (invitation.InvitationType === "InviteToPlay" || invitation.InvitationType === "InviteToGroup" || invitation.InvitationType === "RequestJoinGroup" || (invitation.Message && (invitation.Message.includes('"Type":"InviteToPlay"') || invitation.Message.includes('"Type":"InviteToGroup"') || invitation.Message.includes('"Type":"RequestJoinGroup"')))) {
       toUserId = invitation.ReceiverID;
-      type = invitation.InvitationType === "InviteToPlay" ? "TEAM_INVITATION" : "GROUP_INVITATION";
-      subject = type === "TEAM_INVITATION" ? "Bạn có lời mời ghép đội mới" : `Bạn được mời tham gia nhóm`;
-      title = type === "TEAM_INVITATION" ? "Lời mời ghép đội" : "Lời mời tham gia nhóm";
-      message = `${senderName} vừa gửi cho bạn một ${title.toLowerCase()}.${invitation.Message ? `\n\nLời nhắn: "${invitation.Message}"` : ""}`;
-    } else if (invitation.InvitationType === "InviteOpponent") {
-      // Đối với InviteOpponent, gửi cho Receiver (thường là leader nhóm đối thủ)
-      toUserId = invitation.ReceiverID;
-      type = "CHALLENGE_INVITATION";
-      subject = `Nhóm của ${senderName} đã gửi lời thách đấu`;
-      title = "Lời mời thách đấu";
-      message = `Nhóm của ${senderName} vừa gửi lời thách đấu cho nhóm của bạn.${invitation.Message ? `\n\nLời nhắn: "${invitation.Message}"` : ""}`;
+      const msgStr = invitation.Message || "";
+      const isRequestJoin = invitation.InvitationType === "RequestJoinGroup" || msgStr.includes('"Type":"RequestJoinGroup"');
+      const isInviteTeam = invitation.InvitationType === "InviteToPlay" || msgStr.includes('"Type":"InviteToPlay"');
+
+      type = isInviteTeam ? "TEAM_INVITATION" : (isRequestJoin ? "JOIN_GROUP_REQUEST" : "GROUP_INVITATION");
+      subject = isInviteTeam ? "Bạn có lời mời ghép đội mới" : (isRequestJoin ? "Bạn có yêu cầu xin gia nhập nhóm" : `Bạn được mời tham gia nhóm`);
+      title = isInviteTeam ? "Lời mời ghép đội" : (isRequestJoin ? "Yêu cầu gia nhập nhóm" : "Lời mời tham gia nhóm");
+      message = isRequestJoin ? `${senderName} muốn xin gia nhập vào nhóm của bạn.${invitation.Message ? `\n\nLời nhắn: "${invitation.Message}"` : ""}` : `${senderName} vừa gửi cho bạn một ${title.toLowerCase()}.${invitation.Message ? `\n\nLời nhắn: "${invitation.Message}"` : ""}`;
+
+      if (toUserId) {
+        await createNotification({
+          userId: toUserId,
+          title: title,
+          message: isRequestJoin ? `${senderName} muốn xin gia nhập vào nhóm của bạn.` : `${senderName} vừa gửi cho bạn một ${title.toLowerCase()}.`,
+          notificationType: "Matching"
+        });
+      }
     }
 
     if (!toUserId) return;
@@ -186,6 +242,13 @@ export async function notifyInvitationStatusChanged(invitation: any, status: 'Ac
     const subject = status === 'Accepted' ? "Lời mời của bạn đã được chấp nhận" : "Lời mời của bạn đã bị từ chối";
     const title = status === 'Accepted' ? "Chấp nhận lời mời" : "Từ chối lời mời";
     const message = `${responderName} đã ${status === 'Accepted' ? 'chấp nhận' : 'từ chối'} lời mời của bạn.`;
+
+    await createNotification({
+      userId: invitation.SenderID,
+      title: title,
+      message: `${responderName} đã ${status === 'Accepted' ? 'chấp nhận' : 'từ chối'} lời mời của bạn.`,
+      notificationType: "Matching"
+    });
 
     try {
       await sendNotificationEmail({

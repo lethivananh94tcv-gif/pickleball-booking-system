@@ -7,11 +7,12 @@ import styles from "./MatchingLayout.module.css";
 
 interface InvitationsTabProps {
   token: string;
+  currentUserId?: number;
   onActionSuccess: () => void;
   showToast: (msg: string, type?: "success" | "error") => void;
 }
 
-export default function InvitationsTab({ token, onActionSuccess, showToast }: InvitationsTabProps) {
+export default function InvitationsTab({ token, currentUserId, onActionSuccess, showToast }: InvitationsTabProps) {
   const router = useRouter();
   const [subTab, setSubTab] = useState<"received" | "sent">("received");
   const [received, setReceived] = useState<api.PlayInvitation[]>([]);
@@ -201,22 +202,36 @@ export default function InvitationsTab({ token, onActionSuccess, showToast }: In
 
                 <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   {inv.Status === "Pending" ? (
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        onClick={() => handleAccept(inv.InvitationID)}
-                        className={styles.primaryBtn}
-                        style={{ flex: 1 }}
-                      >
-                        Đồng ý
-                      </button>
-                      <button
-                        onClick={() => handleReject(inv.InvitationID)}
-                        className={styles.secondaryBtn}
-                        style={{ flex: 1, color: "var(--pcs-status-error)", borderColor: "var(--pcs-status-error-border, #fecaca)" }}
-                      >
-                        Từ chối
-                      </button>
-                    </div>
+                    inv.InvitationType === "InviteOpponent" && currentUserId && inv.ReceiverID !== currentUserId ? (
+                      <div style={{
+                        padding: "0.625rem 0.75rem",
+                        backgroundColor: "var(--pcs-neutral-100, #f3f4f6)",
+                        color: "var(--pcs-neutral-700, #374151)",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        textAlign: "center",
+                        border: "1px dashed var(--pcs-neutral-300, #d1d5db)"
+                      }}>
+                        ⚠️ Chỉ <strong>Trưởng nhóm</strong> mới có quyền đồng ý hoặc từ chối lời mời thách đấu này.
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button
+                          onClick={() => handleAccept(inv.InvitationID)}
+                          className={styles.primaryBtn}
+                          style={{ flex: 1 }}
+                        >
+                          Đồng ý
+                        </button>
+                        <button
+                          onClick={() => handleReject(inv.InvitationID)}
+                          className={styles.secondaryBtn}
+                          style={{ flex: 1, color: "var(--pcs-status-error)", borderColor: "var(--pcs-status-error-border, #fecaca)" }}
+                        >
+                          Từ chối
+                        </button>
+                      </div>
+                    )
                   ) : (
                     <>
                       <div style={{ textAlign: "center", width: "100%", padding: "0.5rem 0", fontSize: "14px" }}>

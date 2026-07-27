@@ -537,6 +537,7 @@ export default function MatchingLayout() {
           {activeTab === "invitations" && (
             <InvitationsTab
               token={token}
+              currentUserId={userProfile?.UserID || 0}
               onActionSuccess={triggerRefresh}
               showToast={showToast}
             />
