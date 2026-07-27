@@ -32,8 +32,8 @@ class RecommendRequest(BaseModel):
     courtIds: List[int]
     targetDate: str
     historicalBookings: List[Dict[str, Any]]
-    thresholdOccupancy: Optional[float] = 50.0
-    basePrice: Optional[float] = 200000.0
+    thresholdOccupancy: float = 50.0
+    basePrice: float = 200000.0
 
 @router.post("/forecast/train", dependencies=[Depends(verify_api_key)])
 async def train_forecast_model(request: TrainRequest):
@@ -79,6 +79,8 @@ async def recommend_promotions(request: RecommendRequest):
         
         # Step 3: Enhance recommendations with Gemini LLM
         final_recommendations = []
+        skip_gemini = False
+        
         for rec in raw_recommendations:
             hour = rec["HourStart"]
             discount = rec["SuggestedDiscount"]
@@ -90,7 +92,7 @@ async def recommend_promotions(request: RecommendRequest):
             marketing_msg = f"🔥 Khuyến mãi đặt sân đặc biệt lúc {hour}h ngày {request.targetDate}: Giảm ngay {discount}%! Số lượng có hạn, đặt sân ngay!"
             
             # Call Gemini to refine marketing content if api key is configured
-            if API_KEYS:
+            if API_KEYS and not skip_gemini:
                 try:
                     prompt = f"""
 Bạn là chuyên gia marketing và tối ưu doanh thu cho câu lạc bộ Pickleball "Pickle Club".
@@ -113,10 +115,10 @@ Hãy viết 2 nội dung bằng tiếng Việt:
 }}
 Lưu ý: Không bao gồm markdown code block (không có ```json ... ```), chỉ có chuỗi JSON nguyên bản.
 """
-                    response = generate_content_with_retry(prompt, request_options={"timeout": 5.0})
-                    clean_text = response.text.strip()
+                    response = generate_content_with_retry(prompt, request_options={"timeout": 2.0})
+                    clean_text = response.text.strip() if response else ""
                     # Strip markdown markers if model included them anyway
-                    if clean_text.startswith("```"):
+                    if clean_text and clean_text.startswith("```"):
                         lines = clean_text.split("\n")
                         if lines[0].startswith("```"):
                             lines = lines[1:]
@@ -128,7 +130,8 @@ Lưu ý: Không bao gồm markdown code block (không có ```json ... ```), ch�
                     reasoning = data.get("reasoning", reasoning)
                     marketing_msg = data.get("marketingMessage", marketing_msg)
                 except Exception as e:
-                    print(f"Gemini generation error: {e}")
+                    print(f"Gemini generation error: {e}. Skipping Gemini calls for remaining recommendations.")
+                    skip_gemini = True
                     
             final_recommendations.append({
                 "targetDate": request.targetDate,

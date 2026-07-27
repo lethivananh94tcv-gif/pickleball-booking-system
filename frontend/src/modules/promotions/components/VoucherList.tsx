@@ -14,7 +14,7 @@ interface VoucherListProps {
 export default function VoucherList({ token, bookingAmount, onSelect }: VoucherListProps) {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -36,29 +36,27 @@ export default function VoucherList({ token, bookingAmount, onSelect }: VoucherL
 
   return (
     <div style={{ marginTop: "0.5rem" }}>
-      <button
-        onClick={() => setOpen((v) => !v)}
+      <div
         style={{
-          background: "none",
-          border: "none",
-          color: "var(--pcs-brand-primary)",
-          fontSize: "0.83rem",
-          cursor: "pointer",
-          padding: 0,
-          fontWeight: 600,
-          textDecoration: "underline",
+          color: "#059669",
+          fontSize: "0.85rem",
+          fontWeight: 700,
+          marginBottom: "0.5rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px"
         }}
       >
-        {open ? "▲ Ẩn danh sách voucher" : `▼ Xem ${promotions.length} voucher có thể dùng`}
-      </button>
+        <span>🎁</span> Voucher khả dụng ({promotions.length}):
+      </div>
 
       {open && (
         <div style={{
-          marginTop: "0.5rem",
+          marginTop: "0.4rem",
           display: "flex",
           flexDirection: "column",
-          gap: "0.5rem",
-          maxHeight: "320px",
+          gap: "0.4rem",
+          maxHeight: "135px",
           overflowY: "auto",
         }}>
           {promotions.map((p) => (

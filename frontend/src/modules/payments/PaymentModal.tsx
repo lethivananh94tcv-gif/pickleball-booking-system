@@ -133,13 +133,30 @@ export default function PaymentModal({
       <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Chọn phương thức thanh toán">
         {/* Header */}
         <div className={styles.header}>
-          <div className={styles.headerIcon}>💳</div>
+          <div style={{ 
+            background: "#e0f2fe", 
+            color: "#0284c7", 
+            width: "48px", 
+            height: "48px", 
+            borderRadius: "50%", 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center", 
+            margin: "0 auto 12px auto" 
+          }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
+              <line x1="2" y1="10" x2="22" y2="10" />
+            </svg>
+          </div>
           <h2>Chọn phương thức thanh toán</h2>
-          <p>Mã booking: <strong>{bookingCode}</strong></p>
+          <p style={{ color: "#64748b", fontSize: "14px", marginTop: "4px" }}>
+            Mã booking: <strong style={{ color: "#0f172a" }}>{bookingCode}</strong>
+          </p>
         </div>
 
         {/* Voucher Section */}
-        <div style={{ padding: "0 1.5rem" }}>
+        <div style={{ marginBottom: "1rem" }}>
           <VoucherInput
             token={getToken() || ""}
             bookingId={bookingId}

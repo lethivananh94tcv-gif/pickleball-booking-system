@@ -278,7 +278,9 @@ export async function getPaymentStatus(
     .query(`
       SELECT
         b.BookingID,
+        b.BookingCode,
         b.Status AS BookingStatus,
+        b.BookingType,
         p.PaymentID,
         p.Status AS PaymentStatus,
         p.PaymentMethod,
@@ -299,17 +301,24 @@ export async function getPaymentStatus(
   const row = result.recordset[0];
   if (!row) return null;
 
+  const toUtcFromLocalDb = (date: Date | null | undefined): Date | null => {
+    if (!date) return null;
+    return new Date(date.getTime() - 7 * 60 * 60 * 1000);
+  };
+
   return {
     bookingId: row.BookingID,
     bookingStatus: row.BookingStatus,
+    bookingCode: row.BookingCode ?? null,
+    bookingType: row.BookingType ?? null,
     paymentId: row.PaymentID ?? null,
     paymentStatus: row.PaymentStatus ?? null,
     paymentMethod: row.PaymentMethod ?? null,
     paymentCode: row.PaymentCode ?? null,
     amount: row.Amount ?? null,
-    expiredAt: row.ExpiredAt ?? null,
-    paidAt: row.PaidAt ?? null,
-    failedAt: row.FailedAt ?? null,
+    expiredAt: toUtcFromLocalDb(row.ExpiredAt),
+    paidAt: toUtcFromLocalDb(row.PaidAt),
+    failedAt: toUtcFromLocalDb(row.FailedAt),
     gatewayOrderId: row.GatewayOrderId ?? null,
   };
 }

@@ -28,104 +28,67 @@ export default function VoucherCard({ promotion, onSelect }: VoucherCardProps) {
 
   return (
     <div style={{
-      border: "1.5px solid var(--pcs-brand-primary-border)",
-      borderRadius: "12px",
-      overflow: "hidden",
-      background: "var(--pcs-brand-primary-light)",
+      border: "1px dashed #10b981",
+      borderRadius: "10px",
+      background: "#f0fdf4",
+      padding: "8px 12px",
       display: "flex",
-      gap: 0,
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: "8px",
     }}>
-      {/* Nhãn giảm giá */}
-      <div style={{
-        width: "90px",
-        minWidth: "90px",
-        background: "var(--pcs-brand-primary)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "white",
-        padding: "0.75rem 0.5rem",
-        textAlign: "center",
-      }}>
-        <div style={{ fontSize: "1.4rem", fontWeight: 800, lineHeight: 1 }}>
-          {promotion.discountType === "Percent"
-            ? `${promotion.discountValue}%`
-            : `${(promotion.discountValue / 1000).toFixed(0)}K`}
-        </div>
-        <div style={{ fontSize: "0.68rem", marginTop: "2px", opacity: 0.9 }}>
-          {promotion.discountType === "Percent" ? "giảm" : "giảm"}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
+        <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>🎟️</span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+            <strong style={{ color: "#047857", fontSize: "0.85rem", letterSpacing: "0.5px" }}>
+              {promotion.promotionCode}
+            </strong>
+            <span style={{ fontSize: "0.75rem", color: "#059669", fontWeight: 700 }}>
+              ({discountLabel})
+            </span>
+          </div>
+          <div style={{ fontSize: "0.7rem", color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: "1px" }}>
+            HSD: {endDate} {promotion.minBookingAmount ? `• Đơn tối thiểu ${promotion.minBookingAmount.toLocaleString("vi-VN")}đ` : ""}
+          </div>
         </div>
       </div>
-
-      {/* Thông tin */}
-      <div style={{ flex: 1, padding: "0.75rem 1rem" }}>
-        <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--pcs-brand-primary)" }}>
-          {promotion.promotionName}
-        </div>
-        <div style={{ fontSize: "0.78rem", color: "var(--pcs-brand-primary)", margin: "2px 0" }}>
-          {discountLabel}
-          {promotion.maxDiscountAmount
-            ? ` (tối đa ${promotion.maxDiscountAmount.toLocaleString("vi-VN")}đ)`
-            : ""}
-        </div>
-        {promotion.minBookingAmount != null && promotion.minBookingAmount > 0 && (
-          <div style={{ fontSize: "0.72rem", color: "var(--pcs-brand-primary)", opacity: 0.8 }}>
-            Đơn tối thiểu {promotion.minBookingAmount.toLocaleString("vi-VN")}đ
-          </div>
-        )}
-        {endDate && (
-          <div style={{ fontSize: "0.72rem", color: "var(--pcs-neutral-400)", marginTop: "2px" }}>
-            HSD: {endDate}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
-          <span style={{
-            background: "var(--pcs-brand-primary-light)",
-            color: "var(--pcs-brand-primary)",
-            border: "1px solid var(--pcs-brand-primary-border)",
+      
+      <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+        <button
+          onClick={copyCode}
+          style={{
+            background: "none",
+            border: "1px solid #cbd5e1",
             borderRadius: "6px",
-            padding: "2px 8px",
-            fontSize: "0.78rem",
-            fontWeight: 700,
-            letterSpacing: "1px",
-          }}>
-            {promotion.promotionCode}
-          </span>
+            color: "#475569",
+            padding: "3px 8px",
+            fontSize: "0.7rem",
+            cursor: "pointer",
+            fontWeight: 600,
+            transition: "all 0.15s",
+          }}
+        >
+          {copied ? "✓ Copied" : "Copy"}
+        </button>
+        {onSelect && (
           <button
-            onClick={copyCode}
+            onClick={() => onSelect(promotion.promotionCode)}
             style={{
-              background: "none",
-              border: "1px solid var(--pcs-brand-primary)",
+              background: "#10b981",
+              border: "none",
               borderRadius: "6px",
-              color: "var(--pcs-brand-primary)",
-              padding: "2px 8px",
-              fontSize: "0.75rem",
+              color: "#ffffff",
+              padding: "3px 8px",
+              fontSize: "0.7rem",
               cursor: "pointer",
+              fontWeight: 700,
+              transition: "all 0.15s",
             }}
           >
-            {copied ? "✓ Đã copy" : "Copy"}
+            Dùng
           </button>
-          {onSelect && (
-            <button
-              onClick={() => onSelect(promotion.promotionCode)}
-              style={{
-                background: "var(--pcs-brand-primary)",
-                border: "none",
-                borderRadius: "6px",
-                color: "white",
-                padding: "2px 10px",
-                fontSize: "0.75rem",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              Dùng ngay
-            </button>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

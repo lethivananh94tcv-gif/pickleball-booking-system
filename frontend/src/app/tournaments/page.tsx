@@ -118,8 +118,8 @@ export default function TournamentsPage() {
     tournamentApi
       .getTournaments()
       .then(async (data) => {
-        // Active tournaments for player view (including Completed, excluding Draft and Cancelled)
-        const activeTourns = data.filter((t) => t.Status !== "Draft" && t.Status !== "Cancelled");
+        // Active tournaments for player view (including Completed, excluding Draft, Cancelled and Hidden)
+        const activeTourns = data.filter((t) => t.Status !== "Draft" && t.Status !== "Cancelled" && !t.IsHidden);
         setTournaments(activeTourns);
 
         // Fetch divisions for each tournament to show metadata tags

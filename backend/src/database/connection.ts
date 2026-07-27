@@ -117,6 +117,21 @@ export async function getPool() {
     console.error("Migration error (ensuring OrganizerName column in Tournaments):", err);
   }
 
+  // Self-migration for Tournaments IsHidden column
+  try {
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.columns 
+        WHERE object_id = OBJECT_ID('Tournaments') AND name = 'IsHidden'
+      )
+      BEGIN
+        ALTER TABLE Tournaments ADD IsHidden BIT DEFAULT 0 NOT NULL;
+      END
+    `);
+  } catch (err) {
+    console.error("Migration error (ensuring IsHidden column in Tournaments):", err);
+  }
+
   // Self-migration for AI Promotions columns
   try {
     await pool.request().query(`

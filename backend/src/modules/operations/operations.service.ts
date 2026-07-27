@@ -106,7 +106,7 @@ export async function getTodayOperations(dateParam?: string | null): Promise<Tod
   const bookings = await repoGetTodayOperations(targetDate);
   
   const summary: OperationSummary = {
-    totalBookings: bookings.length,
+    totalBookings: 0,
     waitingCheckIn: 0,
     checkedIn: 0,
     completed: 0,
@@ -119,12 +119,15 @@ export async function getTodayOperations(dateParam?: string | null): Promise<Tod
       case 'Confirmed':
       case 'Paid':
         summary.waitingCheckIn++;
+        summary.totalBookings++;
         break;
       case 'CheckedIn':
         summary.checkedIn++;
+        summary.totalBookings++;
         break;
       case 'Completed':
         summary.completed++;
+        summary.totalBookings++;
         break;
       case 'Cancelled':
       case 'Refunded':
@@ -132,6 +135,7 @@ export async function getTodayOperations(dateParam?: string | null): Promise<Tod
         break;
       case 'NoShow':
         summary.noShow++;
+        summary.totalBookings++;
         break;
     }
   });

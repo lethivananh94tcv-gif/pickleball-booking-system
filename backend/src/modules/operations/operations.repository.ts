@@ -43,6 +43,16 @@ export async function repoGetTodayOperations(targetDate: string): Promise<Operat
     INNER JOIN Users u ON b.UserID = u.UserID
     LEFT JOIN BookingDetails bd ON b.BookingID = bd.BookingID
     WHERE b.BookingDate = @TargetDate
+      AND (
+        b.Status NOT IN ('Cancelled', 'Refunded', 'PendingPayment')
+        OR (
+          b.Status IN ('Cancelled', 'Refunded')
+          AND EXISTS (
+            SELECT 1 FROM Payments p3
+            WHERE p3.BookingID = b.BookingID AND p3.Status = 'Paid'
+          )
+        )
+      )
     GROUP BY
       b.BookingID,
       b.BookingCode,

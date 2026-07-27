@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import * as api from "@/services/matchingApi";
 import styles from "./MatchingLayout.module.css";
 import GroupMembersModal from "./components/GroupMembersModal";
+import { database } from "@/services/firebase";
+import { ref, onValue, off } from "firebase/database";
 
 interface GroupsTabProps {
   token: string;
@@ -33,6 +35,7 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
   const [expandedGroupIds, setExpandedGroupIds] = useState<Record<number, boolean>>({});
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const chatInputRef = React.useRef<HTMLInputElement>(null);
+  const firebaseListenerRef = useRef<{ ref: any; callback: any } | null>(null);
 
   const toggleGroupOptions = (groupId: number) => {
     setExpandedGroupIds((prev) => ({
@@ -51,8 +54,52 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
 
   const loadMessages = async (groupId: number) => {
     try {
+      // 1. Fetch initial messages from local SQL DB
       const data = await api.getGroupMessages(token, groupId);
       setMessages(data || []);
+
+      // 2. Attach Firebase Realtime Database listener for new messages
+      const messagesRef = ref(database, `group_messages/${groupId}`);
+      
+      if (firebaseListenerRef.current) {
+        off(firebaseListenerRef.current.ref);
+      }
+
+      firebaseListenerRef.current = {
+        ref: messagesRef,
+        callback: onValue(messagesRef, (snapshot) => {
+          const fbData = snapshot.val();
+          if (fbData) {
+            setMessages((prev) => {
+              const existingIds = new Set(prev.map((m) => m.MessageID));
+              const newMsgs: api.GroupMessage[] = [];
+
+              Object.keys(fbData).forEach((key) => {
+                const item = fbData[key];
+                const msgId = item.MessageID || key;
+                if (!existingIds.has(msgId)) {
+                  newMsgs.push({
+                    MessageID: msgId,
+                    GroupID: groupId,
+                    SenderID: item.SenderID,
+                    SenderName: item.SenderName,
+                    SenderAvatar: item.SenderAvatar || "",
+                    Content: item.Content,
+                    CreatedAt: item.CreatedAt,
+                    IsMine: item.SenderID === userProfile?.UserID
+                  });
+                }
+              });
+
+              if (newMsgs.length > 0) {
+                newMsgs.sort((a, b) => new Date(a.CreatedAt).getTime() - new Date(b.CreatedAt).getTime());
+                return [...prev, ...newMsgs];
+              }
+              return prev;
+            });
+          }
+        })
+      };
     } catch (err: any) {
       showToast(err.message || "Không thể tải tin nhắn", "error");
     }
@@ -69,24 +116,27 @@ export default function GroupsTab({ token, userProfile, showToast }: GroupsTabPr
     } catch (err) {}
   };
 
+  // Clean up Firebase listener when chat modal is closed or component unmounted
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (chatGroup) {
-      interval = setInterval(async () => {
-        try {
-          const data = await api.getGroupMessages(token, chatGroup.GroupID);
-          setMessages(data || []);
-          await api.markGroupMessagesAsRead(token, chatGroup.GroupID);
-          window.dispatchEvent(new Event("invitation-count-change"));
-        } catch (error) {
-          // Silent fail on polling errors to avoid UI toast spam
-        }
-      }, 3000);
-    }
     return () => {
-      if (interval) clearInterval(interval);
+      if (firebaseListenerRef.current) {
+        off(firebaseListenerRef.current.ref);
+        firebaseListenerRef.current = null;
+      }
     };
-  }, [chatGroup, token]);
+  }, [chatGroup]);
+
+  // Mark messages as read on opening chat or receiving new messages
+  useEffect(() => {
+    if (chatGroup && messages.length > 0) {
+      api.markGroupMessagesAsRead(token, chatGroup.GroupID)
+        .then(() => {
+          setUnreadCounts(prev => ({ ...prev, [chatGroup.GroupID]: 0 }));
+          window.dispatchEvent(new Event("invitation-count-change"));
+        })
+        .catch(() => {});
+    }
+  }, [chatGroup, messages.length, token]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -166,6 +166,10 @@ export async function updateTournament(id: number, data: UpdateTournamentInput):
     request.input("OrganizerName", sql.NVarChar(255), data.organizerName || null);
     sets.push("OrganizerName = @OrganizerName");
   }
+  if (data.isHidden !== undefined) {
+    request.input("IsHidden", sql.Bit, data.isHidden ? 1 : 0);
+    sets.push("IsHidden = @IsHidden");
+  }
 
   sets.push("UpdatedAt = GETDATE()");
 

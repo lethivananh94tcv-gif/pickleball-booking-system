@@ -173,11 +173,27 @@ export function CourtScheduleDrawer({
                     key={slot.SlotID}
                     className={`${styles.slotCard} ${getSlotClass(slot.Status)}`}
                   >
+                    {slot.HasPromo && slot.DiscountPercent && slot.DiscountPercent > 0 ? (
+                      <span className={styles.slotPromoBadge}>
+                        -{Math.round(slot.DiscountPercent)}%
+                      </span>
+                    ) : null}
                     <div className={styles.slotCardTime}>
                       {slot.StartTime} – {slot.EndTime}
                     </div>
                     <div className={styles.slotCardPrice}>
-                      {formatCurrency(slot.Price)}
+                      {slot.HasPromo && slot.OriginalPrice && slot.OriginalPrice > slot.Price ? (
+                        <div className={styles.priceContainer}>
+                          <span className={styles.originalPrice}>
+                            {formatCurrency(slot.OriginalPrice)}
+                          </span>
+                          <span className={styles.discountedPrice}>
+                            {formatCurrency(slot.Price)}
+                          </span>
+                        </div>
+                      ) : (
+                        formatCurrency(slot.Price)
+                      )}
                     </div>
                     <div className={styles.slotCardStatusLabel}>
                       {getSlotLabel(slot.Status)}

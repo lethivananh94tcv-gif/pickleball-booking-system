@@ -52,6 +52,7 @@ export const updateTournamentSchema = z.object({
   imageURL: z.string().optional(),
   organizerName: z.string().optional(),
   adminOverride: z.boolean().optional(),
+  isHidden: z.boolean().optional(),
 });
 
 export const createDivisionSchema = z.object({

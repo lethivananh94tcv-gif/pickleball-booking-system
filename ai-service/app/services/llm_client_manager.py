@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import Any, Optional
 import google.generativeai as genai
 from pathlib import Path
 from dotenv import load_dotenv
@@ -58,7 +59,7 @@ def rotate_key():
     logger.info(f"Rotating to Gemini API key index {_current_key_idx}...")
     return configure_active_key()
 
-def get_model(model_name: str = None) -> genai.GenerativeModel:
+def get_model(model_name: Optional[str] = None) -> genai.GenerativeModel:
     if not model_name:
         model_name = os.getenv("MODEL_NAME", "gemini-1.5-flash")
     
@@ -66,7 +67,7 @@ def get_model(model_name: str = None) -> genai.GenerativeModel:
     configure_active_key()
     return genai.GenerativeModel(model_name)
 
-def generate_content_with_retry(*args, **kwargs):
+def generate_content_with_retry(*args, **kwargs) -> Any:
     """
     Executes model.generate_content synchronously, rotating the API key and retrying on failure.
     """
@@ -87,7 +88,7 @@ def generate_content_with_retry(*args, **kwargs):
                 logger.error("All API keys exhausted or maximum retries reached.")
                 raise e
 
-async def generate_content_async_with_retry(*args, **kwargs):
+async def generate_content_async_with_retry(*args, **kwargs) -> Any:
     """
     Executes model.generate_content_async asynchronously, rotating the API key and retrying on failure.
     """

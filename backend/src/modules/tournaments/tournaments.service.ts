@@ -396,8 +396,9 @@ export async function updateTournament(id: number, data: UpdateTournamentInput, 
     }
   }
 
-  // BR-T01 / BR-T37: Không cho sửa nếu đã Completed hoặc Cancelled
-  if (tournament.Status === TOURNAMENT_STATUS.COMPLETED || tournament.Status === TOURNAMENT_STATUS.CANCELLED) {
+  // BR-T01 / BR-T37: Không cho sửa nếu đã Completed hoặc Cancelled, trừ khi chỉ ẩn/hiện giải đấu (isHidden)
+  const isOnlyHiding = data.isHidden !== undefined && Object.keys(data).filter(k => k !== "isHidden" && k !== "adminOverride").length === 0;
+  if (!isOnlyHiding && (tournament.Status === TOURNAMENT_STATUS.COMPLETED || tournament.Status === TOURNAMENT_STATUS.CANCELLED)) {
     throw Object.assign(
       new Error(`Không thể cập nhật giải đấu ở trạng thái ${tournament.Status}`),
       { statusCode: 400 }

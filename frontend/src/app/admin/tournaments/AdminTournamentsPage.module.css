@@ -419,6 +419,13 @@
   background: #fef2f2;
 }
 
+.dropdownItemWarning {
+  color: #d97706; /* Amber 600 */
+}
+.dropdownItemWarning:hover {
+  background: #fffbeb; /* Amber 50 */
+}
+
 /* Modern Modals styling */
 .modalOverlay {
   position: fixed;

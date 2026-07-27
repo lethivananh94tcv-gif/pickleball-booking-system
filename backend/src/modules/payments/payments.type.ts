@@ -153,6 +153,8 @@ export type CreatePaymentResponse = {
 export type PaymentStatusResponse = {
   bookingId: number;
   bookingStatus: string;
+  bookingCode?: string | null; // Added to return the real BookingCode
+  bookingType?: string | null; // Added to distinguish booking types
   paymentId: number | null;
   paymentStatus: string | null;
   paymentMethod: string | null;

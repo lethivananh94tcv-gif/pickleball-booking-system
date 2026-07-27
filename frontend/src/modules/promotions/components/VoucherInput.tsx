@@ -46,8 +46,8 @@ export default function VoucherInput({
   }
 
   return (
-    <div style={{ marginTop: "1rem" }}>
-      <label style={{ fontWeight: 600, fontSize: "0.95rem", marginBottom: "0.5rem", display: "block" }}>
+    <div style={{ marginTop: "0.5rem" }}>
+      <label style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: "0.3rem", display: "block", color: "#475569" }}>
         🎟️ Mã voucher
       </label>
 
@@ -57,17 +57,17 @@ export default function VoucherInput({
           background: "var(--pcs-status-success-bg)",
           border: "1.5px solid var(--pcs-status-success-border)",
           borderRadius: "10px",
-          padding: "0.75rem 1rem",
+          padding: "0.5rem 0.75rem",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           gap: "0.5rem",
         }}>
           <div>
-            <div style={{ fontWeight: 700, color: "var(--pcs-status-success)", fontSize: "0.95rem" }}>
+            <div style={{ fontWeight: 700, color: "var(--pcs-status-success)", fontSize: "0.85rem" }}>
               ✅ {appliedPromotion.promotionCode}
             </div>
-            <div style={{ fontSize: "0.82rem", color: "var(--pcs-status-success)" }}>
+            <div style={{ fontSize: "0.78rem", color: "var(--pcs-status-success)" }}>
               {appliedPromotion.promotionName} –{" "}
               Giảm{" "}
               <strong>{appliedPromotion.discountAmount.toLocaleString("vi-VN")}đ</strong>
@@ -81,8 +81,8 @@ export default function VoucherInput({
               border: "1px solid var(--pcs-status-error)",
               borderRadius: "6px",
               color: "var(--pcs-status-error)",
-              padding: "4px 10px",
-              fontSize: "0.8rem",
+              padding: "2px 8px",
+              fontSize: "0.75rem",
               cursor: "pointer",
               whiteSpace: "nowrap",
             }}
@@ -98,32 +98,35 @@ export default function VoucherInput({
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === "Enter" && handleApply()}
-            placeholder="Nhập mã voucher"
+            placeholder="NHẬP MÃ VOUCHER"
             disabled={applying || loading}
             style={{
               flex: 1,
-              padding: "0.55rem 0.75rem",
-              border: "1.5px solid var(--pcs-neutral-300)",
-              borderRadius: "8px",
-              fontSize: "0.9rem",
+              padding: "0.5rem 0.75rem",
+              border: "1.5px solid #cbd5e1",
+              borderRadius: "10px",
+              fontSize: "0.85rem",
               outline: "none",
-              letterSpacing: "1px",
+              letterSpacing: "0.5px",
               textTransform: "uppercase",
+              transition: "border-color 0.2s",
             }}
           />
           <button
             onClick={handleApply}
             disabled={applying || loading || !code.trim()}
             style={{
-              padding: "0.55rem 1.1rem",
-              background: applying || !code.trim() ? "var(--pcs-neutral-400)" : "var(--pcs-brand-primary)",
+              padding: "0.5rem 1.1rem",
+              background: applying || !code.trim() ? "#cbd5e1" : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
               color: "white",
               border: "none",
-              borderRadius: "8px",
-              fontWeight: 600,
-              fontSize: "0.9rem",
+              borderRadius: "10px",
+              fontWeight: 800,
+              fontSize: "0.85rem",
               cursor: applying || !code.trim() ? "not-allowed" : "pointer",
               whiteSpace: "nowrap",
+              boxShadow: applying || !code.trim() ? "none" : "0 3px 8px rgba(16, 185, 129, 0.15)",
+              transition: "all 0.2s",
             }}
           >
             {applying ? "Đang áp dụng..." : "Áp dụng"}
@@ -132,7 +135,7 @@ export default function VoucherInput({
       )}
 
       {error && (
-        <p style={{ color: "var(--pcs-status-error)", fontSize: "0.82rem", marginTop: "0.4rem" }}>
+        <p style={{ color: "var(--pcs-status-error)", fontSize: "0.8rem", marginTop: "0.3rem", margin: 0 }}>
           ⚠️ {error}
         </p>
       )}

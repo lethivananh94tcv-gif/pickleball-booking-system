@@ -531,7 +531,50 @@ export async function createGroupMessage(groupId: number, senderId: number, cont
         INSERTED.CreatedAt
       VALUES (@GroupID, @SenderID, @Content, GETDATE(), 0)
     `);
-  return result.recordset[0];
+  
+  const savedMsg = result.recordset[0];
+
+  if (savedMsg) {
+    // Fetch sender info for Firebase Realtime Database
+    pool
+      .request()
+      .input("SenderID", sql.Int, senderId)
+      .query("SELECT FullName, AvatarURL FROM Users WHERE UserID = @SenderID")
+      .then((userResult) => {
+        const user = userResult.recordset[0];
+        const senderName = user?.FullName || "Thành viên";
+        const senderAvatar = user?.AvatarURL || "";
+
+        let finalCreatedAt = savedMsg.CreatedAt;
+        if (finalCreatedAt) {
+          const realUtcTime = new Date(finalCreatedAt).getTime() - 7 * 60 * 60 * 1000;
+          finalCreatedAt = new Date(realUtcTime).toISOString();
+        }
+
+        // Push to Firebase Realtime Database
+        const firebaseURL = `https://pcs363875-default-rtdb.asia-southeast1.firebasedatabase.app/group_messages/${groupId}.json`;
+        return fetch(firebaseURL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            MessageID: savedMsg.MessageID,
+            GroupID: groupId,
+            SenderID: senderId,
+            SenderName: senderName,
+            SenderAvatar: senderAvatar,
+            Content: content,
+            CreatedAt: finalCreatedAt
+          })
+        });
+      })
+      .catch((err) => {
+        console.error("Firebase chat sync failed:", err);
+      });
+  }
+
+  return savedMsg;
 }
 
 export async function getUnreadCounts(userId: number) {

@@ -244,6 +244,19 @@ export default function AdminTournamentsPage() {
     }
   };
 
+  const handleToggleHide = async (t: Tournament) => {
+    setError("");
+    setSuccess("");
+    const newIsHidden = !t.IsHidden;
+    try {
+      await tournamentApi.updateTournament(t.TournamentID, { isHidden: newIsHidden });
+      setSuccess(`${newIsHidden ? "Ẩn" : "Hiển thị"} giải đấu thành công!`);
+      loadData();
+    } catch (err: any) {
+      setError(err.message || "Không thể thay đổi trạng thái ẩn/hiện giải đấu.");
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("vi-VN", {
       day: "2-digit",
@@ -509,60 +522,65 @@ export default function AdminTournamentsPage() {
                             <button onClick={() => handleOpenEdit(t)} className={styles.btnEdit}>
                               Sửa
                             </button>
-                            {(t.Status === "Draft" || t.Status === "Open" || (t.Status !== "Cancelled" && t.Status !== "Completed")) && (
-                              <div className={styles.dropdownContainer}>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveDropdownId(activeDropdownId === t.TournamentID ? null : t.TournamentID);
-                                  }}
-                                  className={styles.btnMore}
-                                >
-                                  •••
-                                </button>
-                                {activeDropdownId === t.TournamentID && (
-                                  <div className={styles.dropdownMenu}>
-                                    {t.Status === "Draft" && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => handlePublish(t.TournamentID)}
-                                          className={`${styles.dropdownItem} ${styles.dropdownItemSuccess}`}
-                                        >
-                                          🚀 Công bố
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDelete(t.TournamentID)}
-                                          className={`${styles.dropdownItem} ${styles.dropdownItemDanger}`}
-                                        >
-                                          🗑️ Xóa nháp
-                                        </button>
-                                      </>
-                                    )}
-                                    {t.Status === "Open" && (
+                            <div className={styles.dropdownContainer}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveDropdownId(activeDropdownId === t.TournamentID ? null : t.TournamentID);
+                                }}
+                                className={styles.btnMore}
+                              >
+                                •••
+                              </button>
+                              {activeDropdownId === t.TournamentID && (
+                                <div className={styles.dropdownMenu}>
+                                  {t.Status === "Draft" && (
+                                    <>
                                       <button
                                         type="button"
-                                        onClick={() => handleClose(t.TournamentID)}
-                                        className={styles.dropdownItem}
+                                        onClick={() => handlePublish(t.TournamentID)}
+                                        className={`${styles.dropdownItem} ${styles.dropdownItemSuccess}`}
                                       >
-                                        🔒 Đóng ĐK
+                                        🚀 Công bố
                                       </button>
-                                    )}
-                                    {t.Status !== "Cancelled" && t.Status !== "Completed" && (
                                       <button
                                         type="button"
-                                        onClick={() => handleCancel(t.TournamentID)}
+                                        onClick={() => handleDelete(t.TournamentID)}
                                         className={`${styles.dropdownItem} ${styles.dropdownItemDanger}`}
                                       >
-                                        🚫 Hủy giải
+                                        🗑️ Xóa nháp
                                       </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                                    </>
+                                  )}
+                                  {t.Status === "Open" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleClose(t.TournamentID)}
+                                      className={styles.dropdownItem}
+                                    >
+                                      🔒 Đóng ĐK
+                                    </button>
+                                  )}
+                                  {t.Status !== "Cancelled" && t.Status !== "Completed" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCancel(t.TournamentID)}
+                                      className={`${styles.dropdownItem} ${styles.dropdownItemDanger}`}
+                                    >
+                                      🚫 Hủy giải
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleHide(t)}
+                                    className={`${styles.dropdownItem} ${styles.dropdownItemWarning}`}
+                                  >
+                                    {t.IsHidden ? "Hiện với người chơi" : "Ẩn với người chơi"}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </>
                         )}
                       </div>

@@ -378,6 +378,13 @@ export async function repoCreateCourtBooking(data: {
 
         DECLARE @NewBookingID INT = SCOPE_IDENTITY();
 
+        DECLARE @DateStr VARCHAR(6) = CONVERT(VARCHAR(6), GETDATE(), 12);
+        DECLARE @FinalCode NVARCHAR(50) = 'BKCRT-' + @DateStr + '-' + CAST(@NewBookingID AS NVARCHAR(20));
+
+        UPDATE Bookings
+        SET BookingCode = @FinalCode
+        WHERE BookingID = @NewBookingID;
+
         INSERT INTO BookingDetails (
           BookingID, SlotID, CourtID, CoachID, CoachScheduleID,
           BookingDate, StartTime, EndTime, CourtFee, CoachFee, SubTotal
@@ -494,6 +501,13 @@ export async function repoCreateCoachBooking(data: {
 
         DECLARE @NewBookingID INT = SCOPE_IDENTITY();
 
+        DECLARE @DateStr VARCHAR(6) = CONVERT(VARCHAR(6), GETDATE(), 12);
+        DECLARE @FinalCode NVARCHAR(50) = 'BKCCH-' + @DateStr + '-' + CAST(@NewBookingID AS NVARCHAR(20));
+
+        UPDATE Bookings
+        SET BookingCode = @FinalCode
+        WHERE BookingID = @NewBookingID;
+
         INSERT INTO BookingDetails (
           BookingID, SlotID, CourtID, CoachID, CoachScheduleID,
           BookingDate, StartTime, EndTime, CourtFee, CoachFee, SubTotal
@@ -602,6 +616,13 @@ export async function repoCreateComboBooking(input: {
         );
 
         DECLARE @NewBookingID INT = SCOPE_IDENTITY();
+
+        DECLARE @DateStr VARCHAR(6) = CONVERT(VARCHAR(6), GETDATE(), 12);
+        DECLARE @FinalCode NVARCHAR(50) = 'BKCMB-' + @DateStr + '-' + CAST(@NewBookingID AS NVARCHAR(20));
+
+        UPDATE Bookings
+        SET BookingCode = @FinalCode
+        WHERE BookingID = @NewBookingID;
 
         INSERT INTO BookingDetails (
           BookingID, SlotID, CourtID, CoachID, CoachScheduleID,

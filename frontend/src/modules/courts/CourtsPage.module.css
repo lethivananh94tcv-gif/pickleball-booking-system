@@ -730,6 +730,7 @@
 
 /* Mỗi thẻ slot */
 .slotCard {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -818,4 +819,42 @@
 @media (max-width: 480px) {
   .schedulePanel { max-width: 100%; }
   .slotGrid { grid-template-columns: 1fr; }
+}
+
+/* Price container when there's a discount */
+.priceContainer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.originalPrice {
+  font-size: 11px;
+  color: var(--pcs-neutral-400);
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+.discountedPrice {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ef4444; /* Red for discounted price to draw attention */
+}
+
+/* Red promotion badge in the slot card */
+.slotPromoBadge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background-color: #ef4444; /* Premium red */
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 750;
+  padding: 3px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+  line-height: 1;
+  z-index: 5;
 }

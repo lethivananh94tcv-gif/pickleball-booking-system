@@ -26,6 +26,8 @@ export type CreatePaymentResult = {
 export type PaymentStatusResult = {
   bookingId: number;
   bookingStatus: string;
+  bookingCode?: string | null;
+  bookingType?: string | null;
   paymentId: number | null;
   paymentStatus: PaymentStatus | null;
   paymentMethod: PaymentMethod | null;

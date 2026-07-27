@@ -16,6 +16,7 @@ export interface Tournament {
   PrizeInfo?: string;
   CreatedAt: string;
   ImageURL?: string;
+  IsHidden?: boolean;
 }
 
 export interface TournamentDivision {

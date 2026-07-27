@@ -2,7 +2,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 15, 8, 0.65);
+  background: rgba(15, 23, 42, 0.4);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -19,27 +19,16 @@
 
 /* ── Modal box ── */
 .modal {
-  background: #fff;
-  border-radius: 20px;
+  background: #ffffff;
+  border-radius: 24px;
   width: 100%;
-  max-width: 460px;
-  padding: 36px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2);
+  max-width: 420px;
+  max-height: min(94vh, 850px);
+  overflow-y: auto;
+  padding: 20px 24px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.03);
   animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
-}
-
-@media (max-height: 850px) {
-  .modal { zoom: 0.9; }
-}
-@media (max-height: 750px) {
-  .modal { zoom: 0.8; }
-}
-@media (max-height: 650px) {
-  .modal { zoom: 0.7; }
-}
-@media (max-height: 550px) {
-  .modal { zoom: 0.6; }
 }
 
 @keyframes slideUp {
@@ -50,36 +39,27 @@
 /* ── Header ── */
 .header {
   text-align: center;
-  margin-bottom: 24px;
-}
-
-.headerIcon {
-  font-size: 44px;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
 }
 
 .header h2 {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--pcs-neutral-900);
+  font-size: 20px;
+  font-weight: 850;
+  color: #0f172a;
   margin-bottom: 4px;
-}
-
-.header p {
-  color: var(--pcs-neutral-500);
-  font-size: 14px;
 }
 
 /* ── Info card ── */
 .infoCard {
-  background: var(--pcs-brand-primary-light);
-  border: 1.5px solid var(--pcs-brand-primary-border);
-  border-radius: 14px;
-  padding: 18px 20px;
-  margin-bottom: 16px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
 }
 
 .infoRow {
@@ -90,43 +70,47 @@
 }
 
 .infoLabel {
-  color: var(--pcs-neutral-500);
-  font-size: 14px;
+  color: #047857;
+  font-size: 13px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .infoValue {
-  font-weight: 600;
-  color: var(--pcs-neutral-900);
-  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 13px;
   text-align: right;
 }
 
 .price {
-  color: var(--pcs-brand-primary);
+  color: #059669;
   font-size: 18px;
   font-weight: 800;
 }
 
 .bookingCode {
   font-family: monospace;
-  background: var(--pcs-brand-primary-light);
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 13px;
+  background: #ffffff;
+  border: 1px solid #bbf7d0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
   letter-spacing: 0.04em;
+  color: #047857;
+  font-weight: 700;
 }
 
 /* ── Payment method picker ── */
 .payMethodSection {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .payMethodLabel {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--pcs-neutral-500);
-  margin-bottom: 10px;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 8px;
 }
 
 .payMethods {
@@ -140,15 +124,16 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 16px 14px;
-  border: 2px solid var(--pcs-neutral-200);
-  border-radius: 14px;
+  padding: 12px 10px;
+  border: 2px solid #cbd5e1;
+  border-radius: 16px;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all 0.2s ease;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--pcs-neutral-800);
+  font-weight: 700;
+  color: #475569;
   position: relative;
+  background: #ffffff;
 }
 
 .payMethodCard input {
@@ -156,56 +141,58 @@
 }
 
 .payMethodCard:hover {
-  border-color: var(--pcs-brand-primary);
-  background: var(--pcs-brand-primary-light);
+  border-color: #10b981;
+  background: #f0fdf4;
 }
 
 .payMethodActive {
-  border-color: var(--pcs-brand-primary) !important;
-  background: var(--pcs-brand-primary-light) !important;
-  color: var(--pcs-brand-primary) !important;
+  border-color: #10b981 !important;
+  background: #f0fdf4 !important;
+  color: #047857 !important;
 }
 
 .payMethodActive::after {
   content: "✓";
   position: absolute;
-  top: 6px;
-  right: 10px;
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--pcs-brand-primary);
+  top: 8px;
+  right: 12px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #10b981;
 }
 
 .payMethodIcon {
-  font-size: 30px;
+  font-size: 32px;
+  color: #059669;
 }
 
 .payMethodName {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .payMethodDesc {
   font-size: 11px;
-  color: var(--pcs-neutral-500);
-  font-weight: 400;
+  color: #64748b;
+  font-weight: 500;
   text-align: center;
 }
 
-/* Badge "Thật" trên card PayOS */
+/* Badge trên card PayOS */
 .payMethodBadge {
   position: absolute;
   top: -8px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--pcs-brand-primary);
-  color: #fff;
+  background: #10b981;
+  color: #ffffff;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 800;
   padding: 2px 8px;
   border-radius: 20px;
   white-space: nowrap;
   letter-spacing: 0.03em;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
 }
 
 /* PayOS hint box */
@@ -213,22 +200,23 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  background: var(--pcs-status-success-bg);
-  border: 1.5px solid var(--pcs-status-success-border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin-bottom: 20px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
   font-size: 13px;
-  color: var(--pcs-status-success);
+  color: #047857;
 }
 
 .payosHint span {
-  font-size: 18px;
+  font-size: 16px;
   flex-shrink: 0;
 }
 
 .payosHint p {
-  line-height: 1.5;
+  line-height: 1.4;
+  margin: 0;
 }
 
 /* ── Notice / Timer ── */
@@ -236,57 +224,60 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  background: var(--pcs-status-warning-bg);
-  border: 1.5px solid var(--pcs-status-warning-border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin-bottom: 20px;
+  background: #fffbeb;
+  border: 1px solid #fef08a;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
   font-size: 13px;
-  color: var(--pcs-status-warning);
+  color: #713f12;
 }
 
 .notice span {
-  font-size: 18px;
+  font-size: 16px;
   flex-shrink: 0;
 }
 
 .notice p {
-  line-height: 1.5;
+  line-height: 1.4;
+  margin: 0;
 }
 
 /* ── Actions ── */
 .actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
 .btnCancel {
   flex: 1;
-  padding: 13px;
+  padding: 11px;
   border-radius: 12px;
-  border: 1.5px solid var(--pcs-neutral-200);
-  background: #fff;
-  color: var(--pcs-neutral-800);
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
   font-size: 14px;
-  font-weight: 600;
-  transition: all 0.18s;
+  font-weight: 700;
+  transition: all 0.2s;
 }
 
 .btnCancel:hover:not(:disabled) {
-  background: var(--pcs-neutral-100);
-  border-color: var(--pcs-neutral-300);
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
 
 .btnPay {
   flex: 2;
-  padding: 13px;
+  padding: 11px;
   border-radius: 12px;
-  background: var(--pcs-brand-primary);
-  color: #fff;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
   font-size: 14px;
-  font-weight: 700;
-  transition: all 0.18s;
-  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -294,14 +285,16 @@
 }
 
 .btnPay:hover:not(:disabled) {
-  background: var(--pcs-brand-primary-hover);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35);
 }
 
 .btnPay:disabled {
-  opacity: 0.65;
+  background: #cbd5e1;
+  color: #94a3b8;
   cursor: not-allowed;
+  box-shadow: none;
   transform: none;
 }
 
@@ -310,7 +303,7 @@
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255,255,255,0.4);
-  border-top-color: #fff;
+  border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -322,28 +315,17 @@
 
 /* ── Error state ── */
 .errorBox {
-  background: var(--pcs-status-error-bg);
-  border: 1.5px solid var(--pcs-status-error-border);
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
   border-radius: 12px;
   padding: 14px 16px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   text-align: center;
 }
 
 .errorBox p {
-  color: var(--pcs-status-error);
+  color: #ef4444;
   font-size: 14px;
   line-height: 1.5;
-}
-
-/* ── Responsive ── */
-@media (max-width: 480px) {
-  .modal {
-    padding: 24px 20px;
-    border-radius: 16px;
-  }
-
-  .payMethods {
-    flex-direction: column;
-  }
+  margin: 0;
 }

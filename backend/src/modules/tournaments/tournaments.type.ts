@@ -223,6 +223,7 @@ export interface UpdateTournamentInput {
   imageURL?: string;
   organizerName?: string;
   adminOverride?: boolean;
+  isHidden?: boolean;
 }
 
 

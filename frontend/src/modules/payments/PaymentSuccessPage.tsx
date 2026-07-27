@@ -210,7 +210,7 @@ export default function PaymentSuccessPage() {
     );
   }
 
-  // ── Determine display state ───────────────────────────
+  // Determine display state ───────────────────────────
 
   const isPaid = status.paymentStatus === "Paid";
   const isPending = status.paymentStatus === "Pending";
@@ -219,6 +219,32 @@ export default function PaymentSuccessPage() {
 
   // Khi đang polling – hiển thị countdown nhỏ
   const isPolling = isPending && pollRef.current !== null;
+
+  const getPaidSuccessSubtitle = () => {
+    if (isTournament) {
+      return "Thanh toán thành công. Thông tin đăng ký giải đấu của bạn đã được xác nhận chính thức.";
+    }
+    if (status?.bookingType === "Coach") {
+      return "Thanh toán thành công. Thông tin đặt HLV đã được gửi về email của bạn. Bạn cũng có thể xem thông báo trong mục chuông thông báo.";
+    }
+    if (status?.bookingType === "Combo") {
+      return "Thanh toán thành công. Thông tin đặt combo sân & HLV đã được gửi về email của bạn. Bạn cũng có thể xem thông báo trong mục chuông thông báo.";
+    }
+    return "Thanh toán thành công. Thông tin đặt sân đã được gửi về email của bạn. Bạn cũng có thể xem thông báo trong mục chuông thông báo.";
+  };
+
+  const getSecondaryBtnProps = () => {
+    if (status?.bookingType === "Coach") {
+      return { href: "/courts", label: "Đặt thêm sân" };
+    }
+    if (status?.bookingType === "Combo") {
+      return { href: "/combo", label: "Đặt thêm combo" };
+    }
+    if (status?.bookingType === "Court") {
+      return { href: "/coaches", label: "Đặt thêm coach" };
+    }
+    return { href: "/courts", label: "Đặt thêm sân" };
+  };
 
   return (
     <div className={styles.page}>
@@ -259,9 +285,7 @@ export default function PaymentSuccessPage() {
 
         <p className={styles.subtitle}>
           {isPaid
-            ? isTournament
-              ? "Thanh toán thành công. Thông tin đăng ký giải đấu của bạn đã được xác nhận chính thức."
-              : "Thanh toán thành công. Thông tin đặt sân đã được gửi về email của bạn. Bạn cũng có thể xem thông báo trong mục chuông thông báo."
+            ? getPaidSuccessSubtitle()
             : isPending && isPayOS
             ? "Nếu bạn đã chuyển khoản, hệ thống đang xác nhận. Thường mất 30 giây – 2 phút."
             : isPending
@@ -273,8 +297,15 @@ export default function PaymentSuccessPage() {
             : "Trạng thái giao dịch đang được cập nhật."}
         </p>
 
-        {/* Payment & booking info */}
         <div className={styles.infoCard}>
+          {status.bookingCode && (
+            <div className={styles.infoRow}>
+              <span className={styles.infoLabel}>Mã booking</span>
+              <span className={`${styles.infoValue} ${styles.bookingCode}`}>
+                {status.bookingCode}
+              </span>
+            </div>
+          )}
           {(paymentCode || orderCode) && (
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Mã giao dịch</span>
@@ -359,8 +390,8 @@ export default function PaymentSuccessPage() {
             <Link href="/bookings" className={styles.btnPrimary}>
               Xem lịch sử booking →
             </Link>
-            <Link href="/courts" className={styles.btnSecondary}>
-              Đặt thêm sân
+            <Link href={getSecondaryBtnProps().href} className={styles.btnSecondary}>
+              {getSecondaryBtnProps().label}
             </Link>
           </>
         )}
