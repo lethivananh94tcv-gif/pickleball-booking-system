@@ -163,6 +163,7 @@ export interface GroupMessage {
   Content: string;
   CreatedAt: string;
   IsMine?: boolean;
+  IsPinned?: boolean;
 }
 
 export async function getGroupMessages(token: string, groupId: number): Promise<GroupMessage[]> {
