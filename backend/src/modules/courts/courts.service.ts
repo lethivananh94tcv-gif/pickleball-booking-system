@@ -255,7 +255,29 @@ export async function getCourtSlots(courtId: number, slotDate: string) {
       }
     }
   }
-  
+
+  // Lọc bỏ các slot đã trôi qua trong ngày hôm nay (hoặc ngày trong quá khứ)
+  const nowVN = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
+  );
+  const year = nowVN.getFullYear();
+  const month = String(nowVN.getMonth() + 1).padStart(2, "0");
+  const day = String(nowVN.getDate()).padStart(2, "0");
+  const todayStr = `${year}-${month}-${day}`;
+
+  if (slotDate < todayStr) {
+    return [];
+  }
+
+  if (slotDate === todayStr) {
+    const currentMin = nowVN.getHours() * 60 + nowVN.getMinutes();
+    slots = slots.filter((slot: any) => {
+      const startStr = slot.StartTime instanceof Date ? slot.StartTime.toISOString().split("T")[1] : slot.StartTime.toString();
+      const [sh, sm] = startStr.split(":").map(Number);
+      return sh * 60 + sm > currentMin;
+    });
+  }
+
   let activePromos: any[] = [];
   try {
     activePromos = await findActiveDiscountsForDay(courtId, slotDate);
@@ -528,6 +550,15 @@ export async function autoGenerateSlotsForNext7Days(force = false): Promise<{ to
   globalAny.__lastSlotAutoGenTime = now;
 
   try {
+    try {
+      const deletedCount = await courtRepo.deletePastAvailableSlots();
+      if (deletedCount > 0) {
+        console.log(`[Auto-Slot] Đã dọn dẹp ${deletedCount} slot trống trong quá khứ.`);
+      }
+    } catch {
+      // Bỏ qua nếu lỗi khi dọn dẹp
+    }
+
     const courts = await courtRepo.findAllCourts(false);
     const availableCourts = courts.filter((c: any) => c.Status === "Available");
 

@@ -491,3 +491,19 @@ export async function createCourtSlotsMany(
   }
   return created;
 }
+
+export async function deletePastAvailableSlots(): Promise<number> {
+  const pool = await getPool();
+  const result = await pool.request().query(`
+    DELETE FROM CourtSlots
+    WHERE Status = 'Available'
+      AND (
+        SlotDate < CAST(DATEADD(hour, 7, GETUTCDATE()) AS DATE)
+        OR (
+          SlotDate = CAST(DATEADD(hour, 7, GETUTCDATE()) AS DATE)
+          AND CAST(StartTime AS TIME) <= CAST(DATEADD(hour, 7, GETUTCDATE()) AS TIME)
+        )
+      )
+  `);
+  return result.rowsAffected[0] || 0;
+}
