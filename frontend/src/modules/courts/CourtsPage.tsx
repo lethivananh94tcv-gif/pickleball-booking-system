@@ -23,6 +23,7 @@ export default function CourtsPage() {
   const [courts, setCourts] = useState<Court[]>([]);
   const [type, setType] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("popular");
   const [keyword, setKeyword] = useState("");
 
   const dateParam = searchParams.get("date");
@@ -133,19 +134,30 @@ export default function CourtsPage() {
   }, [dateParam, timeParam]);
 
   const filteredCourts = useMemo(() => {
-    return (courts || []).filter((court) => {
+    const result = (courts || []).filter((court) => {
       const matchType = type === "all" || court.CourtType === type;
       const matchStatus = statusFilter === "all" || court.Status === statusFilter;
       const searchText = [court.CourtName, court.CourtCode, court.Location, court.Description, court.CourtType]
         .filter(Boolean).join(" ").toLowerCase();
       return matchType && matchStatus && searchText.includes(keyword.toLowerCase());
     });
-  }, [courts, keyword, type, statusFilter]);
+
+    if (sortBy === "priceAsc") {
+      result.sort((a, b) => a.PricePerHour - b.PricePerHour);
+    } else if (sortBy === "priceDesc") {
+      result.sort((a, b) => b.PricePerHour - a.PricePerHour);
+    } else if (sortBy === "popular") {
+      result.sort((a, b) => (b.Rating || 0) - (a.Rating || 0));
+    }
+
+    return result;
+  }, [courts, keyword, type, statusFilter, sortBy]);
 
   function resetFilter() { 
     setKeyword(""); 
     setType("all"); 
     setStatusFilter("all"); 
+    setSortBy("popular");
     if (dateParam || timeParam || searchParams.get("search")) {
       router.push("/courts");
     }

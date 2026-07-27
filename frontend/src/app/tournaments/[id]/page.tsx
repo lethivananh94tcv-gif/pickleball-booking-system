@@ -177,7 +177,7 @@ function ConfirmedRegistrationBanner({
       <div style={{ display: "flex", gap: "12px", borderTop: "1px solid #a7f3d0", paddingTop: "20px", flexWrap: "wrap", alignItems: "center" }}>
         <button
           type="button"
-          onClick={() => window.location.href = '/bookings'}
+          onClick={() => window.location.href = '/profile'}
           className="tm-btn"
           style={{
             padding: "12px 28px",
@@ -1923,7 +1923,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     </div>
                     <button 
                       type="button" 
-                      onClick={() => router.push("/bookings")}
+                      onClick={() => router.push("/profile")}
                       className="td-utility-item-btn"
                     >
                       Xem hồ sơ đăng ký
