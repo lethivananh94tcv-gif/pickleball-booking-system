@@ -649,7 +649,7 @@ export default function MatchingLayout() {
                         <li><strong>Tìm nhóm đối thủ:</strong> Duyệt danh sách các Đội đang sẵn sàng trên sàn thi đấu, xem trước trình độ trung bình và số lượng thành viên của họ.</li>
                         <li><strong>Gửi lời mời thách đấu:</strong> Bấm nút <strong>"Thách đấu"</strong> trên thẻ đội bạn muốn giao hữu.</li>
                         <li><strong>Đề xuất lịch thi đấu:</strong> Chọn chính xác <strong>Ngày thi đấu</strong> và <strong>Khung giờ chơi</strong> (Ví dụ: 18:00 - 20:00 Thứ 7 tuần này) và gửi lời mời đi.</li>
-                        <li><strong>Kết nối ngay lập tức:</strong> Ngay sau khi đối phương bấm đồng ý, toàn bộ thành viên hai bên sẽ được gom vào Box chat chung để cùng giao lưu, bàn chiến thuật trước giờ bóng lăn.</li>
+                        <li><strong>Kết nối ngay lập tức:</strong> Ngay sau khi đối phương bấm đồng ý, toàn bộ thành viên hai bên sẽ được gom vào Box chat chung để cùng giao lưu, trao đổi thống nhất đặt sân.</li>
                       </ul>
                     </div>
 
